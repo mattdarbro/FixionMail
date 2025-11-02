@@ -91,7 +91,11 @@ async def generate_narrative_node(state: StoryState) -> dict[str, Any]:
                 state["current_beat"]
             )
 
-            prompt = create_narrative_prompt(state["current_beat"], beat_metadata)
+            prompt = create_narrative_prompt(
+                state["current_beat"], 
+                beat_metadata,
+                world_id=state["world_id"]
+            )
 
             # Get player's last input
             player_input = state["messages"][-1].content if state["messages"] else "Begin"

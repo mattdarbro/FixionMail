@@ -8,13 +8,14 @@ from the story bible.
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 
 
-def create_narrative_prompt(beat_number: int, beat_data: dict | None = None) -> ChatPromptTemplate:
+def create_narrative_prompt(beat_number: int, beat_data: dict | None = None, world_id: str = "tfogwf") -> ChatPromptTemplate:
     """
     Create a beat-aware prompt for narrative generation.
 
     Args:
         beat_number: Current story beat (1-indexed)
         beat_data: Optional beat metadata from story bible
+        world_id: Story world identifier (affects point of view)
 
     Returns:
         ChatPromptTemplate configured for this beat
@@ -22,9 +23,21 @@ def create_narrative_prompt(beat_number: int, beat_data: dict | None = None) -> 
     # Extract beat-specific guidance if available
     beat_goal = beat_data.get("goal", "Advance the story") if beat_data else "Advance the story"
     beat_tone = beat_data.get("tone", "balanced") if beat_data else "balanced"
-    character_focus = beat_data.get("character_focus", "Elena Storm") if beat_data else "Elena Storm"
+    
+    # World-specific character and POV settings
+    if world_id == "west_haven":
+        character_focus = beat_data.get("character_focus", "Julia Martin") if beat_data else "Julia Martin"
+        pov_instruction = 'Write in third person past tense ("Julia stood..." not "You stand..." or "I stand..."). Refer to the protagonist as Julia, she, or her.'
+        character_reference = "Julia"
+        story_title = "West Haven"
+    else:
+        # Default for tfogwf and others
+        character_focus = beat_data.get("character_focus", "Elena Storm") if beat_data else "Elena Storm"
+        pov_instruction = 'Write in second person present tense ("You awaken..." not "Elena awakens...")'
+        character_reference = "you"
+        story_title = "The Forgotten One Who Fell"
 
-    system_message = f"""You are the master storyteller for "The Forgotten One Who Fell," a dark fantasy interactive narrative.
+    system_message = f"""You are the master storyteller for "{story_title}," an interactive narrative.
 
 CURRENT BEAT: {beat_number}
 BEAT GOAL: {beat_goal}
@@ -32,7 +45,7 @@ TONE: {beat_tone}
 CHARACTER FOCUS: {character_focus}
 
 STORYTELLING GUIDELINES:
-1. Write in second person present tense ("You awaken..." not "Elena awakens...")
+1. {pov_instruction}
 2. Create vivid, sensory descriptions (sight, sound, touch, atmosphere)
 3. Show, don't tell - reveal character through action and dialogue
 4. Maintain tension and forward momentum
@@ -48,11 +61,8 @@ TONE GUIDANCE:
 - Dark: Moral complexity, sacrifice, harsh truths
 - Balanced: Mix of the above as appropriate
 
-CHARACTER VOICE (Elena's internal monologue):
-- Determined but uncertain about her identity
-- Quick to sarcasm when nervous or scared
-- Resourceful and observant
-- Haunted by fragments of memories that aren't hers
+CHARACTER VOICE:
+{f'- {character_focus}\'s personality traits and motivations (see Retrieved Context for details)' if world_id == 'west_haven' else '- Determined but uncertain about her identity\n- Quick to sarcasm when nervous or scared\n- Resourceful and observant\n- Haunted by fragments of memories that aren\'t hers'}
 
 CRITICAL - RESPONSE FORMAT:
 You MUST respond with ONLY valid JSON containing these exact keys:
@@ -67,9 +77,9 @@ CHOICE DESIGN PRINCIPLES:
 - Offer meaningful variety (aggressive, cautious, clever)
 - No obviously "wrong" choices - all should be valid
 - Consequence hints should intrigue, not spoil
-- Choices should reflect Elena's character options
-- At least one choice should involve using magic/power
+- Choices should reflect {character_focus}'s character options
 - Vary choice types: action, dialogue, investigation, moral decisions
+{f"- For West Haven: Focus on Julia's legal background, engineering knowledge, and emotional journey" if world_id == 'west_haven' else "- At least one choice should involve using magic/power"}
 
 BEAT PROGRESSION:
 - Set "beat_complete": true only when the beat's success criteria is clearly met
@@ -101,24 +111,42 @@ def create_opening_prompt(world_id: str) -> ChatPromptTemplate:
     Returns:
         ChatPromptTemplate for opening
     """
-    system_message = """You are the master storyteller opening "The Forgotten One Who Fell."
-
-This is the FIRST segment - the player has just started. Your goal is to:
-1. Immediately establish atmosphere and tension
-2. Introduce the protagonist (Elena/player) in a compelling situation
-3. Create questions that demand answers
-4. Set the tone for dark fantasy
-5. Make the player feel the character's disorientation and curiosity
-
-OPENING SCENE REQUIREMENTS:
-- Start with a strong sensory detail (cold stone, echoing silence, etc.)
+    # World-specific opening instructions
+    if world_id == "west_haven":
+        story_name = "West Haven"
+        pov_instruction = "Write in third person past tense. Refer to the protagonist as Julia, she, or her."
+        opening_requirements = """- Start with Julia Martin crash-landing on FS-7 "West Haven"
+- Establish the orbital station setting and the "Unleavables" community
+- Show Julia's corporate lawyer background conflicting with her father's legacy
+- Create intrigue around the failing power systems and three-month deadline
+- Introduce the community's resourcefulness and resilience
+- End with a moment that establishes Julia's connection to her father's work"""
+    else:
+        story_name = "The Forgotten One Who Fell"
+        pov_instruction = "Write in second person present tense. Refer to the protagonist as you."
+        opening_requirements = """- Start with a strong sensory detail (cold stone, echoing silence, etc.)
 - Elena awakens in the Forgotten Citadel with fragmented memories
 - Establish she's drawn here by dreams she doesn't understand
 - Show (don't tell) that the Citadel responds to her presence
 - Create immediate intrigue with whispers or supernatural elements
-- End with discovery of something significant (the Crystal Spire)
+- End with discovery of something significant (the Crystal Spire)"""
 
-Use the Retrieved Context about the Citadel, Elena, and Beat 1 objectives.
+    system_message = f"""You are the master storyteller opening "{story_name}."
+
+This is the FIRST segment - the player has just started. Your goal is to:
+1. Immediately establish atmosphere and tension
+2. Introduce the protagonist in a compelling situation
+3. Create questions that demand answers
+4. Set the tone for the story world
+5. Make the reader feel the character's situation and motivations
+
+POINT OF VIEW:
+{pov_instruction}
+
+OPENING SCENE REQUIREMENTS:
+{opening_requirements}
+
+Use the Retrieved Context about the world, characters, and Beat 1 objectives.
 
 CRITICAL - RESPONSE FORMAT:
 You MUST respond with ONLY valid JSON containing these exact keys:
