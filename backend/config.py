@@ -21,7 +21,7 @@ class AppConfig(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
-        case_sensitive=True,
+        case_sensitive=False,  # Allow both STORAGE_PATH and Storage_Path
         extra="ignore"
     )
 
@@ -107,16 +107,19 @@ class AppConfig(BaseSettings):
         description="Directory for ChromaDB persistence"
     )
     
-    # Alias for Railway compatibility (Storage_Path takes precedence if set)
+    # Aliases for Railway compatibility (all uppercase variations take precedence if set)
     Storage_Path: str | None = Field(
         default=None,
+        alias="STORAGE_PATH",  # Support both Storage_Path and STORAGE_PATH
         description="Alias for CHROMA_PERSIST_DIRECTORY (Railway volume mount path). If set, overrides CHROMA_PERSIST_DIRECTORY"
     )
     
     @property
     def chroma_persist_directory(self) -> str:
-        """Get ChromaDB persistence directory, using Storage_Path if available."""
-        return self.Storage_Path if self.Storage_Path else self.CHROMA_PERSIST_DIRECTORY
+        """Get ChromaDB persistence directory, using Storage_Path/STORAGE_PATH if available."""
+        # Check both possible attribute names (Storage_Path and STORAGE_PATH)
+        storage_path = getattr(self, 'Storage_Path', None) or getattr(self, 'STORAGE_PATH', None)
+        return storage_path if storage_path else self.CHROMA_PERSIST_DIRECTORY
 
     # ===== LLM Configuration =====
     MODEL_NAME: str = Field(
