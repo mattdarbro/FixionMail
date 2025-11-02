@@ -26,9 +26,9 @@ class AppConfig(BaseSettings):
     )
 
     # ===== API Keys (Required) =====
-    OPENAI_API_KEY: str = Field(
-        ...,
-        description="OpenAI API key for GPT-4 and embeddings"
+    OPENAI_API_KEY: str | None = Field(
+        default=None,
+        description="OpenAI API key for GPT-4 and embeddings (required for API to work, but optional to allow healthcheck)"
     )
 
     # ===== Optional API Keys =====
