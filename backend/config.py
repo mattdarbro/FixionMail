@@ -26,9 +26,14 @@ class AppConfig(BaseSettings):
     )
 
     # ===== API Keys (Required) =====
+    ANTHROPIC_API_KEY: str | None = Field(
+        default=None,
+        description="Anthropic API key for Claude (required for narrative generation)"
+    )
+
     OPENAI_API_KEY: str | None = Field(
         default=None,
-        description="OpenAI API key for GPT-4 and embeddings (required for API to work, but optional to allow healthcheck)"
+        description="OpenAI API key for embeddings (required for RAG)"
     )
 
     # ===== Optional API Keys =====
@@ -133,8 +138,8 @@ class AppConfig(BaseSettings):
 
     # ===== LLM Configuration =====
     MODEL_NAME: str = Field(
-        default="gpt-4-turbo-preview",
-        description="OpenAI model name for narrative generation"
+        default="claude-3-5-sonnet-20241022",
+        description="Claude model name for narrative generation (claude-3-5-sonnet-20241022 recommended)"
     )
 
     EMBEDDING_MODEL: str = Field(

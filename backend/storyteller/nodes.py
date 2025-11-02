@@ -9,6 +9,7 @@ import json
 import asyncio
 from typing import Any
 from langchain_core.messages import HumanMessage, AIMessage
+from langchain_anthropic import ChatAnthropic
 from langchain_openai import ChatOpenAI
 
 from backend.models.state import StoryState
@@ -68,13 +69,12 @@ async def generate_narrative_node(state: StoryState) -> dict[str, Any]:
         Updated state with narrative_text populated (raw LLM response)
     """
     try:
-        # Initialize LLM with JSON mode
-        llm = ChatOpenAI(
+        # Initialize LLM - use Claude for better narrative consistency
+        llm = ChatAnthropic(
             model=config.MODEL_NAME,
             temperature=config.TEMPERATURE,
             max_tokens=config.MAX_TOKENS,
-            openai_api_key=config.OPENAI_API_KEY,
-            model_kwargs={"response_format": {"type": "json_object"}}
+            anthropic_api_key=config.ANTHROPIC_API_KEY,
         )
 
         # Determine if this is the opening
