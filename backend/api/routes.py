@@ -25,13 +25,24 @@ from backend.models.state import (
 )
 from backend.storyteller.graph import create_persistent_graph, run_story_turn
 from backend.story_bible.rag import StoryWorldFactory
-from backend.config import config
 
 # Create router
 router = APIRouter(tags=["story"])
 
-# Global graph instance with persistence
-story_graph = create_persistent_graph()
+# Global graph instance with persistence (lazy-loaded)
+story_graph = None
+
+def get_story_graph():
+    """Get or create the story graph (lazy initialization)."""
+    global story_graph
+    if story_graph is None:
+        try:
+            from backend.config import config
+            story_graph = create_persistent_graph()
+        except Exception as e:
+            print(f"⚠️  Error creating story graph: {e}")
+            raise
+    return story_graph
 
 # In-memory session store (in production, use Redis or database)
 active_sessions: dict[str, dict] = {}
@@ -99,7 +110,7 @@ async def start_story(request: StartStoryRequest):
 
         # Run first turn (opening narrative)
         final_state, outputs = await run_story_turn(
-            graph=story_graph,
+            graph=get_story_graph(),
             user_input="Begin the story",
             session_id=session_id,
             current_state=initial_state
@@ -162,7 +173,7 @@ async def continue_story(request: ContinueStoryRequest):
 
         # Run story turn
         final_state, outputs = await run_story_turn(
-            graph=story_graph,
+            graph=get_story_graph(),
             user_input=user_input,
             session_id=request.session_id,
             current_state=None  # Will load from checkpoint
@@ -234,7 +245,8 @@ async def get_session(session_id: str):
         config_dict = {"configurable": {"thread_id": session_id}}
 
         # Get latest checkpoint from graph's memory
-        checkpoint = story_graph.checkpointer.get(config_dict) if hasattr(story_graph, 'checkpointer') else None
+        graph = get_story_graph()
+        checkpoint = graph.checkpointer.get(config_dict) if hasattr(graph, 'checkpointer') else None
 
         if not checkpoint:
             raise HTTPException(
@@ -331,10 +343,10 @@ async def continue_story_stream(request: ContinueStoryRequest):
                 return
 
             # Get story graph
-            story_graph = create_persistent_graph()
+            graph = get_story_graph()
             
             # Get current state
-            current_state = await story_graph.aget_state(request.session_id)
+            current_state = await graph.aget_state(request.session_id)
             if not current_state:
                 yield f"data: {json.dumps({'type': 'error', 'message': 'Session state not found'})}\n\n"
                 return
@@ -345,7 +357,7 @@ async def continue_story_stream(request: ContinueStoryRequest):
 
             # Run story turn
             final_state, outputs = await run_story_turn(
-                graph=story_graph,
+                graph=graph,
                 user_input=request.choice_text,
                 session_id=request.session_id,
                 current_state=current_state
