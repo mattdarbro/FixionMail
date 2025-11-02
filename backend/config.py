@@ -174,9 +174,14 @@ class AppConfig(BaseSettings):
     )
 
     # ===== Application Settings =====
+    ENVIRONMENT: str = Field(
+        default="development",
+        description="Environment mode: development or production"
+    )
+
     DEBUG: bool = Field(
         default=True,
-        description="Enable debug mode"
+        description="Enable debug mode (auto-set to False in production)"
     )
 
     LOG_LEVEL: str = Field(

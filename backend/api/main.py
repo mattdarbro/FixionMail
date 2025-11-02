@@ -108,23 +108,31 @@ async def startup_event():
     print(f"Debug Mode: {config.DEBUG}")
     print("=" * 60)
 
-    # Initialize story worlds
+    # Initialize story worlds in background (don't block startup)
+    # This allows healthcheck to pass even if RAG loading takes time
+    import asyncio
     from backend.story_bible.rag import StoryWorldFactory
 
-    try:
-        # Load default world
-        rag = StoryWorldFactory.get_world(config.DEFAULT_WORLD, auto_load=True)
-        stats = rag.get_collection_stats()
+    def load_world_sync():
+        """Synchronous RAG loading function."""
+        try:
+            # Load default world
+            rag = StoryWorldFactory.get_world(config.DEFAULT_WORLD, auto_load=True)
+            stats = rag.get_collection_stats()
 
-        if "error" in stats:
-            print(f"⚠️  Default world '{config.DEFAULT_WORLD}' not indexed yet")
-            print(f"    Run: python scripts/init_rag.py {config.DEFAULT_WORLD}")
-        else:
-            print(f"✓ Loaded world '{config.DEFAULT_WORLD}'")
-            print(f"  Documents: {stats.get('document_count', 'unknown')}")
+            if "error" in stats:
+                print(f"⚠️  Default world '{config.DEFAULT_WORLD}' not indexed yet")
+                print(f"    Run: python scripts/init_rag.py {config.DEFAULT_WORLD}")
+            else:
+                print(f"✓ Loaded world '{config.DEFAULT_WORLD}'")
+                print(f"  Documents: {stats.get('document_count', 'unknown')}")
 
-    except Exception as e:
-        print(f"⚠️  Error loading default world: {e}")
+        except Exception as e:
+            print(f"⚠️  Error loading default world: {e}")
+
+    # Run RAG loading in background thread (non-blocking)
+    loop = asyncio.get_event_loop()
+    loop.run_in_executor(None, load_world_sync)
 
     print("=" * 60)
     print(f"API available at: http://{config.API_HOST}:{config.API_PORT}")
