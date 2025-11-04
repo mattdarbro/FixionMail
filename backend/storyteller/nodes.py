@@ -319,9 +319,23 @@ def parse_output_node(state: StoryState) -> dict[str, Any]:
         messages = state["messages"].copy()
         messages.append(AIMessage(content=narrative))
 
+        # Final sanity check: ensure all choices have integer IDs
+        final_choices = []
+        for choice in choices:
+            final_choice = choice.copy()
+            if not isinstance(final_choice.get("id"), int):
+                print(f"❌ CRITICAL: Choice has non-integer ID: {repr(final_choice.get('id'))} (type: {type(final_choice.get('id'))})")
+                final_choice["id"] = int(final_choice.get("id")) if str(final_choice.get("id")).isdigit() else 1
+            final_choices.append(final_choice)
+
+        print(f"\n📋 FINAL CHOICES BEING RETURNED:")
+        for i, choice in enumerate(final_choices):
+            print(f"  Choice {i}: id={choice['id']} (type: {type(choice['id']).__name__}), text='{choice['text'][:40]}...'")
+        print()
+
         return {
             "narrative_text": narrative,  # Now just the text, not JSON
-            "choices": choices,
+            "choices": final_choices,
             "image_prompt": image_prompt,
             "generated_story_bible": generated_story_bible,
             "beat_progress_score": beat_progress_score,
