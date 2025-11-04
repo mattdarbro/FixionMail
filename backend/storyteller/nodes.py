@@ -231,6 +231,42 @@ def parse_output_node(state: StoryState) -> dict[str, Any]:
                 {"id": 3, "text": "She smiled despite herself and...", "tone": "hopeful"}
             ]
 
+        # Validate and fix individual choice structures
+        validated_choices = []
+        for i, choice in enumerate(choices):
+            if not isinstance(choice, dict):
+                # Skip invalid choice
+                continue
+
+            # Ensure choice has proper ID (should be 1, 2, or 3)
+            # Fix if ID is missing, wrong type, or incorrect value
+            expected_id = i + 1
+            if choice.get("id") != expected_id:
+                print(f"⚠️  Fixing choice {i}: id was {choice.get('id')}, setting to {expected_id}")
+                choice["id"] = expected_id
+
+            # Ensure choice has text
+            if not choice.get("text"):
+                print(f"⚠️  Warning: choice {expected_id} has no text, using fallback")
+                choice["text"] = f"She paused, considering what to do next as..."
+
+            # Ensure choice has tone
+            if not choice.get("tone"):
+                choice["tone"] = "neutral"
+
+            validated_choices.append(choice)
+
+        # If we don't have exactly 3 choices, use fallback
+        if len(validated_choices) != 3:
+            print(f"⚠️  Expected 3 choices, got {len(validated_choices)}, using fallback")
+            choices = [
+                {"id": 1, "text": "She continued forward, stepping into...", "tone": "neutral"},
+                {"id": 2, "text": "She hesitated, then carefully approached...", "tone": "cautious"},
+                {"id": 3, "text": "She smiled despite herself and...", "tone": "hopeful"}
+            ]
+        else:
+            choices = validated_choices
+
         # Merge story_bible_update into generated_story_bible
         generated_story_bible = state.get("generated_story_bible", {}).copy()
 

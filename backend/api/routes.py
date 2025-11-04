@@ -199,16 +199,25 @@ async def continue_story(request: ContinueStoryRequest):
         previous_choices = previous_state.get("choices", [])
         selected_choice = None
 
+        # Debug logging
+        print(f"🔍 DEBUG: Received choice_id = {request.choice_id} (type: {type(request.choice_id)})")
+        print(f"🔍 DEBUG: Previous choices count = {len(previous_choices)}")
+        for i, choice in enumerate(previous_choices):
+            print(f"🔍 DEBUG: Choice {i}: id={choice.get('id')} (type: {type(choice.get('id'))}), text={choice.get('text', '')[:50]}...")
+
         for choice in previous_choices:
             if choice.get("id") == request.choice_id:
                 selected_choice = choice
                 break
 
         if not selected_choice:
+            print(f"❌ DEBUG: Could not find choice with id={request.choice_id}")
             raise HTTPException(
                 status_code=400,
                 detail=f"Invalid choice ID: {request.choice_id}"
             )
+
+        print(f"✓ DEBUG: Found selected choice: {selected_choice.get('text', '')[:50]}...")
 
         # Extract the continuation text
         choice_continuation = selected_choice.get("text", "")
