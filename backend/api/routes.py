@@ -76,7 +76,7 @@ async def initialize_story_graph():
             traceback.print_exc()
             raise
 
-def get_story_graph():
+async def get_story_graph():
     """Get the story graph (initializes on first use if not already initialized)."""
     global story_graph, story_graph_checkpointer
 
@@ -88,7 +88,6 @@ def get_story_graph():
             from pathlib import Path
             from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
             from backend.storyteller.graph import create_storyteller_graph
-            import asyncio
 
             # Use the property that resolves to persistent storage if available
             db_path = config.checkpoint_db_path
@@ -98,20 +97,9 @@ def get_story_graph():
             db_file = Path(db_path)
             db_file.parent.mkdir(parents=True, exist_ok=True)
 
-            # We need to run the async initialization in a sync context
-            # Create an event loop to initialize the async checkpointer
-            async def _async_init():
-                checkpointer_cm = AsyncSqliteSaver.from_conn_string(f"sqlite:///{db_file}")
-                return await checkpointer_cm.__aenter__()
-
-            # Get or create event loop
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-
-            story_graph_checkpointer = loop.run_until_complete(_async_init())
+            # Initialize async checkpointer (we're already in async context)
+            checkpointer_cm = AsyncSqliteSaver.from_conn_string(f"sqlite:///{db_file}")
+            story_graph_checkpointer = await checkpointer_cm.__aenter__()
 
             # Create the graph with the checkpointer directly
             story_graph = create_storyteller_graph(checkpointer=story_graph_checkpointer)
@@ -192,7 +180,7 @@ async def start_story(request: StartStoryRequest):
 
         # Run first turn (opening narrative)
         final_state, outputs = await run_story_turn(
-            graph=get_story_graph(),
+            graph=await get_story_graph(),
             user_input="Begin the story",
             session_id=session_id,
             current_state=initial_state
@@ -241,7 +229,7 @@ async def continue_story(request: ContinueStoryRequest):
     """
     try:
         # Load previous state from checkpoint (source of truth)
-        graph = get_story_graph()
+        graph = await get_story_graph()
         config_dict = {"configurable": {"thread_id": request.session_id}}
 
         checkpoint = None
@@ -392,7 +380,7 @@ async def get_session(session_id: str):
         config_dict = {"configurable": {"thread_id": session_id}}
 
         # Get latest checkpoint from graph's memory
-        graph = get_story_graph()
+        graph = await get_story_graph()
         checkpoint = graph.checkpointer.get(config_dict) if hasattr(graph, 'checkpointer') else None
 
         if not checkpoint:
@@ -511,7 +499,7 @@ async def start_story_stream(request: StartStoryRequest):
 
             # Run first turn (opening narrative)
             final_state, outputs = await run_story_turn(
-                graph=get_story_graph(),
+                graph=await get_story_graph(),
                 user_input="Begin the story",
                 session_id=session_id,
                 current_state=initial_state
@@ -586,7 +574,7 @@ async def continue_story_stream(request: ContinueStoryRequest):
     async def generate_stream():
         try:
             # Load previous state from checkpoint
-            graph = get_story_graph()
+            graph = await get_story_graph()
             config_dict = {"configurable": {"thread_id": request.session_id}}
 
             checkpoint = None
