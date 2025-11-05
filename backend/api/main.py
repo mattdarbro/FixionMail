@@ -181,10 +181,13 @@ async def startup_event():
                 from backend.api.routes import initialize_story_graph
                 print("\n📚 Initializing story graph...")
                 await initialize_story_graph()
+                print("✓ Story graph initialization complete")
             except Exception as e:
-                print(f"⚠️  Error initializing story graph: {e}")
+                print(f"⚠️  Error initializing story graph during startup: {e}")
+                print("⚠️  Will fall back to lazy initialization on first request")
                 import traceback
                 traceback.print_exc()
+                # Don't raise - allow app to start, lazy init will handle it
 
         # Validate world templates exist (no longer using RAG)
         try:

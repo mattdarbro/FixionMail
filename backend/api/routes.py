@@ -77,10 +77,52 @@ async def initialize_story_graph():
             raise
 
 def get_story_graph():
-    """Get the story graph (must be initialized first via initialize_story_graph)."""
-    global story_graph
+    """Get the story graph (initializes on first use if not already initialized)."""
+    global story_graph, story_graph_checkpointer
+
     if story_graph is None:
-        raise RuntimeError("Story graph not initialized. Call initialize_story_graph() first during app startup.")
+        # Fallback: Try to initialize now if it wasn't done during startup
+        print("⚠️  Story graph not initialized during startup. Attempting lazy initialization...")
+
+        try:
+            from pathlib import Path
+            from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
+            from backend.storyteller.graph import create_storyteller_graph
+            import asyncio
+
+            # Use the property that resolves to persistent storage if available
+            db_path = config.checkpoint_db_path
+            print(f"📝 Lazy-initializing story graph with checkpoint DB: {db_path}")
+
+            # Ensure database directory exists
+            db_file = Path(db_path)
+            db_file.parent.mkdir(parents=True, exist_ok=True)
+
+            # We need to run the async initialization in a sync context
+            # Create an event loop to initialize the async checkpointer
+            async def _async_init():
+                checkpointer_cm = AsyncSqliteSaver.from_conn_string(f"sqlite:///{db_file}")
+                return await checkpointer_cm.__aenter__()
+
+            # Get or create event loop
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+
+            story_graph_checkpointer = loop.run_until_complete(_async_init())
+
+            # Create the graph with the checkpointer directly
+            story_graph = create_storyteller_graph(checkpointer=story_graph_checkpointer)
+            print(f"✓ Story graph lazy-initialized successfully")
+
+        except Exception as e:
+            print(f"❌ Failed to lazy-initialize story graph: {e}")
+            import traceback
+            traceback.print_exc()
+            raise RuntimeError(f"Story graph initialization failed: {e}") from e
+
     return story_graph
 
 # In-memory session store (in production, use Redis or database)
