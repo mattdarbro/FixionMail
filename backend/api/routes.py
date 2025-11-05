@@ -48,9 +48,14 @@ def get_story_graph():
     global story_graph
     if story_graph is None:
         try:
-            story_graph = create_persistent_graph(db_path=config.CHECKPOINT_DB_PATH)
+            # Use the property that resolves to persistent storage if available
+            db_path = config.checkpoint_db_path
+            print(f"📝 Initializing story graph with checkpoint DB: {db_path}")
+            story_graph = create_persistent_graph(db_path=db_path)
         except Exception as e:
             print(f"⚠️  Error creating story graph: {e}")
+            import traceback
+            traceback.print_exc()
             raise
     return story_graph
 

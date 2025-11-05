@@ -12,10 +12,11 @@ These are the **essential** variables needed for the app to work:
    - Value: `production`
    - Purpose: Sets production mode
 
-3. **`Storage_Path`** (Required for ChromaDB persistence)
+3. **`Storage_Path`** (Required for ChromaDB and session persistence)
    - Value: `/app/storage`
-   - Purpose: Where ChromaDB stores vector data
+   - Purpose: Where ChromaDB stores vector data and SQLite checkpoint database
    - Note: This is the alias for `CHROMA_PERSIST_DIRECTORY`
+   - Important: Also used for storing `story_checkpoints.db` (session persistence)
 
 ---
 

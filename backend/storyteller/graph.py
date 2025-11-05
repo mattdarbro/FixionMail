@@ -118,16 +118,35 @@ def create_persistent_graph(db_path: str = "story_checkpoints.db"):
     import sqlite3
     from pathlib import Path
 
-    # Ensure database directory exists
-    db_file = Path(db_path)
-    db_file.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        # Ensure database directory exists
+        db_file = Path(db_path)
+        db_file.parent.mkdir(parents=True, exist_ok=True)
 
-    # Create SQLite connection
-    conn = sqlite3.connect(str(db_file), check_same_thread=False)
-    checkpointer = SqliteSaver(conn)
+        print(f"📝 Creating SQLite checkpoint database at: {db_path}")
+        print(f"📁 Parent directory: {db_file.parent} (exists: {db_file.parent.exists()})")
+        print(f"📁 Parent writable: {db_file.parent.exists() and db_file.parent.stat().st_mode & 0o200}")
 
-    print(f"✓ Using SQLite checkpointer: {db_path}")
-    return create_storyteller_graph(checkpointer=checkpointer)
+        # Create SQLite connection with timeout and WAL mode for better concurrency
+        conn = sqlite3.connect(
+            str(db_file),
+            check_same_thread=False,
+            timeout=30.0  # Wait up to 30 seconds for locks
+        )
+
+        # Enable WAL mode for better concurrency in web apps
+        conn.execute("PRAGMA journal_mode=WAL")
+
+        checkpointer = SqliteSaver(conn)
+
+        print(f"✓ Using SQLite checkpointer: {db_path}")
+        return create_storyteller_graph(checkpointer=checkpointer)
+
+    except Exception as e:
+        print(f"❌ Failed to create SQLite checkpoint database: {e}")
+        import traceback
+        traceback.print_exc()
+        raise RuntimeError(f"Could not initialize checkpoint database at {db_path}: {e}") from e
 
 
 # ===== Helper Functions =====

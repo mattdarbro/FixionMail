@@ -20,14 +20,16 @@ ENVIRONMENT=production
 - ⚠️ **NO spaces**: `ENVIRONMENT=production` (not `ENVIRONMENT = production`)
 - The default is `development` (for local), but Railway needs `production`
 
-### 🟡 Required for ChromaDB Persistence
+### 🟡 Required for Data Persistence (ChromaDB + Session Checkpoints)
 ```bash
-CHROMA_PERSIST_DIRECTORY=/app/storage
+STORAGE_PATH=/app/storage
 ```
-**Important**: 
+**Important**:
 - Must be exactly `/app/storage` (matches your volume mount path)
 - No trailing slash
 - No quotes around the value
+- This stores both ChromaDB vector data AND SQLite session checkpoints
+- Without this, all session data will be lost on redeploy
 
 ### 🟢 Optional (for full functionality)
 ```bash
@@ -72,10 +74,11 @@ This usually means:
 Before redeploying, verify:
 
 - [ ] `OPENAI_API_KEY` is set and valid
-- [ ] `CHROMA_PERSIST_DIRECTORY` is set to `/app/storage`
-- [ ] Volume is mounted at `/app/storage` in your service
+- [ ] `STORAGE_PATH` is set to `/app/storage`
+- [ ] Volume is mounted at `/app/storage` in your service (Settings → Volumes)
 - [ ] No extra spaces or quotes in variable values
 - [ ] All variables are in the **Story service** (not Postgres service)
+- [ ] `ENVIRONMENT=production` is set for Railway deployments
 
 ## After Adding Variables
 

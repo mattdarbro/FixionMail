@@ -84,6 +84,16 @@ class AppConfig(BaseSettings):
         description="Path to SQLite database for LangGraph checkpoints"
     )
 
+    @property
+    def checkpoint_db_path(self) -> str:
+        """Get checkpoint DB path, using persistent storage if available (Railway)."""
+        # If STORAGE_PATH is set (Railway volume mount), use it for checkpoints too
+        storage_path = getattr(self, 'Storage_Path', None) or getattr(self, 'STORAGE_PATH', None)
+        if storage_path:
+            # Store checkpoints in the same persistent volume as ChromaDB
+            return f"{storage_path}/story_checkpoints.db"
+        return self.CHECKPOINT_DB_PATH
+
     # ===== Story Settings =====
     DEFAULT_WORLD: str = Field(
         default="west_haven",
