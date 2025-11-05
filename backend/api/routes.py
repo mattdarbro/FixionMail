@@ -283,7 +283,7 @@ async def continue_story(request: ContinueStoryRequest):
 
         checkpoint = None
         if hasattr(graph, 'checkpointer') and graph.checkpointer:
-            checkpoint = graph.checkpointer.get(config_dict)
+            checkpoint = await graph.checkpointer.aget(config_dict)
 
         if not checkpoint:
             raise HTTPException(
@@ -430,7 +430,7 @@ async def get_session(session_id: str):
 
         # Get latest checkpoint from graph's memory
         graph = await get_story_graph()
-        checkpoint = graph.checkpointer.get(config_dict) if hasattr(graph, 'checkpointer') else None
+        checkpoint = await graph.checkpointer.aget(config_dict) if hasattr(graph, 'checkpointer') else None
 
         if not checkpoint:
             raise HTTPException(
@@ -628,7 +628,7 @@ async def continue_story_stream(request: ContinueStoryRequest):
 
             checkpoint = None
             if hasattr(graph, 'checkpointer') and graph.checkpointer:
-                checkpoint = graph.checkpointer.get(config_dict)
+                checkpoint = await graph.checkpointer.aget(config_dict)
 
             if not checkpoint:
                 yield f"data: {json.dumps({'type': 'error', 'message': 'Session not found'})}\n\n"
