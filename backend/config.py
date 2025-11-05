@@ -178,8 +178,15 @@ class AppConfig(BaseSettings):
 
     # ===== Feature Toggles (for phased development) =====
     ENABLE_STREAMING: bool = Field(
-        default=False,
-        description="Enable SSE streaming (Phase 2 feature)"
+        default=True,
+        description="Enable SSE streaming for narrative text"
+    )
+
+    STREAMING_WORDS_PER_SECOND: float = Field(
+        default=7.5,
+        ge=1.0,
+        le=20.0,
+        description="Words per second for narrative streaming (5-10 recommended for thoughtful pacing)"
     )
 
     ENABLE_MEDIA_GENERATION: bool = Field(
