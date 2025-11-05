@@ -14,6 +14,7 @@ import os
 # Import config with error handling
 try:
     from backend.config import config
+    config_loaded = True
 except Exception as e:
     # If config fails, create a minimal config for healthcheck
     print(f"⚠️  Config loading failed: {e}")
@@ -23,9 +24,21 @@ except Exception as e:
         MODEL_NAME = "unknown"
         ENABLE_MEDIA_GENERATION = False
         ENABLE_CREDIT_SYSTEM = False
+        DEBUG = False
     config = DummyConfig()
+    config_loaded = False
 
-from backend.api.routes import router
+# Import routes with error handling
+try:
+    from backend.api.routes import router
+    routes_loaded = True
+except Exception as e:
+    print(f"⚠️  Routes loading failed: {e}")
+    print("⚠️  API endpoints will not be available, but healthcheck will still work")
+    import traceback
+    traceback.print_exc()
+    router = None
+    routes_loaded = False
 
 # Create FastAPI app
 app = FastAPI(
@@ -45,8 +58,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routes
-app.include_router(router, prefix="/api")
+# Include routes if they loaded successfully
+if routes_loaded and router:
+    app.include_router(router, prefix="/api")
+else:
+    print("⚠️  Skipping routes registration due to initialization failure")
 
 # Mount static files for generated media
 if os.path.exists("./generated_audio"):
@@ -82,7 +98,11 @@ async def health_check():
     """Health check endpoint - must be fast and reliable. Works even if config fails."""
     # This endpoint must ALWAYS return 200 OK - never fail
     # Railway needs this to pass for deployment
-    return {"status": "healthy"}
+    return {
+        "status": "healthy",
+        "config_loaded": config_loaded,
+        "routes_loaded": routes_loaded
+    }
 
 
 # ===== Error Handlers =====
@@ -90,11 +110,13 @@ async def health_check():
 @app.exception_handler(Exception)
 async def global_exception_handler(request, exc):
     """Global exception handler."""
+    # Safely check DEBUG flag
+    show_details = getattr(config, 'DEBUG', False)
     return JSONResponse(
         status_code=500,
         content={
             "error": "Internal server error",
-            "detail": str(exc) if config.DEBUG else "An error occurred",
+            "detail": str(exc) if show_details else "An error occurred",
             "type": type(exc).__name__
         }
     )
@@ -109,7 +131,38 @@ async def startup_event():
         print("=" * 60)
         print("Storyteller API Starting...")
         print("=" * 60)
-        
+        print(f"✓ Config loaded: {config_loaded}")
+        print(f"✓ Routes loaded: {routes_loaded}")
+
+        if not config_loaded:
+            print("⚠️  WARNING: Config failed to load. Check environment variables.")
+            print("⚠️  Health check will pass, but API will not function.")
+            return
+
+        if not routes_loaded:
+            print("⚠️  WARNING: Routes failed to load. Check dependencies.")
+            print("⚠️  Health check will pass, but API endpoints unavailable.")
+            return
+
+        # Check critical environment variables
+        import os
+        print("\n🔍 Environment Check:")
+        print(f"   ANTHROPIC_API_KEY: {'✓ Set' if os.getenv('ANTHROPIC_API_KEY') else '✗ Missing'}")
+        print(f"   STORAGE_PATH: {os.getenv('STORAGE_PATH', '✗ Not set')}")
+        print(f"   PORT: {os.getenv('PORT', '8000')}")
+        print(f"   ENVIRONMENT: {os.getenv('ENVIRONMENT', 'development')}")
+
+        # Check if storage path exists
+        storage_path = os.getenv('STORAGE_PATH')
+        if storage_path:
+            if os.path.exists(storage_path):
+                print(f"   ✓ Storage directory exists: {storage_path}")
+                print(f"   ✓ Storage writable: {os.access(storage_path, os.W_OK)}")
+            else:
+                print(f"   ⚠️  Storage directory does not exist: {storage_path}")
+
+        print()
+
         # Safely access config attributes
         try:
             print(f"Model: {getattr(config, 'MODEL_NAME', 'unknown')}")
