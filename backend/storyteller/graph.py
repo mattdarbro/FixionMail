@@ -7,7 +7,7 @@ the storytelling process from user input to final response.
 
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
-from langgraph.checkpoint.sqlite import SqliteSaver
+from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 
 from backend.models.state import StoryState
 from backend.storyteller.nodes import (
@@ -106,16 +106,15 @@ def create_storyteller_graph(checkpointer: MemorySaver | None = None):
 
 def create_persistent_graph(db_path: str = "story_checkpoints.db"):
     """
-    Create a graph with SQLite persistence.
+    Create a graph with async SQLite persistence.
 
     Args:
         db_path: Path to SQLite database file for checkpointing
 
     Returns:
-        Compiled graph with checkpointing enabled
+        Compiled graph with async checkpointing enabled
     """
-    # Use SqliteSaver for persistent storage that survives restarts
-    import sqlite3
+    # Use AsyncSqliteSaver for persistent storage that survives restarts
     from pathlib import Path
 
     try:
@@ -123,27 +122,19 @@ def create_persistent_graph(db_path: str = "story_checkpoints.db"):
         db_file = Path(db_path)
         db_file.parent.mkdir(parents=True, exist_ok=True)
 
-        print(f"📝 Creating SQLite checkpoint database at: {db_path}")
+        print(f"📝 Creating async SQLite checkpoint database at: {db_path}")
         print(f"📁 Parent directory: {db_file.parent} (exists: {db_file.parent.exists()})")
         print(f"📁 Parent writable: {db_file.parent.exists() and db_file.parent.stat().st_mode & 0o200}")
 
-        # Create SQLite connection with timeout and WAL mode for better concurrency
-        conn = sqlite3.connect(
-            str(db_file),
-            check_same_thread=False,
-            timeout=30.0  # Wait up to 30 seconds for locks
-        )
+        # Create AsyncSqliteSaver with connection string
+        # AsyncSqliteSaver handles the connection internally with aiosqlite
+        checkpointer = AsyncSqliteSaver.from_conn_string(str(db_file))
 
-        # Enable WAL mode for better concurrency in web apps
-        conn.execute("PRAGMA journal_mode=WAL")
-
-        checkpointer = SqliteSaver(conn)
-
-        print(f"✓ Using SQLite checkpointer: {db_path}")
+        print(f"✓ Using async SQLite checkpointer: {db_path}")
         return create_storyteller_graph(checkpointer=checkpointer)
 
     except Exception as e:
-        print(f"❌ Failed to create SQLite checkpoint database: {e}")
+        print(f"❌ Failed to create async SQLite checkpoint database: {e}")
         import traceback
         traceback.print_exc()
         raise RuntimeError(f"Could not initialize checkpoint database at {db_path}: {e}") from e
