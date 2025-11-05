@@ -433,76 +433,220 @@ async def list_sessions():
 
 # ===== Streaming Endpoints =====
 
-@router.post("/story/continue/stream")
-async def continue_story_stream(request: ContinueStoryRequest):
+@router.post("/story/start/stream", response_model=None)
+async def start_story_stream(request: StartStoryRequest):
     """
-    Continue the story with streaming response.
-    
-    Streams narrative text, choices, and media URLs as they become available.
+    Start a new story session with streaming response (word-by-word).
+
+    Creates a new session, generates the opening narrative, and streams it
+    word-by-word for an immersive reading experience.
     """
     async def generate_stream():
         try:
-            # Validate session exists
-            if request.session_id not in active_sessions:
-                yield f"data: {json.dumps({'type': 'error', 'message': 'Session not found'})}\n\n"
+            # Generate session and user IDs
+            session_id = str(uuid.uuid4())
+            user_id = request.user_id or str(uuid.uuid4())
+
+            # Validate world exists
+            from pathlib import Path
+            world_template_path = Path("story_worlds") / request.world_id / "world_template.json"
+            if not world_template_path.exists():
+                yield f"data: {json.dumps({'type': 'error', 'message': f'World not found: {request.world_id}'})}\n\n"
                 return
 
-            # Get story graph
-            graph = get_story_graph()
-            
-            # Get current state
-            current_state = await graph.aget_state(request.session_id)
-            if not current_state:
-                yield f"data: {json.dumps({'type': 'error', 'message': 'Session state not found'})}\n\n"
-                return
+            # Stream session info first
+            yield f"data: {json.dumps({'type': 'session', 'session_id': session_id, 'user_id': user_id, 'world_id': request.world_id})}\n\n"
 
-            # Stream initial loading state
-            yield f"data: {json.dumps({'type': 'loading', 'message': 'Processing your choice...'})}\n\n"
-            await asyncio.sleep(0.1)
+            # Stream thinking state
+            yield f"data: {json.dumps({'type': 'thinking', 'message': 'Beginning your journey...'})}\n\n"
 
-            # Run story turn
-            final_state, outputs = await run_story_turn(
-                graph=graph,
-                user_input=request.choice_text,
-                session_id=request.session_id,
-                current_state=current_state
+            # Create initial state
+            initial_state = create_initial_state(
+                user_id=user_id,
+                world_id=request.world_id,
+                credits=config.CREDITS_PER_NEW_USER
             )
 
-            # Stream narrative text (simulate word-by-word)
+            # Run first turn (opening narrative)
+            final_state, outputs = await run_story_turn(
+                graph=get_story_graph(),
+                user_input="Begin the story",
+                session_id=session_id,
+                current_state=initial_state
+            )
+
+            # Store session
+            active_sessions[session_id] = {
+                "user_id": user_id,
+                "world_id": request.world_id,
+                "created_at": datetime.utcnow().isoformat(),
+                "last_access": datetime.utcnow().isoformat()
+            }
+
+            # Stream narrative word-by-word
             narrative = outputs["narrative"]
             words = narrative.split()
-            current_text = ""
-            
-            for i, word in enumerate(words):
-                current_text += word + " "
-                yield f"data: {json.dumps({'type': 'narrative', 'text': current_text.strip()})}\n\n"
-                await asyncio.sleep(0.05)  # 50ms delay between words
 
-            # Stream choices when ready
+            # Calculate delay between words
+            words_per_second = getattr(config, 'STREAMING_WORDS_PER_SECOND', 7.5)
+            delay_per_word = 1.0 / words_per_second
+
+            # Signal start of narrative
+            yield f"data: {json.dumps({'type': 'narrative_start', 'total_words': len(words)})}\n\n"
+
+            # Stream each word
+            for i, word in enumerate(words):
+                yield f"data: {json.dumps({'type': 'word', 'word': word, 'index': i})}\n\n"
+                await asyncio.sleep(delay_per_word)
+
+            # Signal end of narrative
+            yield f"data: {json.dumps({'type': 'narrative_end'})}\n\n"
+            await asyncio.sleep(0.3)  # Brief pause before choices
+
+            # Stream choices
             choices = [format_choice_for_api(c) for c in outputs["choices"]]
             yield f"data: {json.dumps({'type': 'choices', 'choices': choices})}\n\n"
 
-            # Stream image URL if available
+            # Stream media if available
             if outputs.get("image_url"):
                 yield f"data: {json.dumps({'type': 'image', 'url': outputs['image_url']})}\n\n"
-
-            # Stream audio URL if available
             if outputs.get("audio_url"):
                 yield f"data: {json.dumps({'type': 'audio', 'url': outputs['audio_url']})}\n\n"
 
-            # Stream final state
-            yield f"data: {json.dumps({'type': 'complete', 'beat': outputs['current_beat'], 'credits': outputs['credits_remaining']})}\n\n"
+            # Stream final metadata
+            yield f"data: {json.dumps({'type': 'complete', 'beat': outputs['current_beat'], 'credits': outputs['credits_remaining'], 'session_id': session_id})}\n\n"
 
         except Exception as e:
+            import traceback
+            print(f"Streaming error (start): {e}")
+            traceback.print_exc()
             yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
 
     return StreamingResponse(
         generate_stream(),
-        media_type="text/plain",
+        media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Headers": "*",
+            "X-Accel-Buffering": "no",
+        }
+    )
+
+
+@router.post("/story/continue/stream")
+async def continue_story_stream(request: ContinueStoryRequest):
+    """
+    Continue the story with streaming response (word-by-word).
+
+    Streams narrative text word-by-word for a more immersive reading experience,
+    then displays choices after the narrative completes.
+    """
+    async def generate_stream():
+        try:
+            # Load previous state from checkpoint
+            graph = get_story_graph()
+            config_dict = {"configurable": {"thread_id": request.session_id}}
+
+            checkpoint = None
+            if hasattr(graph, 'checkpointer') and graph.checkpointer:
+                checkpoint = graph.checkpointer.get(config_dict)
+
+            if not checkpoint:
+                yield f"data: {json.dumps({'type': 'error', 'message': 'Session not found'})}\n\n"
+                return
+
+            # Restore session if needed
+            if request.session_id not in active_sessions:
+                previous_state = checkpoint["channel_values"]
+                active_sessions[request.session_id] = {
+                    "user_id": previous_state.get("user_id", "unknown"),
+                    "world_id": previous_state.get("world_id", "unknown"),
+                    "created_at": previous_state.get("session_start", datetime.utcnow().isoformat()),
+                    "last_access": datetime.utcnow().isoformat()
+                }
+
+            # Update last access
+            active_sessions[request.session_id]["last_access"] = datetime.utcnow().isoformat()
+            previous_state = checkpoint["channel_values"]
+
+            # Find the selected choice
+            previous_choices = previous_state.get("choices", [])
+            selected_choice = None
+            for choice in previous_choices:
+                if choice.get("id") == request.choice_id:
+                    selected_choice = choice
+                    break
+
+            if not selected_choice:
+                yield f"data: {json.dumps({'type': 'error', 'message': f'Invalid choice ID: {request.choice_id}'})}\n\n"
+                return
+
+            # Stream thinking state while generating
+            yield f"data: {json.dumps({'type': 'thinking', 'message': 'Weaving your story...'})}\n\n"
+
+            # Extract continuation and update state
+            choice_continuation = selected_choice.get("text", "")
+            previous_state["last_choice_continuation"] = choice_continuation
+            user_input = f"Choice {request.choice_id}: {choice_continuation[:100]}..."
+
+            # Run story turn
+            final_state, outputs = await run_story_turn(
+                graph=graph,
+                user_input=user_input,
+                session_id=request.session_id,
+                current_state=previous_state
+            )
+
+            # Check for errors
+            if outputs.get("error"):
+                yield f"data: {json.dumps({'type': 'error', 'message': outputs['error']})}\n\n"
+                return
+
+            # Stream narrative word-by-word
+            narrative = outputs["narrative"]
+            words = narrative.split()
+
+            # Calculate delay between words based on config
+            words_per_second = getattr(config, 'STREAMING_WORDS_PER_SECOND', 7.5)
+            delay_per_word = 1.0 / words_per_second
+
+            # Signal start of narrative
+            yield f"data: {json.dumps({'type': 'narrative_start', 'total_words': len(words)})}\n\n"
+
+            # Stream each word individually
+            for i, word in enumerate(words):
+                yield f"data: {json.dumps({'type': 'word', 'word': word, 'index': i})}\n\n"
+                await asyncio.sleep(delay_per_word)
+
+            # Signal end of narrative
+            yield f"data: {json.dumps({'type': 'narrative_end'})}\n\n"
+            await asyncio.sleep(0.3)  # Brief pause before choices appear
+
+            # Stream choices
+            choices = [format_choice_for_api(c) for c in outputs["choices"]]
+            yield f"data: {json.dumps({'type': 'choices', 'choices': choices})}\n\n"
+
+            # Stream media if available
+            if outputs.get("image_url"):
+                yield f"data: {json.dumps({'type': 'image', 'url': outputs['image_url']})}\n\n"
+            if outputs.get("audio_url"):
+                yield f"data: {json.dumps({'type': 'audio', 'url': outputs['audio_url']})}\n\n"
+
+            # Stream final metadata
+            yield f"data: {json.dumps({'type': 'complete', 'beat': outputs['current_beat'], 'credits': outputs['credits_remaining'], 'session_id': request.session_id})}\n\n"
+
+        except Exception as e:
+            import traceback
+            print(f"Streaming error: {e}")
+            traceback.print_exc()
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+
+    return StreamingResponse(
+        generate_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",  # Disable nginx buffering
         }
     )
