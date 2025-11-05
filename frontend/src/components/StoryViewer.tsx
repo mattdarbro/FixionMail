@@ -109,6 +109,7 @@ export function StoryViewer({
         audioUrl={state.audioUrl}
         isGeneratingAudio={state.isLoading && !state.audioUrl}
         isGeneratingImage={state.isLoading && !state.imageUrl}
+        isStreaming={state.isStreaming}
         className="animate-fade-in"
       />
       

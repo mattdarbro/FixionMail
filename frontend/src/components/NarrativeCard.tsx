@@ -1,4 +1,5 @@
 import { AudioPlayer } from './AudioPlayer';
+import { AnimatedNarrative } from './AnimatedNarrative';
 
 interface NarrativeCardProps {
   narrative: string;
@@ -7,6 +8,7 @@ interface NarrativeCardProps {
   audioUrl?: string;
   isGeneratingAudio?: boolean;
   isGeneratingImage?: boolean;
+  isStreaming?: boolean;
   className?: string;
 }
 
@@ -27,6 +29,7 @@ export function NarrativeCard({
   audioUrl,
   isGeneratingAudio = false,
   isGeneratingImage = false,
+  isStreaming = false,
   className = ''
 }: NarrativeCardProps) {
   return (
@@ -105,11 +108,10 @@ export function NarrativeCard({
         </div>
         
         {/* Narrative text */}
-        <div className="prose prose-invert max-w-none">
-          <p className="text-lg leading-relaxed text-dark-100 font-sans mb-0">
-            {narrative}
-          </p>
-        </div>
+        <AnimatedNarrative
+          narrative={narrative}
+          isStreaming={isStreaming}
+        />
         
         {/* Audio player */}
         {(audioUrl || isGeneratingAudio) && (

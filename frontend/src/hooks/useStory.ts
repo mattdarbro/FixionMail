@@ -29,36 +29,79 @@ export function useStory() {
   }, []);
 
   const startStory = useCallback(async (worldId: string = 'west_haven') => {
-    setState(prev => ({ ...prev, isLoading: true, error: null }));
-    
-    try {
-      const response = await api.startStory({ world_id: worldId });
-      
-      // Save session to localStorage
-      localStorage.setItem(STORAGE_KEY, response.session_id);
-      
-      setState({
-        sessionId: response.session_id,
-        narrative: response.narrative,
-        choices: response.choices,
-        currentBeat: response.current_beat,
-        creditsRemaining: response.credits_remaining,
-        isLoading: false,
-        error: null,
-        imageUrl: response.image_url,
-        audioUrl: response.audio_url,
-      });
-    } catch (error) {
-      const errorMessage = error instanceof ApiError 
-        ? error.message 
-        : 'Failed to start story. Please try again.';
-      
-      setState(prev => ({
-        ...prev,
-        isLoading: false,
-        error: errorMessage,
-      }));
-    }
+    setState(prev => ({ ...prev, isLoading: true, error: null, narrative: '', choices: [] }));
+
+    // Use streaming for immersive experience
+    const cancelFn = api.streamStartStory(
+      { world_id: worldId },
+      (event) => {
+        switch (event.type) {
+          case 'session':
+            // Save session to localStorage
+            localStorage.setItem(STORAGE_KEY, event.session_id);
+            setState(prev => ({ ...prev, sessionId: event.session_id }));
+            break;
+
+          case 'thinking':
+            setState(prev => ({ ...prev, isLoading: true }));
+            break;
+
+          case 'narrative_start':
+            // Reset narrative for streaming
+            setState(prev => ({ ...prev, narrative: '' }));
+            break;
+
+          case 'word':
+            // Append each word as it arrives
+            setState(prev => ({
+              ...prev,
+              narrative: prev.narrative ? `${prev.narrative} ${event.word}` : event.word
+            }));
+            break;
+
+          case 'choices':
+            setState(prev => ({ ...prev, choices: event.choices, isLoading: false }));
+            break;
+
+          case 'image':
+            setState(prev => ({ ...prev, imageUrl: event.url }));
+            break;
+
+          case 'audio':
+            setState(prev => ({ ...prev, audioUrl: event.url }));
+            break;
+
+          case 'complete':
+            setState(prev => ({
+              ...prev,
+              currentBeat: event.beat,
+              creditsRemaining: event.credits,
+              isLoading: false,
+              error: null
+            }));
+            break;
+
+          case 'error':
+            setState(prev => ({
+              ...prev,
+              isLoading: false,
+              error: event.message
+            }));
+            break;
+        }
+      },
+      (error) => {
+        const errorMessage = error instanceof Error
+          ? error.message
+          : 'Failed to start story. Please try again.';
+
+        setState(prev => ({
+          ...prev,
+          isLoading: false,
+          error: errorMessage,
+        }));
+      }
+    );
   }, []);
 
   const continueStory = useCallback(async (choice: Choice) => {

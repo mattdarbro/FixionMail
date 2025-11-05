@@ -103,7 +103,138 @@ export const api = {
     return fetchWithErrorHandling<{ status: string; config: any }>(
       `${API_BASE_URL.replace('/api', '')}/health`
     );
-  }
+  },
+
+  /**
+   * Start a story with Server-Sent Events streaming
+   */
+  streamStartStory(
+    request: StartStoryRequest,
+    onEvent: (event: StreamEvent) => void,
+    onError?: (error: Error) => void,
+    onComplete?: () => void
+  ): () => void {
+    const url = `${API_BASE_URL}/story/start/stream`;
+
+    fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const reader = response.body?.getReader();
+        const decoder = new TextDecoder();
+
+        if (!reader) {
+          throw new Error('No response body');
+        }
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value);
+          const lines = chunk.split('\n');
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.slice(6));
+                onEvent(data);
+              } catch (e) {
+                console.warn('Failed to parse SSE data:', line);
+              }
+            }
+          }
+        }
+
+        onComplete?.();
+      })
+      .catch((error) => {
+        onError?.(error);
+      });
+
+    // Return cancel function
+    return () => {
+      // Abort is handled by closing the response stream
+    };
+  },
+
+  /**
+   * Continue a story with Server-Sent Events streaming
+   */
+  streamContinueStory(
+    request: ContinueStoryRequest,
+    onEvent: (event: StreamEvent) => void,
+    onError?: (error: Error) => void,
+    onComplete?: () => void
+  ): () => void {
+    const url = `${API_BASE_URL}/story/continue/stream`;
+
+    fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const reader = response.body?.getReader();
+        const decoder = new TextDecoder();
+
+        if (!reader) {
+          throw new Error('No response body');
+        }
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value);
+          const lines = chunk.split('\n');
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.slice(6));
+                onEvent(data);
+              } catch (e) {
+                console.warn('Failed to parse SSE data:', line);
+              }
+            }
+          }
+        }
+
+        onComplete?.();
+      })
+      .catch((error) => {
+        onError?.(error);
+      });
+
+    // Return cancel function
+    return () => {
+      // Abort is handled by closing the response stream
+    };
+  },
 };
+
+// Stream event types
+export type StreamEvent =
+  | { type: 'session'; session_id: string; user_id: string; world_id: string }
+  | { type: 'thinking'; message: string }
+  | { type: 'narrative_start'; total_words: number }
+  | { type: 'word'; word: string; index: number }
+  | { type: 'narrative_end' }
+  | { type: 'choices'; choices: any[] }
+  | { type: 'image'; url: string }
+  | { type: 'audio'; url: string }
+  | { type: 'complete'; beat: number; credits: number; session_id: string }
+  | { type: 'error'; message: string };
 
 export { ApiError };

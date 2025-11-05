@@ -57,6 +57,33 @@ html {
   }
 }
 
+/* Word-by-word streaming animation */
+@keyframes wordFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.word-fade-in {
+  animation: wordFadeIn 0.4s ease-out forwards;
+  animation-fill-mode: both;
+  opacity: 0;
+}
+
+/* Respect user's motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .word-fade-in {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /* Base styles */
 body {
   margin: 0;
