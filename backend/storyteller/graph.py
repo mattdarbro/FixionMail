@@ -114,7 +114,6 @@ def create_persistent_graph(db_path: str = "story_checkpoints.db"):
     Returns:
         Compiled graph with async checkpointing enabled
     """
-    # Use AsyncSqliteSaver for persistent storage that survives restarts
     from pathlib import Path
 
     try:
@@ -126,9 +125,9 @@ def create_persistent_graph(db_path: str = "story_checkpoints.db"):
         print(f"📁 Parent directory: {db_file.parent} (exists: {db_file.parent.exists()})")
         print(f"📁 Parent writable: {db_file.parent.exists() and db_file.parent.stat().st_mode & 0o200}")
 
-        # Create AsyncSqliteSaver with connection string
-        # AsyncSqliteSaver handles the connection internally with aiosqlite
-        checkpointer = AsyncSqliteSaver.from_conn_string(str(db_file))
+        # Create AsyncSqliteSaver by passing the database path as a URI
+        # AsyncSqliteSaver will manage the aiosqlite connection internally
+        checkpointer = AsyncSqliteSaver.from_conn_string(f"sqlite:///{db_file}")
 
         print(f"✓ Using async SQLite checkpointer: {db_path}")
         return create_storyteller_graph(checkpointer=checkpointer)

@@ -40,23 +40,47 @@ except Exception as e:
 # Create router
 router = APIRouter(tags=["story"])
 
-# Global graph instance with persistence (lazy-loaded)
+# Global graph instance with persistence
 story_graph = None
+story_graph_checkpointer = None
 
-def get_story_graph():
-    """Get or create the story graph (lazy initialization)."""
-    global story_graph
+async def initialize_story_graph():
+    """Initialize the story graph with async checkpointer (call during app startup)."""
+    global story_graph, story_graph_checkpointer
     if story_graph is None:
         try:
+            from pathlib import Path
+            from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
+
             # Use the property that resolves to persistent storage if available
             db_path = config.checkpoint_db_path
             print(f"📝 Initializing story graph with checkpoint DB: {db_path}")
-            story_graph = create_persistent_graph(db_path=db_path)
+
+            # Ensure database directory exists
+            db_file = Path(db_path)
+            db_file.parent.mkdir(parents=True, exist_ok=True)
+
+            # Create async checkpointer properly
+            # from_conn_string returns an async context manager, so we need to enter it
+            from backend.storyteller.graph import create_storyteller_graph
+
+            checkpointer_cm = AsyncSqliteSaver.from_conn_string(f"sqlite:///{db_file}")
+            story_graph_checkpointer = await checkpointer_cm.__aenter__()
+
+            # Create the graph with the checkpointer directly
+            story_graph = create_storyteller_graph(checkpointer=story_graph_checkpointer)
+            print(f"✓ Story graph initialized successfully with async checkpointer")
         except Exception as e:
             print(f"⚠️  Error creating story graph: {e}")
             import traceback
             traceback.print_exc()
             raise
+
+def get_story_graph():
+    """Get the story graph (must be initialized first via initialize_story_graph)."""
+    global story_graph
+    if story_graph is None:
+        raise RuntimeError("Story graph not initialized. Call initialize_story_graph() first during app startup.")
     return story_graph
 
 # In-memory session store (in production, use Redis or database)

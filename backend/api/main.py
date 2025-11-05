@@ -175,6 +175,17 @@ async def startup_event():
         
         print("=" * 60)
 
+        # Initialize story graph with async checkpointer
+        if routes_loaded:
+            try:
+                from backend.api.routes import initialize_story_graph
+                print("\n📚 Initializing story graph...")
+                await initialize_story_graph()
+            except Exception as e:
+                print(f"⚠️  Error initializing story graph: {e}")
+                import traceback
+                traceback.print_exc()
+
         # Validate world templates exist (no longer using RAG)
         try:
             from pathlib import Path
