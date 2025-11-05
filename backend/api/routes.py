@@ -56,15 +56,31 @@ async def initialize_story_graph():
             db_path = config.checkpoint_db_path
             print(f"📝 Initializing story graph with checkpoint DB: {db_path}")
 
-            # Ensure database directory exists
+            # Ensure database directory exists with proper permissions
             db_file = Path(db_path)
-            db_file.parent.mkdir(parents=True, exist_ok=True)
+            db_dir = db_file.parent
+            import os
 
-            # Create async checkpointer properly
-            # from_conn_string returns an async context manager, so we need to enter it
+            print(f"🔍 Checking database directory: {db_dir}")
+            print(f"   Directory exists: {db_dir.exists()}")
+
+            if not db_dir.exists():
+                print(f"   Creating directory: {db_dir}")
+                db_dir.mkdir(parents=True, exist_ok=True)
+                print(f"   ✓ Directory created")
+
+            # Check permissions
+            print(f"   Directory readable: {os.access(db_dir, os.R_OK)}")
+            print(f"   Directory writable: {os.access(db_dir, os.W_OK)}")
+            print(f"   Directory executable: {os.access(db_dir, os.X_OK)}")
+
+            # Create async checkpointer using absolute path
             from backend.storyteller.graph import create_storyteller_graph
 
-            checkpointer_cm = AsyncSqliteSaver.from_conn_string(f"sqlite:///{db_file}")
+            db_uri = f"sqlite:///{db_file.absolute()}"
+            print(f"📝 Creating checkpointer with URI: {db_uri}")
+
+            checkpointer_cm = AsyncSqliteSaver.from_conn_string(db_uri)
             story_graph_checkpointer = await checkpointer_cm.__aenter__()
 
             # Create the graph with the checkpointer directly
@@ -72,6 +88,7 @@ async def initialize_story_graph():
             print(f"✓ Story graph initialized successfully with async checkpointer")
         except Exception as e:
             print(f"⚠️  Error creating story graph: {e}")
+            print(f"   Error type: {type(e).__name__}")
             import traceback
             traceback.print_exc()
             raise
@@ -88,17 +105,43 @@ async def get_story_graph():
             from pathlib import Path
             from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
             from backend.storyteller.graph import create_storyteller_graph
+            import os
 
             # Use the property that resolves to persistent storage if available
             db_path = config.checkpoint_db_path
             print(f"📝 Lazy-initializing story graph with checkpoint DB: {db_path}")
 
-            # Ensure database directory exists
+            # Ensure database directory exists with proper permissions
             db_file = Path(db_path)
-            db_file.parent.mkdir(parents=True, exist_ok=True)
+            db_dir = db_file.parent
+
+            print(f"🔍 Checking database directory: {db_dir}")
+            print(f"   Directory exists: {db_dir.exists()}")
+
+            if not db_dir.exists():
+                print(f"   Creating directory: {db_dir}")
+                db_dir.mkdir(parents=True, exist_ok=True)
+                print(f"   ✓ Directory created")
+
+            # Check permissions
+            print(f"   Directory readable: {os.access(db_dir, os.R_OK)}")
+            print(f"   Directory writable: {os.access(db_dir, os.W_OK)}")
+            print(f"   Directory executable: {os.access(db_dir, os.X_OK)}")
+
+            # Check if database file already exists
+            if db_file.exists():
+                print(f"   Database file exists: {db_file}")
+                print(f"   File readable: {os.access(db_file, os.R_OK)}")
+                print(f"   File writable: {os.access(db_file, os.W_OK)}")
+            else:
+                print(f"   Database file does not exist yet (will be created)")
 
             # Initialize async checkpointer (we're already in async context)
-            checkpointer_cm = AsyncSqliteSaver.from_conn_string(f"sqlite:///{db_file}")
+            # Use absolute path for SQLite
+            db_uri = f"sqlite:///{db_file.absolute()}"
+            print(f"📝 Creating checkpointer with URI: {db_uri}")
+
+            checkpointer_cm = AsyncSqliteSaver.from_conn_string(db_uri)
             story_graph_checkpointer = await checkpointer_cm.__aenter__()
 
             # Create the graph with the checkpointer directly
@@ -107,6 +150,7 @@ async def get_story_graph():
 
         except Exception as e:
             print(f"❌ Failed to lazy-initialize story graph: {e}")
+            print(f"   Error type: {type(e).__name__}")
             import traceback
             traceback.print_exc()
             raise RuntimeError(f"Story graph initialization failed: {e}") from e
