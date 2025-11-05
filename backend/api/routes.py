@@ -74,14 +74,16 @@ async def initialize_story_graph():
             print(f"   Directory writable: {os.access(db_dir, os.W_OK)}")
             print(f"   Directory executable: {os.access(db_dir, os.X_OK)}")
 
-            # Create async checkpointer - pass file path directly (not URI)
+            # Create async checkpointer - create connection directly
             from backend.storyteller.graph import create_storyteller_graph
+            import aiosqlite
 
             db_path_str = str(db_file.absolute())
             print(f"📝 Creating checkpointer with path: {db_path_str}")
 
-            checkpointer_cm = AsyncSqliteSaver.from_conn_string(db_path_str)
-            story_graph_checkpointer = await checkpointer_cm.__aenter__()
+            # Create a persistent connection for the checkpointer
+            conn = await aiosqlite.connect(db_path_str)
+            story_graph_checkpointer = AsyncSqliteSaver(conn)
 
             # Create the graph with the checkpointer directly
             story_graph = create_storyteller_graph(checkpointer=story_graph_checkpointer)
@@ -137,12 +139,15 @@ async def get_story_graph():
                 print(f"   Database file does not exist yet (will be created)")
 
             # Initialize async checkpointer (we're already in async context)
-            # Pass file path directly (not URI) - aiosqlite handles it
+            # Create connection directly - simpler and avoids context manager issues
+            import aiosqlite
+
             db_path_str = str(db_file.absolute())
             print(f"📝 Creating checkpointer with path: {db_path_str}")
 
-            checkpointer_cm = AsyncSqliteSaver.from_conn_string(db_path_str)
-            story_graph_checkpointer = await checkpointer_cm.__aenter__()
+            # Create a persistent connection for the checkpointer
+            conn = await aiosqlite.connect(db_path_str)
+            story_graph_checkpointer = AsyncSqliteSaver(conn)
 
             # Create the graph with the checkpointer directly
             story_graph = create_storyteller_graph(checkpointer=story_graph_checkpointer)
