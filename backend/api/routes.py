@@ -583,7 +583,7 @@ async def start_story_stream(request: StartStoryRequest):
             await asyncio.sleep(0.3)  # Brief pause before choices
 
             # Stream choices
-            choices = [format_choice_for_api(c) for c in outputs["choices"]]
+            choices = [format_choice_for_api(c).model_dump() for c in outputs["choices"]]
             yield f"data: {json.dumps({'type': 'choices', 'choices': choices})}\n\n"
 
             # Stream media if available
@@ -702,7 +702,7 @@ async def continue_story_stream(request: ContinueStoryRequest):
             await asyncio.sleep(0.3)  # Brief pause before choices appear
 
             # Stream choices
-            choices = [format_choice_for_api(c) for c in outputs["choices"]]
+            choices = [format_choice_for_api(c).model_dump() for c in outputs["choices"]]
             yield f"data: {json.dumps({'type': 'choices', 'choices': choices})}\n\n"
 
             # Stream media if available
