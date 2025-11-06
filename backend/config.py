@@ -190,7 +190,7 @@ class AppConfig(BaseSettings):
     )
 
     ENABLE_MEDIA_GENERATION: bool = Field(
-        default=False,
+        default=True,
         description="Enable image/audio generation (requires API keys)"
     )
 
