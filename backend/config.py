@@ -100,6 +100,20 @@ class AppConfig(BaseSettings):
         description="Default story world ID"
     )
 
+    CHAPTER_TARGET_WORDS: int = Field(
+        default=2500,
+        ge=500,
+        le=5000,
+        description="Target word count per chapter (2500 = full audiobook experience)"
+    )
+
+    TOTAL_CHAPTERS: int = Field(
+        default=30,
+        ge=10,
+        le=100,
+        description="Total chapters in complete story arc"
+    )
+
     CREDITS_PER_NEW_USER: int = Field(
         default=25,
         ge=0,
@@ -170,10 +184,10 @@ class AppConfig(BaseSettings):
     )
 
     MAX_TOKENS: int = Field(
-        default=1000,
+        default=4000,
         ge=100,
-        le=4000,
-        description="Maximum tokens per LLM response"
+        le=8000,
+        description="Maximum tokens per LLM response (4000 = ~2500-3000 words)"
     )
 
     # ===== Feature Toggles (for phased development) =====
@@ -233,6 +247,11 @@ class AppConfig(BaseSettings):
     DEBUG: bool = Field(
         default=True,
         description="Enable debug mode (auto-set to False in production)"
+    )
+
+    DEV_MODE: bool = Field(
+        default=True,
+        description="Enable dev mode: synchronous generation with frontend for testing (disable for async email mode)"
     )
 
     LOG_LEVEL: str = Field(

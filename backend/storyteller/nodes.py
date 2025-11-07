@@ -68,7 +68,9 @@ async def generate_narrative_node(state: StoryState) -> dict[str, Any]:
                 turns_in_beat=state.get("turns_in_beat", 0),
                 last_choice_continuation=last_choice_continuation,
                 generated_story_bible=state.get("generated_story_bible", {}),
-                story_summary=state.get("story_summary", [])
+                story_summary=state.get("story_summary", []),
+                chapter_number=state.get("chapter_number", 1),
+                total_chapters=state.get("total_chapters", 30)
             )
 
             # Include message history for context (but prompt already has summary)
@@ -315,6 +317,13 @@ def parse_output_node(state: StoryState) -> dict[str, Any]:
         # Increment turns in beat
         turns_in_beat = state.get("turns_in_beat", 0) + 1
 
+        # Increment chapter number and calculate progress
+        chapter_number = state.get("chapter_number", 1) + 1
+        total_chapters = state.get("total_chapters", 30)
+        story_progress_pct = (chapter_number / total_chapters) * 100
+
+        print(f"✓ Chapter {chapter_number - 1} complete. Starting Chapter {chapter_number}/{total_chapters} ({int(story_progress_pct)}%)")
+
         # Add AI message to history
         messages = state["messages"].copy()
         messages.append(AIMessage(content=narrative))
@@ -341,6 +350,8 @@ def parse_output_node(state: StoryState) -> dict[str, Any]:
             "beat_progress_score": beat_progress_score,
             "beat_progress": beat_progress,
             "turns_in_beat": turns_in_beat,
+            "chapter_number": chapter_number,
+            "story_progress_pct": story_progress_pct,
             "messages": messages
         }
 

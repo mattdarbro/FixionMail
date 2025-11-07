@@ -23,10 +23,18 @@ class StoryState(TypedDict):
 
     # ===== Core Narrative State =====
     messages: Annotated[list[BaseMessage], "Conversation history between user and AI"]
+
+    # Chapter tracking (primary navigation)
+    chapter_number: Annotated[int, "Current chapter number (1-30)"]
+    total_chapters: Annotated[int, "Total chapters in story (default: 30)"]
+    story_progress_pct: Annotated[float, "Overall story progress percentage (0-100)"]
+
+    # Beat tracking (for pacing within chapters)
     current_beat: Annotated[int, "Current story beat (1-indexed)"]
     turns_in_beat: Annotated[int, "Number of turns completed in current beat"]
     beat_progress_score: Annotated[float, "Progress through current beat (0.0-1.0)"]
     beat_progress: Annotated[dict[int, bool], "Completion status for each beat"]
+
     story_summary: Annotated[list[str], "AI-generated summaries of key events (2-3 sentences each)"]
 
     # ===== Generated Story Bible (Dynamic) =====
@@ -177,7 +185,8 @@ class LocationProfile(BaseModel):
 def create_initial_state(
     user_id: str,
     world_id: str,
-    credits: int = 25
+    credits: int = 25,
+    total_chapters: int = 30
 ) -> StoryState:
     """
     Create initial state for a new story session.
@@ -186,12 +195,18 @@ def create_initial_state(
         user_id: Unique user identifier
         world_id: Story world to load
         credits: Starting credit amount
+        total_chapters: Total chapters in story arc (default: 30)
 
     Returns:
         Initialized StoryState ready for LangGraph
     """
     return StoryState(
         messages=[],
+        # Chapter tracking
+        chapter_number=1,
+        total_chapters=total_chapters,
+        story_progress_pct=0.0,
+        # Beat tracking
         current_beat=1,
         turns_in_beat=0,
         beat_progress_score=0.0,

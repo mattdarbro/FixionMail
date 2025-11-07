@@ -153,17 +153,25 @@ GENERATION GUIDELINES:
 
 YOUR TASK:
 1. CREATE the protagonist (name, age, occupation, personality) based on the archetype
-2. WRITE the opening scene (2-3 paragraphs) that:
+2. WRITE Chapter 1 (~2500 words) that:
    - Establishes atmosphere immediately
    - Shows protagonist in crisis/transition
    - Introduces the setting viscerally
    - Write in {pov}
-3. CREATE 3 choice continuations that START the next paragraph:
-   - Each continuation should be 1-3 sentences that naturally flow
+   - TARGET LENGTH: Approximately 2500 words (full chapter for audiobook experience)
+   - Structure: Multiple scenes/moments that build emotional investment
+3. CREATE 3 choice continuations that START the next chapter:
+   - Each continuation should be 1-3 sentences that naturally flow into Chapter 2
    - Offer different emotional approaches (cautious, bold, vulnerable, etc.)
    - Make them feel like narrative, not game choices
-4. GENERATE an image prompt for the opening scene
+4. GENERATE an image prompt for the chapter's key scene
 5. BUILD initial story bible with protagonist details
+
+CHAPTER PACING:
+- This is Chapter 1 of 30 (3% of total story)
+- Take time to establish world and character
+- Create emotional connection with protagonist
+- End with clear stakes and forward momentum
 
 CRITICAL - RESPONSE FORMAT (JSON only, no markdown):
 """ + json_example + f"""
@@ -187,7 +195,9 @@ def create_continuation_prompt(
     turns_in_beat: int,
     last_choice_continuation: str,
     generated_story_bible: dict,
-    story_summary: list[str]
+    story_summary: list[str],
+    chapter_number: int = 1,
+    total_chapters: int = 30
 ) -> ChatPromptTemplate:
     """
     Create prompt for continuing the story after a choice.
@@ -199,6 +209,8 @@ def create_continuation_prompt(
         last_choice_continuation: The continuation text from selected choice
         generated_story_bible: Claude-generated story details so far
         story_summary: Previous turn summaries
+        chapter_number: Current chapter number (1-30)
+        total_chapters: Total chapters in story (default: 30)
 
     Returns:
         ChatPromptTemplate for continuation
@@ -214,6 +226,10 @@ def create_continuation_prompt(
     max_turns = beat_info.get("turns", 4)
     turns_remaining = max(0, max_turns - turns_in_beat)
     progress = turns_in_beat / max_turns if max_turns > 0 else 0
+
+    # Calculate overall story progress
+    story_progress_pct = (chapter_number / total_chapters) * 100
+    chapters_remaining = total_chapters - chapter_number
 
     # Format story summary
     summary_text = "\n".join([f"- {s}" for s in story_summary[-6:]]) if story_summary else "Beginning of story"
@@ -261,11 +277,15 @@ Themes: {", ".join(world_lore.get("themes", []))}
 Tone: {tone}
 Point of View: {pov}
 
+CHAPTER PROGRESS:
+📖 Chapter {chapter_number} of {total_chapters}
+📊 Story Progress: {int(story_progress_pct)}%
+📄 Chapters Remaining: {chapters_remaining}
+
 CURRENT BEAT: {beat_number} - {beat_info.get("name", "")}
 Goal: {beat_info.get("goal", "")}
 Emotional Arc: {beat_info.get("emotional_arc", "")}
 Progress: {turns_in_beat}/{max_turns} turns (approx {int(progress*100)}%)
-Turns Remaining: {turns_remaining}
 Success Criteria: {beat_info.get("success_criteria", "")}
 
 STORY SO FAR (Recent Events):
@@ -279,17 +299,20 @@ LAST CHOICE (Continue from here):
 
 YOUR TASK:
 1. CONTINUE seamlessly from the choice continuation above
-2. WRITE 2-3 paragraphs that:
-   - Flow naturally from the continuation
-   - Advance toward beat goal
+2. WRITE Chapter {chapter_number} (~2500 words) that:
+   - Flows naturally from the continuation
+   - Advances toward beat goal
    - Write in {pov}
-   - Show character growth appropriate to this point in arc
-3. CREATE 3 new choice continuations for next segment
+   - Shows character growth appropriate to this point in arc
+   - TARGET LENGTH: Approximately 2500 words (full audiobook chapter)
+   - Structure: Multiple scenes/moments with natural pacing
+3. CREATE 3 new choice continuations for Chapter {chapter_number + 1}
 4. UPDATE story bible with any new details (characters, locations, events)
 5. ASSESS beat progress (0.0-1.0 where 1.0 = beat complete)
 
-BEAT PACING:
-- Turns {turns_in_beat}/{max_turns}: {"Early/setup phase" if progress < 0.4 else "Mid-beat/development" if progress < 0.7 else "Approaching climax"}
+STORY ARC PACING:
+- Overall: {int(story_progress_pct)}% through story
+- {"Act 1 (Setup)" if story_progress_pct < 33 else "Act 2 (Confrontation)" if story_progress_pct < 75 else "Act 3 (Resolution)"}
 - Key moments to hit: {", ".join(beat_info.get("key_moments", []))}
 - Dramatic questions: {", ".join(beat_info.get("dramatic_questions", []))}
 
@@ -298,10 +321,11 @@ RESPONSE FORMAT (JSON only):
 
 Remember:
 - Continue FROM the last choice text (seamless flow)
+- TARGET 2500 WORDS for full audiobook chapter experience
 - Choices should feel like narrative options, not game buttons
 - Update story bible with NEW information only
 - Write in {pov}
-- Aim to complete beat in approximately {max_turns} total turns
+- Consider where we are in the overall {total_chapters}-chapter arc
 """
 
     return ChatPromptTemplate.from_messages([
