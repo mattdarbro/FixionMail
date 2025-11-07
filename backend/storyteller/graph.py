@@ -17,10 +17,7 @@ from backend.storyteller.nodes import (
     generate_image_node,
     generate_audio_node,
     check_beat_complete_node,
-    deduct_credits_node,
-    should_generate_media,
-    is_beat_complete,
-    has_error
+    deduct_credits_node
 )
 from backend.config import config
 
@@ -29,14 +26,18 @@ def create_storyteller_graph(checkpointer: MemorySaver | None = None):
     """
     Build the complete storytelling state machine.
 
-    The workflow follows this pattern:
+    SIMPLIFIED FLOW for async email delivery:
     1. Generate narrative with LLM (using world template + generated story bible)
     2. Parse JSON output and extract story bible updates
-    3. Generate summary
-    4. Conditionally generate media (image/audio)
-    5. Check if beat is complete and advance if needed
-    6. Deduct credits
-    7. End
+    3. Generate summary for context continuity
+    4. Generate audio narration (critical for email)
+    5. Generate chapter image (optional enhancement for email)
+    6. Check if beat is complete and advance if needed
+    7. Deduct credits
+    8. End
+
+    Note: Media generation always runs (no conditionals).
+    Generated media will be uploaded to storage and sent via email.
 
     Args:
         checkpointer: Optional MemorySaver for session persistence
@@ -52,8 +53,8 @@ def create_storyteller_graph(checkpointer: MemorySaver | None = None):
     workflow.add_node("generate_narrative", generate_narrative_node)
     workflow.add_node("parse_output", parse_output_node)
     workflow.add_node("generate_summary", generate_summary_node)
-    workflow.add_node("generate_image", generate_image_node)
     workflow.add_node("generate_audio", generate_audio_node)
+    workflow.add_node("generate_image", generate_image_node)
     workflow.add_node("check_beat_complete", check_beat_complete_node)
     workflow.add_node("deduct_credits", deduct_credits_node)
 
@@ -64,33 +65,18 @@ def create_storyteller_graph(checkpointer: MemorySaver | None = None):
         "error": None  # Clear error after handling
     })
 
-    # ===== Define Edges =====
+    # ===== Define Edges (Linear Flow) =====
 
-    # Entry point - start with narrative generation (no RAG needed)
+    # Entry point - start with narrative generation
     workflow.set_entry_point("generate_narrative")
 
-    # Linear flow through core generation
+    # Linear flow through all stages
     workflow.add_edge("generate_narrative", "parse_output")
     workflow.add_edge("parse_output", "generate_summary")
-
-    # Conditional: Generate media or skip?
-    workflow.add_conditional_edges(
-        "generate_summary",
-        should_generate_media,
-        {
-            "generate_media": "generate_image",
-            "skip_media": "check_beat_complete"
-        }
-    )
-
-    # If generating media, do image then audio
-    workflow.add_edge("generate_image", "generate_audio")
-    workflow.add_edge("generate_audio", "check_beat_complete")
-
-    # After beat check, always deduct credits
+    workflow.add_edge("generate_summary", "generate_audio")
+    workflow.add_edge("generate_audio", "generate_image")
+    workflow.add_edge("generate_image", "check_beat_complete")
     workflow.add_edge("check_beat_complete", "deduct_credits")
-
-    # Final edge to END
     workflow.add_edge("deduct_credits", END)
 
     # Error handling (currently not wired - can be added later)
