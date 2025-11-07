@@ -1,7 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { StoryState, Choice } from '../types/story';
 import { api } from '../services/api';
-import { useStoryStream } from './useStoryStream';
 
 const STORAGE_KEY = 'storyteller_session';
 
@@ -18,8 +17,6 @@ export function useStory() {
     audioUrl: undefined,
   });
 
-  const { startStream, isStreaming, streamError } = useStoryStream();
-
   // Load session from localStorage on mount
   useEffect(() => {
     const savedSessionId = localStorage.getItem(STORAGE_KEY);
@@ -31,93 +28,81 @@ export function useStory() {
   const startStory = useCallback(async (worldId: string = 'west_haven') => {
     setState(prev => ({ ...prev, isLoading: true, error: null, narrative: '', choices: [] }));
 
-    // Use streaming for immersive experience
-    api.streamStartStory(
-      { world_id: worldId },
-      (event) => {
-        switch (event.type) {
-          case 'session':
-            // Save session to localStorage
-            localStorage.setItem(STORAGE_KEY, event.session_id);
-            setState(prev => ({ ...prev, sessionId: event.session_id }));
-            break;
+    try {
+      // Use non-streaming endpoint (streaming endpoints have been removed from backend)
+      const response = await api.startStory({ world_id: worldId });
 
-          case 'thinking':
-            setState(prev => ({ ...prev, isLoading: true }));
-            break;
+      // Save session to localStorage
+      localStorage.setItem(STORAGE_KEY, response.session_id);
 
-          case 'narrative_start':
-            // Reset narrative for streaming
-            setState(prev => ({ ...prev, narrative: '' }));
-            break;
+      // Update state with the complete response
+      setState(prev => ({
+        ...prev,
+        sessionId: response.session_id,
+        narrative: response.narrative,
+        choices: response.choices,
+        currentBeat: response.beat,
+        creditsRemaining: response.credits,
+        imageUrl: response.image_url,
+        audioUrl: response.audio_url,
+        isLoading: false,
+        error: null
+      }));
+    } catch (error) {
+      const errorMessage = error instanceof Error
+        ? error.message
+        : 'Failed to start story. Please try again.';
 
-          case 'word':
-            // Append each word as it arrives
-            setState(prev => ({
-              ...prev,
-              narrative: prev.narrative ? `${prev.narrative} ${event.word}` : event.word
-            }));
-            break;
-
-          case 'choices':
-            setState(prev => ({ ...prev, choices: event.choices, isLoading: false }));
-            break;
-
-          case 'image':
-            setState(prev => ({ ...prev, imageUrl: event.url }));
-            break;
-
-          case 'audio':
-            setState(prev => ({ ...prev, audioUrl: event.url }));
-            break;
-
-          case 'complete':
-            setState(prev => ({
-              ...prev,
-              currentBeat: event.beat,
-              creditsRemaining: event.credits,
-              isLoading: false,
-              error: null
-            }));
-            break;
-
-          case 'error':
-            setState(prev => ({
-              ...prev,
-              isLoading: false,
-              error: event.message
-            }));
-            break;
-        }
-      },
-      (error) => {
-        const errorMessage = error instanceof Error
-          ? error.message
-          : 'Failed to start story. Please try again.';
-
-        setState(prev => ({
-          ...prev,
-          isLoading: false,
-          error: errorMessage,
-        }));
-      }
-    );
+      setState(prev => ({
+        ...prev,
+        isLoading: false,
+        error: errorMessage,
+      }));
+    }
   }, []);
 
   const continueStory = useCallback(async (choice: Choice) => {
     if (!state.sessionId) {
-      setState(prev => ({ 
-        ...prev, 
-        error: 'No active session. Please start a new story.' 
+      setState(prev => ({
+        ...prev,
+        error: 'No active session. Please start a new story.'
       }));
       return;
     }
 
-    // Use streaming for story continuation
-    await startStream(state.sessionId, choice.id, (updates) => {
-      setState(prev => ({ ...prev, ...updates }));
-    });
-  }, [state.sessionId, startStream]);
+    setState(prev => ({ ...prev, isLoading: true, error: null }));
+
+    try {
+      // Use non-streaming endpoint (streaming endpoints have been removed from backend)
+      const response = await api.continueStory({
+        session_id: state.sessionId,
+        choice_id: choice.id
+      });
+
+      // Update state with the complete response
+      setState(prev => ({
+        ...prev,
+        narrative: response.narrative,
+        choices: response.choices,
+        currentBeat: response.beat,
+        creditsRemaining: response.credits,
+        imageUrl: response.image_url,
+        audioUrl: response.audio_url,
+        isLoading: false,
+        error: null
+      }));
+    } catch (error) {
+      const errorMessage = error instanceof Error
+        ? error.message
+        : 'Failed to continue story. Please try again.';
+
+      setState(prev => ({
+        ...prev,
+        isLoading: false,
+        error: errorMessage,
+      }));
+    }
+  }, [state.sessionId]);
 
   const clearError = useCallback(() => {
     setState(prev => ({ ...prev, error: null }));
@@ -138,8 +123,6 @@ export function useStory() {
 
   return {
     ...state,
-    isStreaming,
-    streamError,
     startStory,
     continueStory,
     clearError,
