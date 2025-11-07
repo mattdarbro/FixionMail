@@ -6,9 +6,18 @@ Handles story session creation, continuation, and retrieval.
 
 import uuid
 from datetime import datetime
+from pathlib import Path
 from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import JSONResponse
 import json
+
+# Get project root for story_worlds access
+def get_story_worlds_dir() -> Path:
+    """Get the story_worlds directory path (works from any execution location)."""
+    api_dir = Path(__file__).parent
+    backend_dir = api_dir.parent
+    project_root = backend_dir.parent
+    return project_root / "story_worlds"
 
 from backend.models.state import (
     StartStoryRequest,
@@ -171,9 +180,7 @@ active_sessions: dict[str, dict] = {}
 async def list_worlds():
     """List all available story worlds (based on world_template.json)."""
     try:
-        from pathlib import Path
-
-        story_worlds_dir = Path("story_worlds")
+        story_worlds_dir = get_story_worlds_dir()
         if not story_worlds_dir.exists():
             return []
 
@@ -208,9 +215,7 @@ async def start_story(request: StartStoryRequest):
         user_id = request.user_id or str(uuid.uuid4())
 
         # Validate world exists (check for world_template.json)
-        from pathlib import Path
-
-        world_template_path = Path("story_worlds") / request.world_id / "world_template.json"
+        world_template_path = get_story_worlds_dir() / request.world_id / "world_template.json"
         if not world_template_path.exists():
             raise HTTPException(
                 status_code=404,

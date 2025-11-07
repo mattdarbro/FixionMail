@@ -23,7 +23,10 @@ def load_world_template(world_id: str) -> dict:
     Raises:
         FileNotFoundError: If template doesn't exist
     """
-    template_path = Path("story_worlds") / world_id / "world_template.json"
+    # Get the project root (one level up from backend/)
+    backend_dir = Path(__file__).parent.parent
+    project_root = backend_dir.parent
+    template_path = project_root / "story_worlds" / world_id / "world_template.json"
 
     if not template_path.exists():
         raise FileNotFoundError(
