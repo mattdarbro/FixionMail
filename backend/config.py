@@ -184,10 +184,10 @@ class AppConfig(BaseSettings):
     )
 
     MAX_TOKENS: int = Field(
-        default=4000,
+        default=8000,  # Increased from 4000 to ensure 2500-word chapters + full JSON structure don't get truncated
         ge=100,
         le=8000,
-        description="Maximum tokens per LLM response (4000 = ~2500-3000 words)"
+        description="Maximum tokens per LLM response (8000 = ~5000-6000 words, needed for 2500-word chapters + JSON)"
     )
 
     # ===== Feature Toggles (for phased development) =====

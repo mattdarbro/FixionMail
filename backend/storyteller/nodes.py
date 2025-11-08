@@ -45,22 +45,38 @@ async def generate_narrative_node(state: StoryState) -> dict[str, Any]:
         world_template = load_world_template(state["world_id"])
 
         # Determine if this is the opening
-        is_opening = len(state["messages"]) == 0
+        # Check both message count and chapter number to be safe
+        is_opening = len(state["messages"]) == 0 or (len(state["messages"]) == 1 and state.get("chapter_number", 1) == 1)
+
+        print(f"\n{'='*70}")
+        print(f"DEBUG: GENERATE_NARRATIVE_NODE")
+        print(f"{'='*70}")
+        print(f"Is opening: {is_opening}")
+        print(f"Chapter number: {state.get('chapter_number', 1)}")
+        print(f"Message count: {len(state['messages'])}")
+        print(f"State keys: {list(state.keys())}")
 
         # Select appropriate prompt
         if is_opening:
             # Opening: Claude creates protagonist, scene, and initial story bible
+            print(f"✓ Using OPENING prompt for beat {state['current_beat']}")
             prompt = create_opening_prompt(world_template)
             messages = prompt.format_messages()
             print(f"✓ Generating opening narrative for beat {state['current_beat']}")
 
         else:
             # Continuation: Claude continues from last choice
+            print(f"✓ Using CONTINUATION prompt for beat {state['current_beat']}, chapter {state.get('chapter_number', 1)}")
             last_choice_continuation = state.get("last_choice_continuation", "")
+
+            print(f"Last choice continuation from state: '{last_choice_continuation[:100] if last_choice_continuation else 'EMPTY'}'")
 
             if not last_choice_continuation:
                 # Fallback if continuation not set (shouldn't happen)
+                print(f"⚠️  WARNING: last_choice_continuation is empty! Using fallback.")
                 last_choice_continuation = state["messages"][-1].content if state["messages"] else "Continue the story"
+                print(f"  Fallback value: '{last_choice_continuation[:100]}'")
+
 
             prompt = create_continuation_prompt(
                 world_template=world_template,
@@ -126,11 +142,25 @@ def parse_output_node(state: StoryState) -> dict[str, Any]:
         # Parse JSON from LLM response
         narrative_text = state["narrative_text"]
 
+        print(f"\n{'='*70}")
+        print(f"DEBUG: PARSE_OUTPUT_NODE - Chapter {state.get('chapter_number', 1)}")
+        print(f"{'='*70}")
+        print(f"Raw LLM output length: {len(narrative_text)} chars")
+        print(f"First 300 chars: {narrative_text[:300]}")
+        print(f"Last 100 chars: {narrative_text[-100:]}")
+
+        # Check if JSON looks complete
+        if narrative_text.strip().startswith('{') and not narrative_text.strip().endswith('}'):
+            print(f"⚠️  WARNING: JSON appears INCOMPLETE - starts with {{ but doesn't end with }}")
+            print(f"   This suggests the LLM response was TRUNCATED!")
+
         # Handle markdown code blocks if present
         if "```json" in narrative_text:
             narrative_text = narrative_text.split("```json")[1].split("```")[0]
+            print("⚠️  Removed ```json markdown wrapper")
         elif "```" in narrative_text:
             narrative_text = narrative_text.split("```")[1].split("```")[0]
+            print("⚠️  Removed ``` markdown wrapper")
 
         # Clean up the text
         narrative_text = narrative_text.strip()
@@ -159,9 +189,12 @@ def parse_output_node(state: StoryState) -> dict[str, Any]:
         # Try to parse JSON
         try:
             data = json.loads(narrative_text)
+            print(f"✓ JSON parsed successfully on first attempt")
         except json.JSONDecodeError as e:
             # If JSON has control characters, try to fix them
-            print(f"Initial JSON parse failed: {e}")
+            print(f"❌ Initial JSON parse failed: {e}")
+            print(f"   Error position: line {e.lineno}, column {e.colno}")
+            print(f"   Context around error: ...{narrative_text[max(0, e.pos-50):e.pos+50]}...")
             print(f"Attempting to fix control characters...")
 
             # Fix common control character issues in JSON strings
@@ -225,8 +258,17 @@ def parse_output_node(state: StoryState) -> dict[str, Any]:
         story_bible_update = data.get("story_bible_update", {})
         beat_progress_score = data.get("beat_progress", state.get("beat_progress_score", 0.0))
 
+        print(f"\n📊 Extracted from JSON:")
+        print(f"  Narrative length: {len(narrative)} chars")
+        print(f"  Choices count: {len(choices) if isinstance(choices, list) else 'NOT A LIST'}")
+        print(f"  Choices type: {type(choices).__name__}")
+        if isinstance(choices, list):
+            for i, ch in enumerate(choices):
+                print(f"  Choice {i}: {ch}")
+
         # Validate choices
         if not choices or not isinstance(choices, list):
+            print(f"❌ FALLBACK TRIGGERED: choices is empty or not a list")
             choices = [
                 {"id": 1, "text": "She continued forward, stepping into...", "tone": "neutral"},
                 {"id": 2, "text": "She hesitated, then carefully approached...", "tone": "cautious"},
@@ -278,15 +320,18 @@ def parse_output_node(state: StoryState) -> dict[str, Any]:
             validated_choices.append(validated_choice)
             print(f"✓ Validated choice {expected_id}: text='{text[:50]}...', tone={tone}")
 
+        print(f"\n📋 Validation complete: {len(validated_choices)} choices validated")
+
         # If we don't have exactly 3 choices, use fallback
         if len(validated_choices) != 3:
-            print(f"⚠️  Expected 3 choices, got {len(validated_choices)}, using fallback")
+            print(f"❌ FALLBACK TRIGGERED: Expected 3 choices, got {len(validated_choices)}, using generic fallback")
             choices = [
                 {"id": 1, "text": "She continued forward, stepping into...", "tone": "neutral"},
                 {"id": 2, "text": "She hesitated, then carefully approached...", "tone": "cautious"},
                 {"id": 3, "text": "She smiled despite herself and...", "tone": "hopeful"}
             ]
         else:
+            print(f"✓ Using validated choices (no fallback needed)")
             choices = validated_choices
 
         # Merge story_bible_update into generated_story_bible
