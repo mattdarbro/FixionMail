@@ -668,9 +668,9 @@ async def generate_audio_node(state: StoryState) -> dict[str, Any]:
     # Clean and prepare text for narration
     narrative_text = state["narrative_text"].strip()
 
-    # ElevenLabs API has a 10,000 character limit
-    # (Their Studio product supports more, but API is limited to 10K)
-    MAX_AUDIO_CHARS = 10000
+    # ElevenLabs Flash v2.5 supports up to 40,000 characters
+    # Our 2500-word chapters are ~15,000 chars, so set a safe limit of 20,000
+    MAX_AUDIO_CHARS = 20000
 
     if len(narrative_text) > MAX_AUDIO_CHARS:
         print(f"⚠️  Narrative is {len(narrative_text)} chars, truncating to {MAX_AUDIO_CHARS} for audio")
@@ -683,7 +683,7 @@ async def generate_audio_node(state: StoryState) -> dict[str, Any]:
             narrative_text = truncated + "..."
         print(f"  Truncated to {len(narrative_text)} chars for audio")
     else:
-        print(f"✓ Narrative is {len(narrative_text)} chars, within audio limit")
+        print(f"✓ Narrative is {len(narrative_text)} chars, within Flash v2.5 limit (max 40K)")
     
     max_retries = 3
     retry_delay = 2  # seconds
@@ -701,11 +701,12 @@ async def generate_audio_node(state: StoryState) -> dict[str, Any]:
             # Create ElevenLabs client
             client = ElevenLabs(api_key=config.ELEVENLABS_API_KEY)
 
-            # Generate audio using new SDK
+            # Generate audio using Flash v2.5 (supports up to 40,000 chars, faster than v1)
+            # This allows us to narrate full 2500-word chapters (~15,000 chars) without truncation
             audio_generator = client.text_to_speech.convert(
                 voice_id=config.ELEVENLABS_VOICE_ID,
                 text=narrative_text,
-                model_id="eleven_monolingual_v1",
+                model_id="eleven_flash_v2_5",  # Flash v2.5 supports 40K chars vs 10K for monolingual_v1
                 voice_settings={
                     "stability": 0.5,
                     "similarity_boost": 0.75
