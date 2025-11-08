@@ -154,6 +154,10 @@ GENERATION GUIDELINES:
 🎯 CRITICAL REQUIREMENT: Follow the 6-BEAT CHAPTER STRUCTURE below.
    Each beat is MANDATORY. Do not skip or combine beats.
 
+⚠️  IMPORTANT: These beat labels are STRUCTURAL GUIDELINES ONLY.
+   DO NOT include beat labels (like "BEAT 1: OPENING HOOK") in your narrative.
+   Write the narrative as seamless, flowing prose without section headers.
+
 📖 CHAPTER STRUCTURE (Write all 6 beats in order):
 
    BEAT 1: OPENING HOOK (300-400 words)
@@ -346,6 +350,10 @@ LAST CHOICE (Continue from here):
 
 🎯 CRITICAL REQUIREMENT: Follow the 6-BEAT CHAPTER STRUCTURE below.
    Each beat is MANDATORY. Do not skip or combine beats.
+
+⚠️  IMPORTANT: These beat labels are STRUCTURAL GUIDELINES ONLY.
+   DO NOT include beat labels (like "BEAT 1: OPENING HOOK") in your narrative.
+   Write the narrative as seamless, flowing prose without section headers.
 
 📖 CHAPTER STRUCTURE (Write all 6 beats in order):
 
