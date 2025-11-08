@@ -205,10 +205,13 @@ class EmailScheduler:
     ) -> str:
         """Generate HTML for chapter email"""
 
+        # Get base URL from environment (Railway URL in production, localhost in dev)
+        base_url = os.getenv("APP_BASE_URL", "http://localhost:8000")
+
         # Render choice buttons
         choice_buttons = '\n'.join([
             f'''
-            <a href="https://storykeeper.app/choice?s={session_id}&c={choice['id']}"
+            <a href="{base_url}/api/choice?s={session_id}&c={choice['id']}"
                style="display: block;
                       margin: 15px 0;
                       padding: 20px;
