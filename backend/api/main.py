@@ -191,6 +191,34 @@ async def startup_event():
                 traceback.print_exc()
                 # Don't raise - allow app to start, lazy init will handle it
 
+        # Initialize email system
+        if routes_loaded:
+            try:
+                from backend.api.routes import initialize_email_system
+                print("\n📧 Initializing email system...")
+                await initialize_email_system()
+                print("✓ Email system initialization complete")
+            except Exception as e:
+                print(f"⚠️  Error initializing email system during startup: {e}")
+                print("⚠️  Email features will be disabled")
+                import traceback
+                traceback.print_exc()
+                # Don't raise - allow app to start without email
+
+        # Start background email processor
+        if routes_loaded and os.getenv("ENABLE_EMAIL_SCHEDULER", "true").lower() == "true":
+            try:
+                from backend.email.background import start_background_processor
+                print("\n🔄 Starting background email processor...")
+                await start_background_processor()
+                print("✓ Background email processor started")
+            except Exception as e:
+                print(f"⚠️  Error starting background email processor: {e}")
+                print("⚠️  Scheduled emails will not be sent automatically")
+                import traceback
+                traceback.print_exc()
+                # Don't raise - allow app to start without background processor
+
         # Validate world templates exist (no longer using RAG)
         try:
             from pathlib import Path
@@ -216,6 +244,32 @@ async def startup_event():
     except Exception as e:
         print(f"⚠️  Startup event error (non-fatal): {e}")
         # Don't raise - allow app to continue for healthcheck
+
+
+# ===== Shutdown Event =====
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup on shutdown."""
+    try:
+        print("\n" + "=" * 60)
+        print("Storyteller API Shutting Down...")
+        print("=" * 60)
+
+        # Stop background email processor
+        try:
+            from backend.email.background import stop_background_processor
+            print("🔄 Stopping background email processor...")
+            stop_background_processor()
+            print("✓ Background email processor stopped")
+        except Exception as e:
+            print(f"⚠️  Error stopping background email processor: {e}")
+
+        print("=" * 60)
+        print("Shutdown complete")
+        print("=" * 60)
+    except Exception as e:
+        print(f"⚠️  Shutdown event error: {e}")
 
 
 if __name__ == "__main__":

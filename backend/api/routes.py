@@ -5,10 +5,11 @@ Handles story session creation, continuation, and retrieval.
 """
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import JSONResponse
 import json
+import os
 
 from backend.models.state import (
     StartStoryRequest,
@@ -23,6 +24,8 @@ from backend.models.state import (
     format_choice_for_api
 )
 from backend.storyteller.graph import create_persistent_graph, run_story_turn
+from backend.email.database import EmailDatabase
+from backend.email.scheduler import EmailScheduler
 
 # Import config at module level
 try:
@@ -42,6 +45,31 @@ router = APIRouter(tags=["story"])
 # Global graph instance with persistence
 story_graph = None
 story_graph_checkpointer = None
+
+# Global email scheduler instance
+email_db = None
+email_scheduler = None
+
+async def initialize_email_system():
+    """Initialize email database and scheduler (call during app startup)."""
+    global email_db, email_scheduler
+
+    if email_db is None:
+        try:
+            # Use environment variable for email DB path, or default
+            email_db_path = os.getenv("EMAIL_DB_PATH", "email_scheduler.db")
+            print(f"📧 Initializing email system with DB: {email_db_path}")
+
+            email_db = EmailDatabase(email_db_path)
+            await email_db.connect()
+
+            email_scheduler = EmailScheduler(email_db)
+            print(f"✓ Email system initialized successfully")
+        except Exception as e:
+            print(f"⚠️  Error initializing email system: {e}")
+            import traceback
+            traceback.print_exc()
+            raise
 
 async def initialize_story_graph():
     """Initialize the story graph with async checkpointer (call during app startup)."""
@@ -239,9 +267,33 @@ async def start_story(request: StartStoryRequest):
         active_sessions[session_id] = {
             "user_id": user_id,
             "world_id": request.world_id,
+            "email": request.email,  # Store email for later use
             "created_at": datetime.utcnow().isoformat(),
             "last_access": datetime.utcnow().isoformat()
         }
+
+        # Store user email in database if provided
+        if request.email and email_db:
+            await email_db.store_user(
+                user_id=user_id,
+                email=request.email,
+                session_id=session_id,
+                world_id=request.world_id
+            )
+            print(f"📧 Stored email for user {user_id}: {request.email}")
+
+            # Send welcome email (optional - can be enabled/disabled via env var)
+            if os.getenv("SEND_WELCOME_EMAIL", "false").lower() == "true" and email_scheduler:
+                # Schedule first chapter for tomorrow at 8 AM
+                tomorrow_8am = (datetime.utcnow() + timedelta(days=1)).replace(hour=8, minute=0, second=0, microsecond=0)
+                try:
+                    await email_scheduler.send_welcome_email(
+                        user_email=request.email,
+                        first_chapter_time=tomorrow_8am
+                    )
+                    print(f"✅ Sent welcome email to {request.email}")
+                except Exception as e:
+                    print(f"⚠️  Failed to send welcome email: {e}")
 
         # Build response
         response = StartStoryResponse(
@@ -380,6 +432,47 @@ async def continue_story(request: ContinueStoryRequest):
                     "message": "You've run out of story credits. Please purchase more to continue."
                 }
             )
+
+        # Schedule next chapter email if user has email stored
+        session_info = active_sessions.get(request.session_id, {})
+        user_email = session_info.get("email")
+
+        if user_email and email_scheduler and outputs.get("audio_url"):
+            # Determine send time: immediate (dev mode) or scheduled (tomorrow 8am)
+            dev_mode = os.getenv("EMAIL_DEV_MODE", "false").lower() == "true"
+
+            if dev_mode:
+                # Dev mode: send immediately
+                print(f"📧 [DEV MODE] Sending chapter {outputs['current_beat']} immediately to {user_email}")
+                try:
+                    await email_scheduler.send_immediate(
+                        user_email=user_email,
+                        session_id=request.session_id,
+                        chapter_number=outputs["current_beat"],
+                        audio_url=outputs["audio_url"],
+                        image_url=outputs.get("image_url"),
+                        choices=outputs["choices"]
+                    )
+                except Exception as e:
+                    print(f"⚠️  Failed to send immediate email: {e}")
+            else:
+                # Production mode: schedule for tomorrow at 8 AM
+                tomorrow_8am = (datetime.utcnow() + timedelta(days=1)).replace(
+                    hour=8, minute=0, second=0, microsecond=0
+                )
+                print(f"📧 Scheduling chapter {outputs['current_beat']} for {user_email} at {tomorrow_8am}")
+                try:
+                    await email_scheduler.schedule_chapter(
+                        user_email=user_email,
+                        session_id=request.session_id,
+                        chapter_number=outputs["current_beat"],
+                        audio_url=outputs["audio_url"],
+                        image_url=outputs.get("image_url"),
+                        choices=outputs["choices"],
+                        send_at=tomorrow_8am
+                    )
+                except Exception as e:
+                    print(f"⚠️  Failed to schedule email: {e}")
 
         # Build response
         response = ContinueStoryResponse(

@@ -79,6 +79,7 @@ class StartStoryRequest(BaseModel):
 
     world_id: str = Field(default="tfogwf", description="Story world to load")
     user_id: str | None = Field(default=None, description="Existing user ID (auto-generated if not provided)")
+    email: str | None = Field(default=None, description="User email for chapter delivery")
 
 
 class StartStoryResponse(BaseModel):
