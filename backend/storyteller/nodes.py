@@ -668,15 +668,22 @@ async def generate_audio_node(state: StoryState) -> dict[str, Any]:
     # Clean and prepare text for narration
     narrative_text = state["narrative_text"].strip()
 
-    # ElevenLabs supports up to 100K characters on paid plans
-    # For 2500-word chapters (~15,000 chars), we'll set a limit of 20,000 to be safe
+    # ElevenLabs Flash v2.5 supports up to 40,000 characters
+    # Our 2500-word chapters are ~15,000 chars, so set a safe limit of 20,000
     MAX_AUDIO_CHARS = 20000
 
     if len(narrative_text) > MAX_AUDIO_CHARS:
         print(f"⚠️  Narrative is {len(narrative_text)} chars, truncating to {MAX_AUDIO_CHARS} for audio")
-        narrative_text = narrative_text[:MAX_AUDIO_CHARS] + "..."
+        # Try to truncate at a sentence boundary
+        truncated = narrative_text[:MAX_AUDIO_CHARS]
+        last_period = truncated.rfind('. ')
+        if last_period > MAX_AUDIO_CHARS - 500:  # If period is near the end
+            narrative_text = truncated[:last_period + 1]
+        else:
+            narrative_text = truncated + "..."
+        print(f"  Truncated to {len(narrative_text)} chars for audio")
     else:
-        print(f"✓ Narrative is {len(narrative_text)} chars, within audio limit")
+        print(f"✓ Narrative is {len(narrative_text)} chars, within Flash v2.5 limit (max 40K)")
     
     max_retries = 3
     retry_delay = 2  # seconds
@@ -694,11 +701,12 @@ async def generate_audio_node(state: StoryState) -> dict[str, Any]:
             # Create ElevenLabs client
             client = ElevenLabs(api_key=config.ELEVENLABS_API_KEY)
 
-            # Generate audio using new SDK
+            # Generate audio using Flash v2.5 (supports up to 40,000 chars, faster than v1)
+            # This allows us to narrate full 2500-word chapters (~15,000 chars) without truncation
             audio_generator = client.text_to_speech.convert(
                 voice_id=config.ELEVENLABS_VOICE_ID,
                 text=narrative_text,
-                model_id="eleven_monolingual_v1",
+                model_id="eleven_flash_v2_5",  # Flash v2.5 supports 40K chars vs 10K for monolingual_v1
                 voice_settings={
                     "stability": 0.5,
                     "similarity_boost": 0.75
@@ -730,15 +738,20 @@ async def generate_audio_node(state: StoryState) -> dict[str, Any]:
         except Exception as e:
             error_msg = str(e)
             print(f"⚠️  Audio generation failed (attempt {attempt + 1}/{max_retries}): {error_msg}")
-            
+
             # Check for authentication errors
             if "401" in error_msg or "unauthorized" in error_msg.lower() or "authentication" in error_msg.lower() or "invalid api key" in error_msg.lower():
                 print("⚠️  ElevenLabs API authentication failed. Check ELEVENLABS_API_KEY.")
                 return {"audio_url": None}  # Don't retry auth errors
-            
-            # Check for quota/limit errors
-            if "429" in error_msg or "quota" in error_msg.lower() or "limit" in error_msg.lower():
-                print("⚠️  ElevenLabs API quota exceeded.")
+
+            # Check for character limit errors (shouldn't happen now with pre-truncation)
+            if "max_character_limit_exceeded" in error_msg.lower() or "character limit" in error_msg.lower():
+                print("⚠️  ElevenLabs character limit exceeded (shouldn't happen - check truncation logic)")
+                return {"audio_url": None}
+
+            # Check for quota/rate limit errors
+            if "429" in error_msg or "quota" in error_msg.lower() or "rate limit" in error_msg.lower():
+                print("⚠️  ElevenLabs API quota/rate limit exceeded.")
                 return {"audio_url": None}  # Don't retry quota errors
             
             if attempt < max_retries - 1:

@@ -151,25 +151,72 @@ Love Interest Archetype: {character_arc.get("love_interest", {}).get("archetype"
 GENERATION GUIDELINES:
 {guidelines_json}
 
+🎯 CRITICAL REQUIREMENT: Follow the 6-BEAT CHAPTER STRUCTURE below.
+   Each beat is MANDATORY. Do not skip or combine beats.
+
+📖 CHAPTER STRUCTURE (Write all 6 beats in order):
+
+   BEAT 1: OPENING HOOK (300-400 words)
+   - Immediate sensory detail that pulls reader in
+   - Character in action or reaction to situation
+   - Set the scene with vivid, specific details
+   - Establish mood and atmosphere
+
+   BEAT 2: CONTEXT/GROUNDING (300-400 words)
+   - Character's internal state and thoughts
+   - Brief relevant backstory or explanation
+   - Establish what's at stake for the character
+   - Show character's personality through their perspective
+
+   BEAT 3: ESCALATION (400-500 words)
+   - New information, complication, or discovery
+   - Action sequence or meaningful interaction
+   - Raise tension or introduce conflict
+   - Move the plot forward with specific events
+
+   BEAT 4: TURNING POINT (400-500 words)
+   - The biggest moment of this chapter
+   - Character makes a decision or faces a challenge
+   - Emotional peak or revelation
+   - This is the heart of the chapter - make it count
+
+   BEAT 5: AFTERMATH/PROCESSING (300-400 words)
+   - Character reacts to what just happened
+   - New understanding, question, or realization
+   - Breathing room with reflection
+   - Show impact of the turning point
+
+   BEAT 6: CHAPTER ENDING (300-400 words)
+   - Clear forward momentum into next chapter
+   - Hook that makes reader want to continue
+   - Leave character in new situation or with new goal
+   - End on a strong image or moment
+
+   TOTAL TARGET: 2300-2700 words across all 6 beats
+
 YOUR TASK:
 1. CREATE the protagonist (name, age, occupation, personality) based on the archetype
-2. WRITE Chapter 1 (~2500 words) that:
-   - Establishes atmosphere immediately
-   - Shows protagonist in crisis/transition
-   - Introduces the setting viscerally
-   - Write in {pov}
-   - TARGET LENGTH: Approximately 2500 words (full chapter for audiobook experience)
-   - Structure: Multiple scenes/moments that build emotional investment
+
+2. WRITE Chapter 1 following the 6-BEAT STRUCTURE above:
+   ⚠️  You MUST write all 6 beats in sequence
+   ⚠️  Each beat should hit its target word count
+   ⚠️  Write in {pov}
+   ⚠️  Include dialogue, internal thoughts, sensory details, and action
+   ⚠️  Make each beat distinct and purposeful
+
 3. CREATE 3 choice continuations that START the next chapter:
    - Each continuation should be 1-3 sentences that naturally flow into Chapter 2
    - Offer different emotional approaches (cautious, bold, vulnerable, etc.)
    - Make them feel like narrative, not game choices
+
 4. GENERATE an image prompt for the chapter's key scene
+
 5. BUILD initial story bible with protagonist details
 
 CHAPTER PACING:
 - This is Chapter 1 of 30 (3% of total story)
-- Take time to establish world and character
+- Take time to establish world and character - DON'T RUSH
+- Multiple scenes showing character's situation
 - Create emotional connection with protagonist
 - End with clear stakes and forward momentum
 
@@ -297,17 +344,64 @@ GENERATED STORY BIBLE:
 LAST CHOICE (Continue from here):
 "{last_choice_continuation}"
 
+🎯 CRITICAL REQUIREMENT: Follow the 6-BEAT CHAPTER STRUCTURE below.
+   Each beat is MANDATORY. Do not skip or combine beats.
+
+📖 CHAPTER STRUCTURE (Write all 6 beats in order):
+
+   BEAT 1: OPENING HOOK (300-400 words)
+   - Start by seamlessly incorporating the choice continuation text
+   - Immediate action or reaction continuing from the choice
+   - Vivid sensory details of the current moment
+   - Establish the scene and mood
+
+   BEAT 2: CONTEXT/DEVELOPMENT (300-400 words)
+   - Character's thoughts and feelings about current situation
+   - Advance the plot thread from last chapter
+   - Show character processing or observing
+   - Deepen the current situation
+
+   BEAT 3: ESCALATION (400-500 words)
+   - New complication, discovery, or interaction
+   - Meaningful dialogue or action sequence
+   - Raise stakes or tension
+   - Move toward the beat goal: {beat_info.get("goal", "")}
+
+   BEAT 4: TURNING POINT (400-500 words)
+   - The pivotal moment of this chapter
+   - Character decision, revelation, or confrontation
+   - Emotional climax of the chapter
+   - Progress character arc: {character_arc.get("protagonist", {}).get("archetype", "")}
+
+   BEAT 5: AFTERMATH/PROCESSING (300-400 words)
+   - Character reacts to the turning point
+   - New understanding or question emerges
+   - Show growth or change in character
+   - Reflection and breathing room
+
+   BEAT 6: CHAPTER ENDING (300-400 words)
+   - Strong forward momentum
+   - Hook for next chapter
+   - New situation, goal, or question
+   - End on compelling moment
+
+   TOTAL TARGET: 2300-2700 words across all 6 beats
+
 YOUR TASK:
-1. CONTINUE seamlessly from the choice continuation above
-2. WRITE Chapter {chapter_number} (~2500 words) that:
-   - Flows naturally from the continuation
-   - Advances toward beat goal
-   - Write in {pov}
-   - Shows character growth appropriate to this point in arc
-   - TARGET LENGTH: Approximately 2500 words (full audiobook chapter)
-   - Structure: Multiple scenes/moments with natural pacing
+1. CONTINUE seamlessly from the choice continuation (incorporate it into Beat 1)
+
+2. WRITE Chapter {chapter_number} following the 6-BEAT STRUCTURE above:
+   ⚠️  You MUST write all 6 beats in sequence
+   ⚠️  Each beat should hit its target word count
+   ⚠️  Write in {pov}
+   ⚠️  Include dialogue, internal thoughts, sensory details, and action
+   ⚠️  Make each beat distinct and purposeful
+   ⚠️  Advance toward beat goal: {beat_info.get("goal", "")}
+
 3. CREATE 3 new choice continuations for Chapter {chapter_number + 1}
+
 4. UPDATE story bible with any new details (characters, locations, events)
+
 5. ASSESS beat progress (0.0-1.0 where 1.0 = beat complete)
 
 STORY ARC PACING:
@@ -315,13 +409,15 @@ STORY ARC PACING:
 - {"Act 1 (Setup)" if story_progress_pct < 33 else "Act 2 (Confrontation)" if story_progress_pct < 75 else "Act 3 (Resolution)"}
 - Key moments to hit: {", ".join(beat_info.get("key_moments", []))}
 - Dramatic questions: {", ".join(beat_info.get("dramatic_questions", []))}
+- DON'T RUSH - Take time to develop scenes fully
 
 RESPONSE FORMAT (JSON only):
 """ + json_example + f"""
 
 Remember:
 - Continue FROM the last choice text (seamless flow)
-- TARGET 2500 WORDS for full audiobook chapter experience
+- MANDATORY: 2500 WORDS minimum for full audiobook chapter
+- Expand scenes with sensory details, dialogue, internal thoughts
 - Choices should feel like narrative options, not game buttons
 - Update story bible with NEW information only
 - Write in {pov}
