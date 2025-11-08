@@ -167,8 +167,8 @@ class AppConfig(BaseSettings):
 
     # ===== LLM Configuration =====
     MODEL_NAME: str = Field(
-        default="claude-3-haiku-20240307",
-        description="Claude model name for narrative generation (claude-3-haiku-20240307 for fast testing, claude-sonnet-4-20250514 for production)"
+        default="claude-haiku-4-5-20251001",
+        description="Claude model name for narrative generation (claude-haiku-4-5-20251001 supports up to 48K output tokens, fast and cost-effective)"
     )
 
     EMBEDDING_MODEL: str = Field(
