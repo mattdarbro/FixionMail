@@ -151,25 +151,36 @@ Love Interest Archetype: {character_arc.get("love_interest", {}).get("archetype"
 GENERATION GUIDELINES:
 {guidelines_json}
 
+🎯 CRITICAL REQUIREMENT: Your narrative MUST be approximately 2500 words.
+   This is NON-NEGOTIABLE. Audiobook chapters need substantial length.
+   Count your words. Aim for 2300-2700 words minimum in the "narrative" field.
+
 YOUR TASK:
 1. CREATE the protagonist (name, age, occupation, personality) based on the archetype
-2. WRITE Chapter 1 (~2500 words) that:
-   - Establishes atmosphere immediately
+
+2. WRITE Chapter 1 narrative (MANDATORY: 2500 words):
+   ⚠️  LENGTH REQUIREMENT: 2500 words (approximately 15,000 characters)
+   - This is a FULL CHAPTER, not a scene excerpt
+   - Establishes atmosphere immediately with rich sensory detail
    - Shows protagonist in crisis/transition
-   - Introduces the setting viscerally
+   - Introduces the setting viscerally through multiple scenes
    - Write in {pov}
-   - TARGET LENGTH: Approximately 2500 words (full chapter for audiobook experience)
-   - Structure: Multiple scenes/moments that build emotional investment
+   - Include 3-4 distinct scenes/moments that build emotional investment
+   - VERIFY your narrative is at least 2300 words before submitting
+
 3. CREATE 3 choice continuations that START the next chapter:
    - Each continuation should be 1-3 sentences that naturally flow into Chapter 2
    - Offer different emotional approaches (cautious, bold, vulnerable, etc.)
    - Make them feel like narrative, not game choices
+
 4. GENERATE an image prompt for the chapter's key scene
+
 5. BUILD initial story bible with protagonist details
 
 CHAPTER PACING:
 - This is Chapter 1 of 30 (3% of total story)
-- Take time to establish world and character
+- Take time to establish world and character - DON'T RUSH
+- Multiple scenes showing character's situation
 - Create emotional connection with protagonist
 - End with clear stakes and forward momentum
 
@@ -297,17 +308,27 @@ GENERATED STORY BIBLE:
 LAST CHOICE (Continue from here):
 "{last_choice_continuation}"
 
+🎯 CRITICAL REQUIREMENT: Your narrative MUST be approximately 2500 words.
+   This is NON-NEGOTIABLE. Audiobook chapters need substantial length.
+   Count your words. Aim for 2300-2700 words minimum in the "narrative" field.
+
 YOUR TASK:
-1. CONTINUE seamlessly from the choice continuation above
-2. WRITE Chapter {chapter_number} (~2500 words) that:
-   - Flows naturally from the continuation
-   - Advances toward beat goal
+1. CONTINUE seamlessly from the choice continuation above (incorporate it into the narrative)
+
+2. WRITE Chapter {chapter_number} narrative (MANDATORY: 2500 words):
+   ⚠️  LENGTH REQUIREMENT: 2500 words (approximately 15,000 characters)
+   - This is a FULL CHAPTER, not a scene excerpt
+   - Flows naturally from the continuation text
+   - Advances toward beat goal with rich detail
    - Write in {pov}
    - Shows character growth appropriate to this point in arc
-   - TARGET LENGTH: Approximately 2500 words (full audiobook chapter)
-   - Structure: Multiple scenes/moments with natural pacing
+   - Include 3-4 distinct scenes/moments with natural pacing
+   - VERIFY your narrative is at least 2300 words before submitting
+
 3. CREATE 3 new choice continuations for Chapter {chapter_number + 1}
+
 4. UPDATE story bible with any new details (characters, locations, events)
+
 5. ASSESS beat progress (0.0-1.0 where 1.0 = beat complete)
 
 STORY ARC PACING:
@@ -315,13 +336,15 @@ STORY ARC PACING:
 - {"Act 1 (Setup)" if story_progress_pct < 33 else "Act 2 (Confrontation)" if story_progress_pct < 75 else "Act 3 (Resolution)"}
 - Key moments to hit: {", ".join(beat_info.get("key_moments", []))}
 - Dramatic questions: {", ".join(beat_info.get("dramatic_questions", []))}
+- DON'T RUSH - Take time to develop scenes fully
 
 RESPONSE FORMAT (JSON only):
 """ + json_example + f"""
 
 Remember:
 - Continue FROM the last choice text (seamless flow)
-- TARGET 2500 WORDS for full audiobook chapter experience
+- MANDATORY: 2500 WORDS minimum for full audiobook chapter
+- Expand scenes with sensory details, dialogue, internal thoughts
 - Choices should feel like narrative options, not game buttons
 - Update story bible with NEW information only
 - Write in {pov}
