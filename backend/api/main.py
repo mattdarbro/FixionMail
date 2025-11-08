@@ -31,6 +31,7 @@ except Exception as e:
 # Import routes with error handling
 try:
     from backend.api.routes import router
+    from backend.api.email_choice import router as email_choice_router
     routes_loaded = True
 except Exception as e:
     print(f"⚠️  Routes loading failed: {e}")
@@ -38,6 +39,7 @@ except Exception as e:
     import traceback
     traceback.print_exc()
     router = None
+    email_choice_router = None
     routes_loaded = False
 
 # Create FastAPI app
@@ -61,6 +63,7 @@ app.add_middleware(
 # Include routes if they loaded successfully
 if routes_loaded and router:
     app.include_router(router, prefix="/api")
+    app.include_router(email_choice_router, prefix="/api")  # Email choice handler
 else:
     print("⚠️  Skipping routes registration due to initialization failure")
 
