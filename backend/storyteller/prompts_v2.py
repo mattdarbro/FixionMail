@@ -154,44 +154,52 @@ GENERATION GUIDELINES:
 🎯 CRITICAL REQUIREMENT: Follow the 6-BEAT CHAPTER STRUCTURE below.
    Each beat is MANDATORY. Do not skip or combine beats.
 
-⚠️  IMPORTANT: These beat labels are STRUCTURAL GUIDELINES ONLY.
-   DO NOT include beat labels (like "BEAT 1: OPENING HOOK") in your narrative.
-   Write the narrative as seamless, flowing prose without section headers.
-   BUT YOU MUST STILL WRITE ALL 6 BEATS AT FULL LENGTH!
+⚠️  IMPORTANT: You MUST include beat markers in this EXACT format:
+   --- BEAT 1: OPENING HOOK ---
 
-📖 CHAPTER STRUCTURE (Write all 6 beats in order):
+   Use this format at the start of each beat section. These markers will be
+   automatically removed before showing to readers, but they help you structure
+   the chapter properly and ensure you write ALL 6 BEATS AT FULL LENGTH!
 
-   BEAT 1: OPENING HOOK (300-400 words) ⚠️ WRITE THE FULL 300-400 WORDS!
+📖 CHAPTER STRUCTURE (Write all 6 beats in order with markers):
+
+   --- BEAT 1: OPENING HOOK ---
+   (300-400 words) ⚠️ WRITE THE FULL 300-400 WORDS!
    - Immediate sensory detail that pulls reader in
    - Character in action or reaction to situation
    - Set the scene with vivid, specific details
    - Establish mood and atmosphere
 
-   BEAT 2: CONTEXT/GROUNDING (300-400 words)
+   --- BEAT 2: CONTEXT/GROUNDING ---
+   (300-400 words) ⚠️ WRITE THE FULL 300-400 WORDS!
    - Character's internal state and thoughts
    - Brief relevant backstory or explanation
    - Establish what's at stake for the character
    - Show character's personality through their perspective
 
-   BEAT 3: ESCALATION (400-500 words) ⚠️ WRITE THE FULL 400-500 WORDS!
+   --- BEAT 3: ESCALATION ---
+   (400-500 words) ⚠️ WRITE THE FULL 400-500 WORDS!
    - New information, complication, or discovery
    - Action sequence or meaningful interaction
    - Raise tension or introduce conflict
    - Move the plot forward with specific events
 
-   BEAT 4: TURNING POINT (400-500 words) ⚠️ WRITE THE FULL 400-500 WORDS!
+   --- BEAT 4: TURNING POINT ---
+   (400-500 words) ⚠️ WRITE THE FULL 400-500 WORDS!
    - The biggest moment of this chapter
    - Character makes a decision or faces a challenge
    - Emotional peak or revelation
    - This is the heart of the chapter - make it count
 
-   BEAT 5: AFTERMATH/PROCESSING (300-400 words) ⚠️ WRITE THE FULL 300-400 WORDS!
+   --- BEAT 5: AFTERMATH/PROCESSING ---
+   (300-400 words) ⚠️ WRITE THE FULL 300-400 WORDS!
    - Character reacts to what just happened
    - New understanding, question, or realization
    - Breathing room with reflection
    - Show impact of the turning point
 
-   BEAT 6: CHAPTER ENDING (300-400 words) ⚠️ WRITE THE FULL 300-400 WORDS!
+   --- BEAT 6: CHAPTER ENDING ---
+   (300-400 words) ⚠️ WRITE THE FULL 300-400 WORDS!
    - Clear forward momentum into next chapter
    - Hook that makes reader want to continue
    - Leave character in new situation or with new goal
@@ -355,44 +363,52 @@ LAST CHOICE (Continue from here):
 🎯 CRITICAL REQUIREMENT: Follow the 6-BEAT CHAPTER STRUCTURE below.
    Each beat is MANDATORY. Do not skip or combine beats.
 
-⚠️  IMPORTANT: These beat labels are STRUCTURAL GUIDELINES ONLY.
-   DO NOT include beat labels (like "BEAT 1: OPENING HOOK") in your narrative.
-   Write the narrative as seamless, flowing prose without section headers.
-   BUT YOU MUST STILL WRITE ALL 6 BEATS AT FULL LENGTH!
+⚠️  IMPORTANT: You MUST include beat markers in this EXACT format:
+   --- BEAT 1: OPENING HOOK ---
 
-📖 CHAPTER STRUCTURE (Write all 6 beats in order):
+   Use this format at the start of each beat section. These markers will be
+   automatically removed before showing to readers, but they help you structure
+   the chapter properly and ensure you write ALL 6 BEATS AT FULL LENGTH!
 
-   BEAT 1: OPENING HOOK (300-400 words) ⚠️ WRITE THE FULL 300-400 WORDS!
+📖 CHAPTER STRUCTURE (Write all 6 beats in order with markers):
+
+   --- BEAT 1: OPENING HOOK ---
+   (300-400 words) ⚠️ WRITE THE FULL 300-400 WORDS!
    - Start by seamlessly incorporating the choice continuation text
    - Immediate action or reaction continuing from the choice
    - Vivid sensory details of the current moment
    - Establish the scene and mood
 
-   BEAT 2: CONTEXT/DEVELOPMENT (300-400 words) ⚠️ WRITE THE FULL 300-400 WORDS!
+   --- BEAT 2: CONTEXT/DEVELOPMENT ---
+   (300-400 words) ⚠️ WRITE THE FULL 300-400 WORDS!
    - Character's thoughts and feelings about current situation
    - Advance the plot thread from last chapter
    - Show character processing or observing
    - Deepen the current situation
 
-   BEAT 3: ESCALATION (400-500 words) ⚠️ WRITE THE FULL 400-500 WORDS!
+   --- BEAT 3: ESCALATION ---
+   (400-500 words) ⚠️ WRITE THE FULL 400-500 WORDS!
    - New complication, discovery, or interaction
    - Meaningful dialogue or action sequence
    - Raise stakes or tension
    - Move toward the beat goal: {beat_info.get("goal", "")}
 
-   BEAT 4: TURNING POINT (400-500 words) ⚠️ WRITE THE FULL 400-500 WORDS!
+   --- BEAT 4: TURNING POINT ---
+   (400-500 words) ⚠️ WRITE THE FULL 400-500 WORDS!
    - The pivotal moment of this chapter
    - Character decision, revelation, or confrontation
    - Emotional climax of the chapter
    - Progress character arc: {character_arc.get("protagonist", {}).get("archetype", "")}
 
-   BEAT 5: AFTERMATH/PROCESSING (300-400 words) ⚠️ WRITE THE FULL 300-400 WORDS!
+   --- BEAT 5: AFTERMATH/PROCESSING ---
+   (300-400 words) ⚠️ WRITE THE FULL 300-400 WORDS!
    - Character reacts to the turning point
    - New understanding or question emerges
    - Show growth or change in character
    - Reflection and breathing room
 
-   BEAT 6: CHAPTER ENDING (300-400 words) ⚠️ WRITE THE FULL 300-400 WORDS!
+   --- BEAT 6: CHAPTER ENDING ---
+   (300-400 words) ⚠️ WRITE THE FULL 300-400 WORDS!
    - Strong forward momentum
    - Hook for next chapter
    - New situation, goal, or question
