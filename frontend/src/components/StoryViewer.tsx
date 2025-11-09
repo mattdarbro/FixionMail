@@ -58,7 +58,13 @@ export function StoryViewer({
   }, [state.narrative, state.choices.length, state.isLoading]);
   // Show loading state
   if (state.isLoading || state.isStreaming) {
-    return <LoadingState message={state.isStreaming ? "Streaming story..." : "The story unfolds..."} />;
+    return (
+      <LoadingState
+        message={state.isStreaming ? "Streaming story..." : "The story unfolds..."}
+        chapterNumber={state.currentBeat || 1}
+        showDebugLog={true} // Set to false for production
+      />
+    );
   }
 
   // Show error state
