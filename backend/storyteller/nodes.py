@@ -21,6 +21,64 @@ from backend.config import config
 import re
 
 
+# ===== Helper: Prune Story Bible =====
+
+def prune_story_bible(story_bible: dict, current_chapter: int, max_events: int = 10) -> dict:
+    """
+    Prune story bible to prevent unbounded context growth.
+
+    Keeps only recent and essential information to prevent the story bible
+    from growing too large and slowing down generation.
+
+    Args:
+        story_bible: Current story bible dict
+        current_chapter: Current chapter number
+        max_events: Maximum number of key events to keep (default: 10)
+
+    Returns:
+        Pruned story bible
+    """
+    if not story_bible:
+        return story_bible
+
+    pruned = story_bible.copy()
+
+    # Limit key_events list to most recent events
+    if "key_events" in pruned and isinstance(pruned["key_events"], list):
+        if len(pruned["key_events"]) > max_events:
+            # Keep only the most recent events
+            pruned["key_events"] = pruned["key_events"][-max_events:]
+            print(f"   📋 Pruned key_events: {len(story_bible['key_events'])} → {len(pruned['key_events'])} events")
+
+    # Keep protagonist info (essential, doesn't grow much)
+    # Keep love_interest info (essential, doesn't grow much)
+
+    # Limit supporting_characters to most recently mentioned
+    if "supporting_characters" in pruned and isinstance(pruned["supporting_characters"], dict):
+        char_count = len(pruned["supporting_characters"])
+        if char_count > 5:
+            # Keep only first 5 (most important tend to be added early)
+            # In a more sophisticated version, we'd track "last mentioned" timestamps
+            pruned_chars = dict(list(pruned["supporting_characters"].items())[:5])
+            pruned["supporting_characters"] = pruned_chars
+            print(f"   📋 Pruned supporting_characters: {char_count} → {len(pruned_chars)} characters")
+
+    # Limit locations to avoid bloat
+    if "locations" in pruned and isinstance(pruned["locations"], dict):
+        loc_count = len(pruned["locations"])
+        if loc_count > 8:
+            # Keep current_location + first 7 locations
+            current_loc = pruned["locations"].get("current_location")
+            other_locs = {k: v for k, v in pruned["locations"].items() if k != "current_location"}
+            limited_locs = dict(list(other_locs.items())[:7])
+            if current_loc:
+                limited_locs["current_location"] = current_loc
+            pruned["locations"] = limited_locs
+            print(f"   📋 Pruned locations: {loc_count} → {len(limited_locs)} locations")
+
+    return pruned
+
+
 # ===== Helper: Ensure Target Word Count =====
 
 async def ensure_target_length(
@@ -253,6 +311,16 @@ async def generate_narrative_node(state: StoryState) -> dict[str, Any]:
         else:
             # Continuation: Claude continues from last choice
             print(f"✓ Using CONTINUATION prompt for beat {state['current_beat']}, chapter {state.get('chapter_number', 1)}")
+
+            # Log context size for monitoring
+            story_bible = state.get("generated_story_bible", {})
+            story_bible_size = len(json.dumps(story_bible))
+            summary_size = len(str(state.get("story_summary", [])))
+            print(f"📊 Context sizes:")
+            print(f"   Story Bible: {story_bible_size:,} chars")
+            print(f"   Summaries: {summary_size:,} chars (last {min(6, len(state.get('story_summary', [])))} of {len(state.get('story_summary', []))})")
+            print(f"   Estimated total context: ~{(story_bible_size + summary_size + 2000):,} chars (~{int((story_bible_size + summary_size + 2000) / 4)} tokens)")
+
             last_choice_continuation = state.get("last_choice_continuation", "")
 
             print(f"Last choice continuation from state: '{last_choice_continuation[:100] if last_choice_continuation else 'EMPTY'}'")
@@ -582,6 +650,9 @@ def parse_output_node(state: StoryState) -> dict[str, Any]:
             return result
 
         generated_story_bible = deep_merge(generated_story_bible, story_bible_update)
+
+        # Prune story bible to prevent unbounded growth
+        generated_story_bible = prune_story_bible(generated_story_bible, chapter_number)
 
         # Check if beat is complete based on progress score
         beat_progress = state.get("beat_progress", {}).copy()
