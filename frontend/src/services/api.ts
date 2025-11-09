@@ -18,16 +18,24 @@ class ApiError extends Error {
 
 async function fetchWithErrorHandling<T>(
   url: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  timeoutMs: number = 120000 // 2 minutes default
 ): Promise<T> {
+  // Create abort controller for timeout
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
   try {
     const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
       headers: {
         'Content-Type': 'application/json',
         ...options.headers,
       },
-      ...options,
     });
+
+    clearTimeout(timeoutId); // Clear timeout if request completes
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -40,10 +48,21 @@ async function fetchWithErrorHandling<T>(
 
     return await response.json();
   } catch (error) {
+    clearTimeout(timeoutId);
+
     if (error instanceof ApiError) {
       throw error;
     }
-    
+
+    // Handle abort/timeout
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new ApiError(
+        'Request timed out - story generation is taking longer than expected. Please try again.',
+        408,
+        'Request Timeout'
+      );
+    }
+
     // Network or other errors
     throw new ApiError(
       'Network error - please check your connection',
@@ -63,7 +82,8 @@ export const api = {
       {
         method: 'POST',
         body: JSON.stringify(request),
-      }
+      },
+      180000 // 3 minutes timeout for story generation (AI + image + audio)
     );
   },
 
@@ -76,7 +96,8 @@ export const api = {
       {
         method: 'POST',
         body: JSON.stringify(request),
-      }
+      },
+      180000 // 3 minutes timeout for story generation (AI + image + audio)
     );
   },
 

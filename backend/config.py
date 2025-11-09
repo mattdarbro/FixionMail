@@ -167,8 +167,8 @@ class AppConfig(BaseSettings):
 
     # ===== LLM Configuration =====
     MODEL_NAME: str = Field(
-        default="claude-haiku-4-5-20251001",
-        description="Claude model name for narrative generation (claude-haiku-4-5-20251001 supports up to 48K output tokens, fast and cost-effective)"
+        default="claude-sonnet-4-20250514",
+        description="Claude model name for narrative generation (claude-sonnet-4-20250514 is the strongest model for complex prompts and long-form content)"
     )
 
     EMBEDDING_MODEL: str = Field(
@@ -184,10 +184,10 @@ class AppConfig(BaseSettings):
     )
 
     MAX_TOKENS: int = Field(
-        default=8000,  # Increased from 4000 to ensure 2500-word chapters + full JSON structure don't get truncated
+        default=16000,  # Sonnet 4 supports up to 16K output - give it plenty of room for 2500-word chapters + JSON
         ge=100,
-        le=8000,
-        description="Maximum tokens per LLM response (8000 = ~5000-6000 words, needed for 2500-word chapters + JSON)"
+        le=16000,
+        description="Maximum tokens per LLM response (16000 = ~10K-12K words, ensures 2500-word chapters + JSON structure never get truncated)"
     )
 
     # ===== Feature Toggles (for phased development) =====
