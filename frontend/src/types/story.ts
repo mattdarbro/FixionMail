@@ -17,11 +17,15 @@ export interface StoryResponse {
 export interface StartStoryRequest {
   world_id: string;
   user_id?: string;
+  generate_audio?: boolean;  // Optional: control audio generation (default: from config)
+  generate_image?: boolean;  // Optional: control image generation (default: from config)
 }
 
 export interface ContinueStoryRequest {
   session_id: string;
   choice_id: number;
+  generate_audio?: boolean;  // Optional: control audio generation (default: from config)
+  generate_image?: boolean;  // Optional: control image generation (default: from config)
 }
 
 export interface StoryState {

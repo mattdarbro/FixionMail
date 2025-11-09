@@ -51,6 +51,11 @@ class StoryState(TypedDict):
     image_url: Annotated[str | None, "Generated image URL"]
     audio_url: Annotated[str | None, "Generated audio URL"]
 
+    # ===== Media Generation Settings (Optional Overrides) =====
+    generate_audio: Annotated[bool | None, "Override audio generation (None = use config)"]
+    generate_image: Annotated[bool | None, "Override image generation (None = use config)"]
+    voice_id: Annotated[str | None, "ElevenLabs voice ID override (None = use config default)"]
+
     # ===== User Management =====
     user_id: Annotated[str, "Session identifier (UUID)"]
     credits_remaining: Annotated[int, "Available story credits"]
@@ -80,6 +85,9 @@ class StartStoryRequest(BaseModel):
     world_id: str = Field(default="tfogwf", description="Story world to load")
     user_id: str | None = Field(default=None, description="Existing user ID (auto-generated if not provided)")
     email: str | None = Field(default=None, description="User email for chapter delivery")
+    generate_audio: bool | None = Field(default=None, description="Override audio generation (None = use config default)")
+    generate_image: bool | None = Field(default=None, description="Override image generation (None = use config default)")
+    voice_id: str | None = Field(default=None, description="ElevenLabs voice ID (None = use config default)")
 
 
 class StartStoryResponse(BaseModel):
@@ -101,6 +109,9 @@ class ContinueStoryRequest(BaseModel):
 
     session_id: str = Field(..., description="Active session identifier")
     choice_id: int = Field(..., ge=1, description="Selected choice ID")
+    generate_audio: bool | None = Field(default=None, description="Override audio generation (None = use config default)")
+    generate_image: bool | None = Field(default=None, description="Override image generation (None = use config default)")
+    voice_id: str | None = Field(default=None, description="ElevenLabs voice ID (None = use config default)")
 
 
 class ContinueStoryResponse(BaseModel):
@@ -187,7 +198,10 @@ def create_initial_state(
     user_id: str,
     world_id: str,
     credits: int = 25,
-    total_chapters: int = 30
+    total_chapters: int = 30,
+    generate_audio: bool | None = None,
+    generate_image: bool | None = None,
+    voice_id: str | None = None
 ) -> StoryState:
     """
     Create initial state for a new story session.
@@ -197,6 +211,9 @@ def create_initial_state(
         world_id: Story world to load
         credits: Starting credit amount
         total_chapters: Total chapters in story arc (default: 30)
+        generate_audio: Override audio generation (None = use config)
+        generate_image: Override image generation (None = use config)
+        voice_id: ElevenLabs voice ID override (None = use config default)
 
     Returns:
         Initialized StoryState ready for LangGraph
@@ -228,6 +245,10 @@ def create_initial_state(
         image_prompt=None,
         image_url=None,
         audio_url=None,
+        # Media generation settings
+        generate_audio=generate_audio,
+        generate_image=generate_image,
+        voice_id=voice_id,
         user_id=user_id,
         credits_remaining=credits,
         world_id=world_id,
