@@ -18,6 +18,151 @@ from backend.storyteller.prompts_v2 import (
     create_continuation_prompt
 )
 from backend.config import config
+import re
+
+
+# ===== Helper: Ensure Target Word Count =====
+
+async def ensure_target_length(
+    llm: ChatAnthropic,
+    narrative_json: str,
+    target_words: int = 2500,
+    tolerance: int = 200,
+    max_attempts: int = 2
+) -> str:
+    """
+    Ensure generated narrative meets target word count through iterative refinement.
+
+    LLMs are bad at counting words (they work in tokens). This function:
+    1. Parses the narrative from the JSON
+    2. Counts actual words
+    3. If outside tolerance, asks LLM to expand/trim
+    4. Repeats up to max_attempts times
+
+    Args:
+        llm: ChatAnthropic instance
+        narrative_json: JSON string with narrative field
+        target_words: Target word count (default 2500)
+        tolerance: Acceptable deviation (default ±200 words)
+        max_attempts: Maximum refinement iterations (default 2)
+
+    Returns:
+        Refined JSON with narrative at target length
+    """
+    current_json = narrative_json
+
+    for attempt in range(max_attempts):
+        # Parse JSON to extract narrative
+        try:
+            data = json.loads(current_json)
+            narrative = data.get("narrative", "")
+
+            # Strip beat markers for accurate count
+            narrative_clean = re.sub(r'^---\s*BEAT\s+\d+:.*?---\s*$', '', narrative, flags=re.MULTILINE)
+            narrative_clean = narrative_clean.strip()
+
+            # Count actual words
+            word_count = len(narrative_clean.split())
+            min_words = target_words - tolerance
+            max_words = target_words + tolerance
+
+            print(f"\n📏 Length Check (Attempt {attempt + 1}/{max_attempts}):")
+            print(f"   Current: {word_count} words")
+            print(f"   Target: {target_words} words (±{tolerance})")
+            print(f"   Range: {min_words}-{max_words} words")
+
+            # Check if acceptable
+            if min_words <= word_count <= max_words:
+                print(f"   ✅ Length is acceptable!")
+                return current_json
+
+            # Too short - ask for expansion
+            if word_count < min_words:
+                deficit = target_words - word_count
+                print(f"   ⚠️  Too short by {deficit} words. Requesting expansion...")
+
+                expansion_prompt = f"""The narrative below is too brief ({word_count} words).
+Expand it to approximately {target_words} words by enriching the existing content.
+
+EXPANSION GUIDELINES:
+- Add more sensory details (sights, sounds, textures, smells)
+- Deepen internal character thoughts and emotions
+- Expand scene descriptions with vivid imagery
+- Add meaningful dialogue or character reactions
+- Strengthen emotional moments
+
+IMPORTANT RULES:
+- DO NOT add new plot points or story beats
+- DO NOT skip or combine the 6-beat structure
+- Keep all existing beat markers: --- BEAT X: NAME ---
+- Enrich what's already there, don't create new scenes
+- Maintain the same JSON format
+
+Current JSON:
+{current_json}
+
+Return the COMPLETE JSON with the expanded narrative (target {target_words} words):"""
+
+                response = await llm.ainvoke([HumanMessage(content=expansion_prompt)])
+                current_json = response.content.strip()
+
+                # Clean markdown if present
+                if "```json" in current_json:
+                    current_json = current_json.split("```json")[1].split("```")[0].strip()
+                elif "```" in current_json:
+                    current_json = current_json.split("```")[1].split("```")[0].strip()
+
+            # Too long - ask for trimming
+            else:
+                excess = word_count - target_words
+                print(f"   ⚠️  Too long by {excess} words. Requesting trimming...")
+
+                trimming_prompt = f"""The narrative below is too long ({word_count} words).
+Trim it to approximately {target_words} words while preserving all key story beats.
+
+TRIMMING GUIDELINES:
+- Remove redundant descriptions
+- Tighten dialogue (fewer words, same meaning)
+- Cut unnecessary details that don't advance the story
+- Condense lengthy passages
+
+IMPORTANT RULES:
+- DO NOT remove plot points or story beats
+- DO NOT skip or combine the 6-beat structure
+- Keep all existing beat markers: --- BEAT X: NAME ---
+- Preserve emotional moments and character development
+- Maintain the same JSON format
+
+Current JSON:
+{current_json}
+
+Return the COMPLETE JSON with the trimmed narrative (target {target_words} words):"""
+
+                response = await llm.ainvoke([HumanMessage(content=trimming_prompt)])
+                current_json = response.content.strip()
+
+                # Clean markdown if present
+                if "```json" in current_json:
+                    current_json = current_json.split("```json")[1].split("```")[0].strip()
+                elif "```" in current_json:
+                    current_json = current_json.split("```")[1].split("```")[0].strip()
+
+        except json.JSONDecodeError as e:
+            print(f"   ❌ JSON parse error during refinement: {e}")
+            # Return what we have - the parse_output_node will handle it
+            break
+        except Exception as e:
+            print(f"   ❌ Error during length refinement: {e}")
+            break
+
+    # After max attempts, return final result
+    final_data = json.loads(current_json)
+    final_narrative = final_data.get("narrative", "")
+    final_clean = re.sub(r'^---\s*BEAT\s+\d+:.*?---\s*$', '', final_narrative, flags=re.MULTILINE).strip()
+    final_word_count = len(final_clean.split())
+    print(f"\n📋 Final length after {max_attempts} refinement attempts: {final_word_count} words")
+
+    return current_json
 
 
 # ===== Node 1: Generate Narrative =====
@@ -100,19 +245,29 @@ async def generate_narrative_node(state: StoryState) -> dict[str, Any]:
         # Generate narrative
         response = await llm.ainvoke(messages)
 
-        # Debug: print response statistics
+        # Debug: print initial response statistics
         response_text = response.content
         word_count = len(response_text.split())
         char_count = len(response_text)
-        print(f"\n📊 LLM Response Statistics:")
+        print(f"\n📊 Initial LLM Response Statistics:")
         print(f"   Characters: {char_count:,}")
         print(f"   Words (approx): {word_count:,}")
-        print(f"   Target was: ~2500 words")
+        print(f"   Target: ~2500 words")
         if word_count < 2000:
             print(f"   ⚠️  WARNING: Narrative is significantly shorter than target!")
         print(f"   First 200 chars: {response_text[:200]}")
 
-        return {"narrative_text": response.content}
+        # Iterative length refinement
+        # LLMs are bad at counting words, so we verify and refine if needed
+        refined_text = await ensure_target_length(
+            llm=llm,
+            narrative_json=response.content,
+            target_words=2500,
+            tolerance=200,  # Accept 2300-2700 words
+            max_attempts=2  # Up to 2 refinement iterations
+        )
+
+        return {"narrative_text": refined_text}
 
     except Exception as e:
         print(f"Error in generate_narrative_node: {e}")
