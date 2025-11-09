@@ -1,6 +1,7 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useStory } from './hooks/useStory';
 import { StoryViewer } from './components/StoryViewer';
+import { MediaControls } from './components/MediaControls';
 import { Choice } from './types/story';
 import { ThemeProvider } from './contexts/ThemeContext';
 
@@ -19,7 +20,16 @@ function App() {
     continueStory,
     clearError,
     resetStory,
+    // Media settings
+    audioEnabled,
+    imageEnabled,
+    selectedVoice,
+    setAudioEnabled,
+    setImageEnabled,
+    setVoiceId,
   } = useStory();
+
+  const [showMediaControls, setShowMediaControls] = useState(false);
 
   // Track if we've already started to prevent duplicate calls
   const hasStarted = useRef(false);
@@ -94,10 +104,33 @@ function App() {
                   </div>
                 </>
               )}
+
+              {/* Dev mode toggle */}
+              <button
+                onClick={() => setShowMediaControls(!showMediaControls)}
+                className="px-3 py-1 bg-dark-800 hover:bg-dark-700 text-dark-300 hover:text-dark-100 border border-primary-500/30 rounded-md transition-colors text-xs"
+                title="Toggle media controls"
+              >
+                ⚙️ Dev
+              </button>
             </div>
           </div>
         </div>
       </header>
+
+      {/* Media Controls (Dev Mode) */}
+      {showMediaControls && (
+        <div className="max-w-4xl mx-auto px-4 pt-4">
+          <MediaControls
+            audioEnabled={audioEnabled}
+            imageEnabled={imageEnabled}
+            selectedVoice={selectedVoice}
+            onAudioToggle={setAudioEnabled}
+            onImageToggle={setImageEnabled}
+            onVoiceChange={setVoiceId}
+          />
+        </div>
+      )}
 
       {/* Main content */}
       <main className="max-w-4xl mx-auto px-4 py-8">

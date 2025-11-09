@@ -688,14 +688,18 @@ async def generate_image_node(state: StoryState) -> dict[str, Any]:
     Returns:
         Updated state with image_url (local path)
     """
-    # Skip image generation if not enabled or no prompt
-    if not config.ENABLE_MEDIA_GENERATION:
+    # Check state-level override first, then config
+    should_generate = state.get("generate_image")
+    if should_generate is None:
+        should_generate = config.ENABLE_MEDIA_GENERATION and config.can_generate_images
+    elif should_generate:
+        # User wants image, but check if we CAN generate
+        should_generate = config.can_generate_images
+
+    if not should_generate:
+        print("⏭️  Skipping image generation (disabled)")
         return {"image_url": None}
-    
-    if not config.can_generate_images:
-        print("⚠️  Image generation disabled: Missing REPLICATE_API_TOKEN")
-        return {"image_url": None}
-    
+
     if not state.get("image_prompt"):
         return {"image_url": None}
 
@@ -822,14 +826,18 @@ async def generate_audio_node(state: StoryState) -> dict[str, Any]:
     Returns:
         Updated state with audio_url
     """
-    # Skip audio generation if not enabled or no text
-    if not config.ENABLE_MEDIA_GENERATION:
+    # Check state-level override first, then config
+    should_generate = state.get("generate_audio")
+    if should_generate is None:
+        should_generate = config.ENABLE_MEDIA_GENERATION and config.can_generate_audio
+    elif should_generate:
+        # User wants audio, but check if we CAN generate
+        should_generate = config.can_generate_audio
+
+    if not should_generate:
+        print("⏭️  Skipping audio generation (disabled)")
         return {"audio_url": None}
-    
-    if not config.can_generate_audio:
-        print("⚠️  Audio generation disabled: Missing ELEVENLABS_API_KEY")
-        return {"audio_url": None}
-    
+
     if not state.get("narrative_text"):
         return {"audio_url": None}
 
@@ -869,10 +877,13 @@ async def generate_audio_node(state: StoryState) -> dict[str, Any]:
             # Create ElevenLabs client
             client = ElevenLabs(api_key=config.ELEVENLABS_API_KEY)
 
+            # Get voice ID from state or config
+            voice_id = state.get("voice_id") or config.ELEVENLABS_VOICE_ID
+
             # Generate audio using Flash v2.5 (supports up to 40,000 chars, faster than v1)
             # This allows us to narrate full 2500-word chapters (~15,000 chars) without truncation
             audio_generator = client.text_to_speech.convert(
-                voice_id=config.ELEVENLABS_VOICE_ID,
+                voice_id=voice_id,  # Use state override or config default
                 text=narrative_text,
                 model_id="eleven_flash_v2_5",  # Flash v2.5 supports 40K chars vs 10K for monolingual_v1
                 voice_settings={

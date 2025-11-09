@@ -252,7 +252,10 @@ async def start_story(request: StartStoryRequest):
             user_id=user_id,
             world_id=request.world_id,
             credits=config.CREDITS_PER_NEW_USER,
-            total_chapters=config.TOTAL_CHAPTERS
+            total_chapters=config.TOTAL_CHAPTERS,
+            generate_audio=request.generate_audio,
+            generate_image=request.generate_image,
+            voice_id=request.voice_id
         )
 
         # Run first turn (opening narrative)
@@ -403,6 +406,14 @@ async def continue_story(request: ContinueStoryRequest):
 
         # Update state with the continuation text before running the turn
         previous_state["last_choice_continuation"] = choice_continuation
+
+        # Update media settings from request (if provided)
+        if request.generate_audio is not None:
+            previous_state["generate_audio"] = request.generate_audio
+        if request.generate_image is not None:
+            previous_state["generate_image"] = request.generate_image
+        if request.voice_id is not None:
+            previous_state["voice_id"] = request.voice_id
 
         # Format choice as user input (for message history)
         user_input = f"Choice {request.choice_id}: {choice_continuation[:100]}..."

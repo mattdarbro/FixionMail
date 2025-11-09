@@ -3,23 +3,22 @@
 ## Overview
 Add frontend toggles for audio/image generation and voice selection, while keeping audio always-on for email mode.
 
-## Status: IN PROGRESS
+## Status: ✅ COMPLETE
 
 ### ✅ Completed
 1. Added `generate_audio`, `generate_image`, `voice_id` to frontend types (`frontend/src/types/story.ts`)
 2. Added same fields to backend request models (`backend/models/state.py`)
 3. Added media settings to `StoryState` TypedDict
 4. Updated `create_initial_state()` to accept media settings
-
-### 🔄 In Progress
-5. Update API routes to pass settings from request to state
+5. Updated API routes to pass settings from request to state (`backend/api/routes.py`)
+6. Updated `generate_audio_node` to check state settings (`backend/storyteller/nodes.py:815`)
+7. Updated `generate_image_node` to check state settings (`backend/storyteller/nodes.py:680`)
+8. Added frontend MediaControls component (`frontend/src/components/MediaControls.tsx`)
+9. Updated `useStory` hook to manage media settings (`frontend/src/hooks/useStory.ts`)
+10. Integrated MediaControls into App with dev mode toggle (`frontend/src/App.tsx`)
 
 ### ⏳ TODO
-6. Update `generate_audio_node` to check state settings
-7. Update `generate_image_node` to check state settings
-8. Add frontend UI components (toggles + voice selector)
-9. Update `useStory` hook to manage media settings
-10. Test end-to-end
+- Test end-to-end functionality
 
 ---
 

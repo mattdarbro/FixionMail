@@ -17,6 +17,13 @@ export function useStory() {
     audioUrl: undefined,
   });
 
+  // Media settings state
+  const [mediaSettings, setMediaSettings] = useState({
+    audioEnabled: true,
+    imageEnabled: true,
+    voiceId: '21m00Tcm4TlvDq8ikWAM' // Rachel default
+  });
+
   // Load session from localStorage on mount
   useEffect(() => {
     const savedSessionId = localStorage.getItem(STORAGE_KEY);
@@ -30,7 +37,12 @@ export function useStory() {
 
     try {
       // Use non-streaming endpoint (streaming endpoints have been removed from backend)
-      const response = await api.startStory({ world_id: worldId });
+      const response = await api.startStory({
+        world_id: worldId,
+        generate_audio: mediaSettings.audioEnabled,
+        generate_image: mediaSettings.imageEnabled,
+        voice_id: mediaSettings.voiceId
+      });
 
       // Save session to localStorage
       localStorage.setItem(STORAGE_KEY, response.session_id);
@@ -59,7 +71,7 @@ export function useStory() {
         error: errorMessage,
       }));
     }
-  }, []);
+  }, [mediaSettings]);
 
   const continueStory = useCallback(async (choice: Choice) => {
     if (!state.sessionId) {
@@ -76,7 +88,10 @@ export function useStory() {
       // Use non-streaming endpoint (streaming endpoints have been removed from backend)
       const response = await api.continueStory({
         session_id: state.sessionId,
-        choice_id: choice.id
+        choice_id: choice.id,
+        generate_audio: mediaSettings.audioEnabled,
+        generate_image: mediaSettings.imageEnabled,
+        voice_id: mediaSettings.voiceId
       });
 
       // Update state with the complete response
@@ -102,7 +117,7 @@ export function useStory() {
         error: errorMessage,
       }));
     }
-  }, [state.sessionId]);
+  }, [state.sessionId, mediaSettings]);
 
   const clearError = useCallback(() => {
     setState(prev => ({ ...prev, error: null }));
@@ -121,11 +136,31 @@ export function useStory() {
     });
   }, []);
 
+  // Media settings handlers
+  const setAudioEnabled = useCallback((enabled: boolean) => {
+    setMediaSettings(prev => ({ ...prev, audioEnabled: enabled }));
+  }, []);
+
+  const setImageEnabled = useCallback((enabled: boolean) => {
+    setMediaSettings(prev => ({ ...prev, imageEnabled: enabled }));
+  }, []);
+
+  const setVoiceId = useCallback((voiceId: string) => {
+    setMediaSettings(prev => ({ ...prev, voiceId }));
+  }, []);
+
   return {
     ...state,
     startStory,
     continueStory,
     clearError,
     resetStory,
+    // Media settings
+    audioEnabled: mediaSettings.audioEnabled,
+    imageEnabled: mediaSettings.imageEnabled,
+    selectedVoice: mediaSettings.voiceId,
+    setAudioEnabled,
+    setImageEnabled,
+    setVoiceId,
   };
 }

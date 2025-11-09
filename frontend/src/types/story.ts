@@ -19,6 +19,7 @@ export interface StartStoryRequest {
   user_id?: string;
   generate_audio?: boolean;  // Optional: control audio generation (default: from config)
   generate_image?: boolean;  // Optional: control image generation (default: from config)
+  voice_id?: string;         // Optional: ElevenLabs voice ID (default: from config)
 }
 
 export interface ContinueStoryRequest {
@@ -26,6 +27,7 @@ export interface ContinueStoryRequest {
   choice_id: number;
   generate_audio?: boolean;  // Optional: control audio generation (default: from config)
   generate_image?: boolean;  // Optional: control image generation (default: from config)
+  voice_id?: string;         // Optional: ElevenLabs voice ID (default: from config)
 }
 
 export interface StoryState {
