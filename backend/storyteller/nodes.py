@@ -267,6 +267,19 @@ def parse_output_node(state: StoryState) -> dict[str, Any]:
         story_bible_update = data.get("story_bible_update", {})
         beat_progress_score = data.get("beat_progress", state.get("beat_progress_score", 0.0))
 
+        # Sanitize narrative: Remove beat markers (--- BEAT X: NAME ---)
+        import re
+        original_length = len(narrative)
+        narrative = re.sub(r'^---\s*BEAT\s+\d+:.*?---\s*$', '', narrative, flags=re.MULTILINE)
+        # Clean up any excessive blank lines left behind (max 2 consecutive newlines)
+        narrative = re.sub(r'\n{3,}', '\n\n', narrative)
+        # Trim leading/trailing whitespace
+        narrative = narrative.strip()
+
+        sanitized_length = len(narrative)
+        if sanitized_length < original_length:
+            print(f"✓ Sanitized beat markers: {original_length} → {sanitized_length} chars ({original_length - sanitized_length} removed)")
+
         # Calculate narrative statistics
         narrative_words = len(narrative.split()) if narrative else 0
         narrative_chars = len(narrative) if narrative else 0
