@@ -113,9 +113,17 @@ Return the COMPLETE JSON with the expanded narrative (target {target_words} word
 
                 # Clean markdown if present
                 if "```json" in current_json:
-                    current_json = current_json.split("```json")[1].split("```")[0].strip()
+                    cleaned = current_json.split("```json")[1].split("```")[0].strip()
+                    if cleaned:  # Only use cleaned version if it's not empty
+                        current_json = cleaned
+                    else:
+                        print(f"   ⚠️  Markdown cleaning resulted in empty string, using original")
                 elif "```" in current_json:
-                    current_json = current_json.split("```")[1].split("```")[0].strip()
+                    cleaned = current_json.split("```")[1].split("```")[0].strip()
+                    if cleaned:  # Only use cleaned version if it's not empty
+                        current_json = cleaned
+                    else:
+                        print(f"   ⚠️  Markdown cleaning resulted in empty string, using original")
 
             # Too long - ask for trimming
             else:
@@ -151,9 +159,17 @@ Return the COMPLETE JSON with the trimmed narrative (target {target_words} words
 
                 # Clean markdown if present
                 if "```json" in current_json:
-                    current_json = current_json.split("```json")[1].split("```")[0].strip()
+                    cleaned = current_json.split("```json")[1].split("```")[0].strip()
+                    if cleaned:  # Only use cleaned version if it's not empty
+                        current_json = cleaned
+                    else:
+                        print(f"   ⚠️  Markdown cleaning resulted in empty string, using original")
                 elif "```" in current_json:
-                    current_json = current_json.split("```")[1].split("```")[0].strip()
+                    cleaned = current_json.split("```")[1].split("```")[0].strip()
+                    if cleaned:  # Only use cleaned version if it's not empty
+                        current_json = cleaned
+                    else:
+                        print(f"   ⚠️  Markdown cleaning resulted in empty string, using original")
 
         except json.JSONDecodeError as e:
             print(f"   ❌ JSON parse error during refinement: {e}")
@@ -161,16 +177,27 @@ Return the COMPLETE JSON with the trimmed narrative (target {target_words} words
             break
         except Exception as e:
             print(f"   ❌ Error during length refinement: {e}")
+            # If refinement failed, return the original JSON instead of malformed result
+            print(f"   ⚠️  Returning original narrative due to refinement error")
+            current_json = narrative_json
             break
 
     # After max attempts, return final result
-    final_data = json.loads(current_json)
-    final_narrative = final_data.get("narrative", "")
-    final_clean = re.sub(r'^---\s*BEAT\s+\d+:.*?---\s*$', '', final_narrative, flags=re.MULTILINE).strip()
-    final_word_count = len(final_clean.split())
-    refinement_duration = time.time() - refinement_start
-    print(f"\n📋 Final length after {max_attempts} refinement attempts: {final_word_count} words")
-    print(f"⏱️  Refinement duration: {refinement_duration:.2f}s")
+    # Wrap in try-except in case final parse fails (e.g., if refinement timed out)
+    try:
+        final_data = json.loads(current_json)
+        final_narrative = final_data.get("narrative", "")
+        final_clean = re.sub(r'^---\s*BEAT\s+\d+:.*?---\s*$', '', final_narrative, flags=re.MULTILINE).strip()
+        final_word_count = len(final_clean.split())
+        refinement_duration = time.time() - refinement_start
+        print(f"\n📋 Final length after {max_attempts} refinement attempts: {final_word_count} words")
+        print(f"⏱️  Refinement duration: {refinement_duration:.2f}s")
+    except json.JSONDecodeError as e:
+        print(f"\n❌ Failed to parse final JSON for stats: {e}")
+        print(f"⏱️  Refinement duration: {time.time() - refinement_start:.2f}s")
+        print(f"⚠️  Returning original narrative (refinement failed)")
+        # If we can't parse the refined version, return the original
+        return narrative_json
 
     return current_json
 
