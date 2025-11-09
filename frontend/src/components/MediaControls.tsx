@@ -1,5 +1,3 @@
-import { useState } from 'react';
-
 interface MediaControlsProps {
   onAudioToggle: (enabled: boolean) => void;
   onImageToggle: (enabled: boolean) => void;
