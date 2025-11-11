@@ -419,12 +419,18 @@ async def continue_story(request: ContinueStoryRequest):
         user_input = f"Choice {request.choice_id}: {choice_continuation[:100]}..."
 
         # Run story turn with updated state
+        import time
+        turn_start = time.time()
+
         final_state, outputs = await run_story_turn(
             graph=graph,
             user_input=user_input,
             session_id=request.session_id,
             current_state=previous_state  # Pass updated state
         )
+
+        turn_duration = time.time() - turn_start
+        print(f"\n⏱️  run_story_turn completed in {turn_duration:.2f}s")
 
         # Check for errors
         if outputs.get("error"):
@@ -486,6 +492,9 @@ async def continue_story(request: ContinueStoryRequest):
                     print(f"⚠️  Failed to schedule email: {e}")
 
         # Build response
+        response_start = time.time()
+        print(f"📦 Building response object...")
+
         response = ContinueStoryResponse(
             session_id=request.session_id,
             current_beat=outputs["current_beat"],
@@ -496,6 +505,10 @@ async def continue_story(request: ContinueStoryRequest):
             audio_url=outputs.get("audio_url"),
             credits_remaining=outputs["credits_remaining"]
         )
+
+        response_duration = time.time() - response_start
+        print(f"✅ Response object built in {response_duration:.2f}s")
+        print(f"📤 Sending response to client...")
 
         return response
 
