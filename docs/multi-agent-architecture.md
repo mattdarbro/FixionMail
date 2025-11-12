@@ -143,12 +143,13 @@ This document describes the redesigned story generation system using a multi-age
 ---
 
 ### 3. Context Editor Agent (CEA)
-**Purpose:** RAG-based consistency checking - validates CBA output against established story facts
+**Purpose:** RAG-based consistency checking + strategic choice generation
 
 **When it runs:** Chapters 2-30 only (Chapter 1 has no context to check)
 
 **Input:**
 - CBA chapter beats (unvalidated)
+- SSBA story position guidance
 - RAG vector store (all previous chapters as paragraph chunks)
 - Story bible
 
@@ -156,12 +157,37 @@ This document describes the redesigned story generation system using a multi-age
 1. Extract entities from CBA beats: characters, locations, objects, facts
 2. For each entity, query RAG store for relevant past mentions
 3. Identify contradictions or inconsistencies
-4. Revise beat plan to maintain continuity
+4. Auto-fix contradictions in beat plan
+5. **Generate 3 strategic choices** based on validated beats + story position
 
 **Output:**
 ```json
 {
   "revised_chapter_beats": [ /* same structure as CBA, but corrected */ ],
+  "choices": [
+    {
+      "id": 1,
+      "text": "She decided to investigate alone, keeping this discovery secret as...",
+      "tone": "bold",
+      "story_consequence": "Pushes toward 'midpoint revelation' faster",
+      "consistency_validated": true
+    },
+    {
+      "id": 2,
+      "text": "She called Torres on the secure channel, knowing she'd need backup as...",
+      "tone": "cautious",
+      "story_consequence": "Strengthens relationship arc, slower pacing",
+      "consistency_validated": true,
+      "rag_check": "Torres confirmed available (Chapter 12, in engineering)"
+    },
+    {
+      "id": 3,
+      "text": "She paused, weighing the risks before deciding to...",
+      "tone": "thoughtful",
+      "story_consequence": "Allows player agency on pacing",
+      "consistency_validated": true
+    }
+  ],
   "consistency_checks": [
     {
       "beat_number": 1,
@@ -169,6 +195,7 @@ This document describes the redesigned story generation system using a multi-age
       "issue": "Original beat said 'Charlie walks through corridor'",
       "rag_finding": "Chapter 3, paragraph 12: 'The explosion left Charlie dependent on his wheelchair'",
       "correction": "Changed to 'Charlie wheels through corridor'",
+      "auto_fixed": true,
       "confidence": 0.95
     },
     {
@@ -177,6 +204,7 @@ This document describes the redesigned story generation system using a multi-age
       "issue": "Original beat included Dr. Chen in control room",
       "rag_finding": "Chapter 11, paragraph 45: 'Dr. Chen departed for Earth on supply shuttle'",
       "correction": "Replaced Dr. Chen with Lieutenant Torres",
+      "auto_fixed": true,
       "confidence": 0.88
     },
     {
@@ -185,6 +213,7 @@ This document describes the redesigned story generation system using a multi-age
       "issue": "Beat mentions 'signal frequency from Chapter 7'",
       "rag_finding": "Chapter 7, paragraph 23: 'The signal pulsed at 2.4 GHz, matching old radio astronomy band'",
       "correction": "Added detail: 'matches the 2.4 GHz pattern'",
+      "auto_fixed": true,
       "confidence": 0.92
     }
   ],
@@ -214,15 +243,16 @@ This document describes the redesigned story generation system using a multi-age
 ---
 
 ### 4. Prose Agent (PA)
-**Purpose:** Write 2500-word narrative prose from beat plan
+**Purpose:** Write 2500-word narrative prose from validated beat plan (PROSE ONLY - no strategic decisions)
 
 **Input (Chapter 1):**
 - CBA chapter beats (no CEA validation)
 - Story bible
 - World template
+- Choices (generated separately for Chapter 1)
 
 **Input (Chapters 2-30):**
-- CEA revised chapter beats
+- CEA revised chapter beats + validated choices
 - Story bible
 - Player's last choice (continuation text)
 - Last 3 chapter summaries
@@ -231,11 +261,6 @@ This document describes the redesigned story generation system using a multi-age
 ```json
 {
   "narrative": "The emergency klaxons screamed through the corridors...",  // ~2500 words
-  "choices": [
-    {"id": 1, "text": "She decided to...", "tone": "bold"},
-    {"id": 2, "text": "She carefully...", "tone": "cautious"},
-    {"id": 3, "text": "She paused to...", "tone": "thoughtful"}
-  ],
   "image_prompt": "Space station control room, dramatic lighting, holographic displays",
   "story_bible_update": {
     "key_events": ["Charlie discovered oxygen anomaly pattern"],
@@ -247,11 +272,15 @@ This document describes the redesigned story generation system using a multi-age
 }
 ```
 
-**Key difference from current system:** PA now follows a structured beat plan instead of generating everything from scratch. This should:
-- Reduce hallucinations
-- Improve consistency
-- Maintain quality prose
-- Actually be FASTER (less creative load)
+**Key differences from current system:**
+- PA now follows a structured beat plan instead of generating everything from scratch
+- **PA does NOT generate choices** - choices come from CEA (or simple generation for Chapter 1)
+- PA focuses purely on prose quality and story bible updates
+- This separation of concerns should:
+  - Reduce hallucinations
+  - Improve consistency (choices validated by CEA)
+  - Maintain quality prose
+  - Actually be FASTER (less creative load on PA)
 
 ---
 
@@ -337,9 +366,12 @@ SSBA: Create story structure (20-30s)
   ↓
 CBA: Create chapter 1 beats (15-20s)
   ↓
-PA: Write prose from beats (60-80s)
+generate_chapter1_choices_node (NEW - 10s)
+  ↓  (simple strategic choices based on beats + story structure)
   ↓
-parse_output_node
+PA: Write prose from beats (60-80s) - NO CHOICES
+  ↓
+parse_output_node (combine prose + choices)
   ↓
 generate_summary_node (5s)
   ↓
@@ -353,7 +385,7 @@ generate_image_node (15s)
   ↓
 Return to user
 
-Total: ~130-170s (similar to current)
+Total: ~140-180s
 ```
 
 **Chapters 2-30 Flow:**
@@ -364,11 +396,12 @@ SSBA: Check-in (5-10s - lightweight)
   ↓
 CBA: Create chapter beats (15-20s)
   ↓
-CEA: RAG consistency check + revise (20-30s)
+CEA: RAG consistency check + revise + GENERATE CHOICES (25-35s)
+  ↓  (validates beats AND creates strategic choices)
   ↓
-PA: Write prose from revised beats (60-80s)
+PA: Write prose from revised beats (60-80s) - NO CHOICES
   ↓
-parse_output_node
+parse_output_node (combine prose + choices)
   ↓
 generate_summary_node (5s)
   ↓
@@ -382,7 +415,7 @@ generate_image_node (15s)
   ↓
 Return to user
 
-Total: ~140-180s (10-30s longer, but MUCH more consistent)
+Total: ~150-190s (MUCH more consistent)
 ```
 
 ---
@@ -448,42 +481,49 @@ Total: ~140-180s (10-30s longer, but MUCH more consistent)
 
 ---
 
-### Phase 4: Context Editor Agent (4-5 hours)
-**Goal:** Create CEA for RAG-based consistency checking
+### Phase 4: Context Editor Agent (5-6 hours)
+**Goal:** Create CEA for RAG-based consistency checking + strategic choice generation
 
 **Tasks:**
 - [ ] Create `backend/rag/consistency_checker.py` - RAG query logic
 - [ ] Create prompt template: `prompts_v2.py::create_consistency_check_prompt()`
+- [ ] Create prompt template: `prompts_v2.py::create_strategic_choices_prompt()`
 - [ ] Create node: `context_editor_agent_node`
 - [ ] Implement entity extraction from beat plan
 - [ ] Implement RAG queries for each entity
-- [ ] Implement beat plan revision based on findings
-- [ ] Add conditional edge: skip CEA for Chapter 1
-- [ ] Test: Intentionally create contradiction, verify CEA catches it
+- [ ] Implement auto-fix for contradictions (no manual intervention)
+- [ ] **Implement strategic choice generation (3 choices)**
+- [ ] Add conditional edge: skip CEA for Chapter 1, use simple choice node instead
+- [ ] Create node: `generate_chapter1_choices_node` (simple version for Chapter 1)
+- [ ] Test: Intentionally create contradiction, verify CEA auto-fixes it
+- [ ] Test: Verify choices are informed by SSBA + validated beats
 
 **Files to create:**
 - `backend/rag/consistency_checker.py`
 
 **Files to modify:**
-- `backend/storyteller/prompts_v2.py` - add CEA prompts
-- `backend/storyteller/nodes.py` - add CEA node
+- `backend/storyteller/prompts_v2.py` - add CEA prompts + choice generation prompts
+- `backend/storyteller/nodes.py` - add CEA node + Chapter 1 choice node
 - `backend/storyteller/graph.py` - add CEA to workflow, conditional routing
 
 ---
 
 ### Phase 5: Prose Agent Modification (2-3 hours)
-**Goal:** Modify existing narrative generation to follow beat plans
+**Goal:** Modify existing narrative generation to follow beat plans (PROSE ONLY)
 
 **Tasks:**
 - [ ] Modify `generate_narrative_node` to accept beat plan input
+- [ ] **Remove choice generation from PA** - choices come from CEA
+- [ ] Update narrative prompt to focus on prose quality, not strategic decisions
 - [ ] Update narrative prompt to follow beat structure
 - [ ] Remove old beat marker system (replaced by structured beats)
 - [ ] Test: Compare prose quality with/without structured beats
 - [ ] Verify: 2500-word target still met
+- [ ] Verify: PA output contains NO choices (only narrative + image_prompt + story_bible_update)
 
 **Files to modify:**
 - `backend/storyteller/nodes.py` - modify `generate_narrative_node`
-- `backend/storyteller/prompts_v2.py` - update narrative prompt
+- `backend/storyteller/prompts_v2.py` - update narrative prompt (remove choice generation)
 
 ---
 
@@ -597,66 +637,69 @@ TOTAL_CHAPTERS = 30  # Default story length
 
 ## Migration Strategy
 
-**How do we transition without breaking existing stories?**
+**No current users = No backward compatibility needed**
 
-### Option 1: Feature Flag (Recommended)
-- Add `use_multi_agent` flag to session config
-- Old sessions continue with current system
-- New sessions use multi-agent system
-- Gradual rollout: 10% → 50% → 100%
+Since there are no active users yet, we can:
+- Build the multi-agent system properly from the ground up
+- No feature flags or gradual rollouts needed
+- Complete system replacement when ready
+- Focus on getting it right, not on migration complexity
 
-### Option 2: Parallel Systems
-- Run both systems side-by-side
-- Compare outputs for same prompts
-- Switch when multi-agent matches or exceeds quality
-
-### Option 3: Hard Cutover
-- Deploy multi-agent system
-- All new sessions use it
-- Old sessions complete with old system
-
-**Recommendation:** Option 1 with 2-week rollout period
+**Approach:** Hard cutover when multi-agent system passes tests
 
 ---
 
-## Open Questions
+## Decisions Made
 
-1. **Should CEA have authority to reject beat plans?**
-   - Auto-fix and proceed (faster, might introduce new issues)
-   - Alert and ask PA to handle gracefully (safer)
-   - Block generation and alert developer (strictest)
+### ✅ RESOLVED
 
-2. **How to handle irreconcilable contradictions?**
+1. **CEA Authority:** Auto-fix contradictions without manual intervention (scalability required)
+
+2. **Choice Generation:** CEA generates strategic choices (informed by SSBA + validated beats), NOT PA
+
+3. **Migration Strategy:** Hard cutover, no backward compatibility needed (no current users)
+
+4. **CEA Context Minimum:** Skip Chapter 1 only (start CEA from Chapter 2)
+
+---
+
+## Open Questions (Still Need Decisions)
+
+1. **How to handle irreconcilable contradictions from user choices?**
    - Example: User chose "Charlie walks away" but he's in wheelchair
-   - Option A: Ignore user choice, maintain consistency
-   - Option B: Respect choice, retcon previous chapters in story bible
-   - Option C: Acknowledge gracefully in prose: "Despite his injury, Charlie pushed himself to stand..."
+   - **Option A:** Maintain consistency, modify choice interpretation gracefully in prose
+   - **Option B:** Respect choice literally, retcon story bible (risky)
+   - **Option C:** Generate choices that CAN'T contradict (CEA validates before presenting)
+   - **Recommendation:** Option C - CEA should only generate choices that are consistent
 
-3. **Should SSBA be allowed to modify story structure mid-story?**
-   - Rigid: Lock story structure after Chapter 1
-   - Flexible: Allow SSBA to adapt based on player choices
-   - Hybrid: Allow minor adjustments, lock major beats
+2. **Should SSBA be allowed to modify story structure mid-story?**
+   - **Rigid:** Lock story structure after Chapter 1 (predictable)
+   - **Flexible:** Allow SSBA to adapt based on player choices (dynamic)
+   - **Hybrid:** Allow minor adjustments, lock major beats (balanced)
+   - **Recommendation:** Start rigid, evaluate after testing
 
-4. **What's the minimum context for CEA to be useful?**
-   - Currently: Skip Chapter 1
-   - Could skip Chapters 1-2? 1-3?
-   - Or run CEA even on Chapter 2 with limited context?
-
-5. **How to surface consistency checks to users?**
-   - Hidden: Just fix silently (current plan)
-   - Transparent: Show "consistency maintained" badge
-   - Educational: Show what was caught and fixed (might break immersion)
+3. **How to surface consistency checks to users?**
+   - **Hidden:** Fix silently, maintain immersion (current plan)
+   - **Transparent:** Show "consistency maintained" badge
+   - **Educational:** Show what was caught and fixed (breaks immersion)
+   - **Recommendation:** Hidden by default, optional debug mode for development
 
 ---
 
 ## Next Steps
 
-Please review this architecture and let me know:
+**Ready to implement!** The architecture is now aligned with your vision:
 
-1. ✅ Does this match your vision?
-2. ✅ Any changes to agent responsibilities?
-3. ❓ Which open questions need decisions?
-4. ❓ Should we start with Phase 1 (RAG infrastructure)?
-5. ❓ Do you want to test current fixes before starting multi-agent work?
+- ✅ Two-level beat system (SSBA + CBA)
+- ✅ CEA generates choices AND validates consistency
+- ✅ PA writes prose only (no strategic decisions)
+- ✅ Auto-fix contradictions (no manual intervention)
+- ✅ No backward compatibility needed
 
-Once you approve, I can start implementing Phase 1!
+**Proposed workflow:**
+1. You test current bug fixes on Railway
+2. While that's running, I start Phase 1 (RAG infrastructure)
+3. Proceed through phases 2-7 to build multi-agent system
+4. Test thoroughly before cutover
+
+**Ready to start Phase 1 when you give the word!** 🚀
