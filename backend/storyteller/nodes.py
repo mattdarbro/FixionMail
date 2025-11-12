@@ -659,6 +659,9 @@ def parse_output_node(state: StoryState) -> dict[str, Any]:
 
         generated_story_bible = deep_merge(generated_story_bible, story_bible_update)
 
+        # Get current chapter number for pruning and progress calculation
+        chapter_number = state.get("chapter_number", 1) + 1
+
         # Prune story bible to prevent unbounded growth
         generated_story_bible = prune_story_bible(generated_story_bible, chapter_number)
 
@@ -671,8 +674,7 @@ def parse_output_node(state: StoryState) -> dict[str, Any]:
         # Increment turns in beat
         turns_in_beat = state.get("turns_in_beat", 0) + 1
 
-        # Increment chapter number and calculate progress
-        chapter_number = state.get("chapter_number", 1) + 1
+        # Calculate story progress percentage
         total_chapters = state.get("total_chapters", 30)
         story_progress_pct = (chapter_number / total_chapters) * 100
 

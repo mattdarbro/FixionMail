@@ -160,10 +160,19 @@ async def run_story_turn(
     # Configuration for checkpointing
     graph_config = {"configurable": {"thread_id": session_id}}
 
-    # Run graph
+    # Run graph with timing to identify bottlenecks
+    import time
+    graph_start = time.time()
+    print(f"\n🔄 Running story graph for session {session_id}...")
+
     final_state = await graph.ainvoke(input_state, config=graph_config)
 
+    graph_duration = time.time() - graph_start
+    print(f"✅ Graph execution complete in {graph_duration:.2f}s")
+    print(f"   (includes all nodes + checkpoint save)")
+
     # Extract outputs for response
+    extract_start = time.time()
     outputs = {
         "narrative": final_state.get("narrative_text", ""),
         "choices": final_state.get("choices", []),
@@ -174,6 +183,13 @@ async def run_story_turn(
         "credits_remaining": final_state.get("credits_remaining", 0),
         "error": final_state.get("error")
     }
+    extract_duration = time.time() - extract_start
+    print(f"✅ Output extraction complete in {extract_duration:.2f}s")
+
+    # Log state size for debugging
+    import sys
+    state_size = sys.getsizeof(str(final_state))
+    print(f"📊 Final state size: {state_size:,} bytes")
 
     return final_state, outputs
 
