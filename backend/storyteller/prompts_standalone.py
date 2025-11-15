@@ -6,6 +6,7 @@ These replace the chapter-based prompts for the daily story service.
 
 import json
 from typing import Dict, Any
+from backend.storyteller.genre_rules import get_consistency_prompt
 
 
 def create_standalone_story_beat_prompt(
@@ -171,6 +172,10 @@ This is a STANDALONE story (not part of a series), but it exists in an establish
 **Defining Characteristic**: {protagonist.get('defining_characteristic', 'N/A')}
 **Background**: {protagonist.get('background', 'N/A')}
 **Voice**: {protagonist.get('voice', 'N/A')}
+
+## GENRE CONSISTENCY RULES ⭐
+
+{get_consistency_prompt(genre, story_bible)}
 
 ## SUPPORTING CHARACTERS (available to use)
 

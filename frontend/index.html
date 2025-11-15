@@ -107,11 +107,16 @@
                         <h2>Step 1: Create Your Story World</h2>
                         <div class="form-group">
                             <label>Genre</label>
-                            <select id="genre">
+                            <select id="genre" onchange="showGenreInfo()">
                                 <option value="scifi">🚀 Sci-Fi</option>
                                 <option value="mystery">🔍 Mystery</option>
                                 <option value="romance">💕 Romance</option>
+                                <option value="sitcom">😄 Sitcom</option>
+                                <option value="adventure">⚔️ Adventure</option>
                             </select>
+                            <div id="genre-info" style="margin-top: 10px; padding: 10px; background: #1a1a1a; border-left: 3px solid #667eea; font-size: 0.85rem; display: none;">
+                                <!-- Genre info will be shown here -->
+                            </div>
                         </div>
                         <div class="form-group">
                             <label>Setting (1-2 sentences)</label>
@@ -217,6 +222,58 @@
             logs.appendChild(entry);
             logs.scrollTop = logs.scrollHeight;
         }
+
+        const genreDescriptions = {
+            mystery: {
+                title: '🔍 Mystery/Detective',
+                description: 'Like Poirot or Miss Marple - same detective, different cases',
+                stays: ['The detective', 'Investigation style', 'Core personality'],
+                changes: ['The mystery', 'The suspects', 'The location', 'The crime']
+            },
+            scifi: {
+                title: '🚀 Science Fiction',
+                description: 'Same universe, characters can evolve - like Star Trek episodes',
+                stays: ['Universe rules', 'Tech level', 'Core world setting'],
+                changes: ['New situations', 'Character development', 'New discoveries']
+            },
+            romance: {
+                title: '💕 Romance',
+                description: 'New romantic journeys, but protagonist\'s voice stays consistent',
+                stays: ['Protagonist personality', 'General setting type', 'Recurring friends/family'],
+                changes: ['The love interest', 'Romantic journey', 'The obstacles']
+            },
+            sitcom: {
+                title: '😄 Sitcom',
+                description: 'Like Friends or Seinfeld - same characters, different situations',
+                stays: ['Main characters', 'Core locations', 'Character personalities'],
+                changes: ['The situation', 'The conflict', 'The jokes', 'Guest characters']
+            },
+            adventure: {
+                title: '⚔️ Adventure',
+                description: 'Like Indiana Jones - same adventurer(s), different quests',
+                stays: ['The adventurer', 'Core skills', 'Adventure style'],
+                changes: ['The quest', 'The location', 'The treasure/goal', 'The obstacles']
+            }
+        };
+
+        function showGenreInfo() {
+            const genre = document.getElementById('genre').value;
+            const info = genreDescriptions[genre];
+            const infoDiv = document.getElementById('genre-info');
+
+            if (info) {
+                infoDiv.innerHTML = `
+                    <strong>${info.title}</strong><br>
+                    <span style="color: #aaa;">${info.description}</span><br><br>
+                    <div style="color: #10b981;">✓ Stays consistent: ${info.stays.join(', ')}</div>
+                    <div style="color: #667eea; margin-top: 5px;">↻ Changes: ${info.changes.join(', ')}</div>
+                `;
+                infoDiv.style.display = 'block';
+            }
+        }
+
+        // Show genre info on load
+        window.addEventListener('DOMContentLoaded', showGenreInfo);
 
         async function createBible() {
             log('Creating bible...');
