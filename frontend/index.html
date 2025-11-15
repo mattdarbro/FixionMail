@@ -204,11 +204,22 @@
             if (!data.setting.trim()) return alert('Enter a setting');
 
             try {
+                log(`Calling: ${API_URL}/api/dev/onboarding`);
                 const res = await fetch(`${API_URL}/api/dev/onboarding`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify(data)
                 });
+
+                log(`Response status: ${res.status} ${res.statusText}`);
+
+                if (!res.ok) {
+                    const errorText = await res.text();
+                    log(`✗ HTTP Error ${res.status}: ${errorText}`);
+                    alert(`Error ${res.status}: ${errorText.substring(0, 200)}`);
+                    return;
+                }
+
                 const result = await res.json();
                 if (result.success) {
                     currentBible = result.bible;
@@ -221,17 +232,35 @@
                     `;
                     document.getElementById('onboarding-section').classList.add('hidden');
                     document.getElementById('bible-section').classList.remove('hidden');
+                } else {
+                    log(`✗ API Error: ${result.error || 'Unknown error'}`);
+                    alert(`API Error: ${result.error || 'Unknown error'}`);
                 }
             } catch (e) {
                 log('✗ Error: ' + e.message);
-                alert('Error: ' + e.message);
+                log('✗ Full error: ' + JSON.stringify(e));
+                alert('Error: ' + e.message + '\n\nCheck the debug logs for details.');
             }
         }
 
         async function generateStory() {
             log('Generating story (2-4 min)...');
             try {
-                const res = await fetch(`${API_URL}/api/dev/generate-story`, {method: 'POST'});
+                log(`Calling: ${API_URL}/api/dev/generate-story`);
+                const res = await fetch(`${API_URL}/api/dev/generate-story`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'}
+                });
+
+                log(`Response status: ${res.status} ${res.statusText}`);
+
+                if (!res.ok) {
+                    const errorText = await res.text();
+                    log(`✗ HTTP Error ${res.status}: ${errorText}`);
+                    alert(`Error ${res.status}: ${errorText.substring(0, 200)}`);
+                    return;
+                }
+
                 const data = await res.json();
                 if (data.success) {
                     currentStory = data.story;
@@ -249,10 +278,14 @@
                     document.getElementById('bible-section').classList.add('hidden');
                     document.getElementById('story-section').classList.remove('hidden');
                     setupRating();
+                } else {
+                    log(`✗ API Error: ${data.error || 'Unknown error'}`);
+                    alert(`API Error: ${data.error || 'Unknown error'}`);
                 }
             } catch (e) {
                 log('✗ Error: ' + e.message);
-                alert('Error: ' + e.message);
+                log('✗ Full error: ' + JSON.stringify(e));
+                alert('Error: ' + e.message + '\n\nCheck the debug logs for details.');
             }
         }
 
