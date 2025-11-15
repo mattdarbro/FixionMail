@@ -5,7 +5,7 @@ Run with: uvicorn backend.routes.fictionmail_dev:app --reload
 Then visit: http://localhost:8000/dev
 """
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Body
 from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -118,12 +118,19 @@ class GenerateStoryInput(BaseModel):
 
 
 @app.post("/api/dev/generate-story")
-async def dev_generate_story(data: GenerateStoryInput):
+async def dev_generate_story(data: Optional[GenerateStoryInput] = Body(default=None)):
     """
     Step 2: Generate a standalone story.
     """
     # Use bible from request body if provided, otherwise fall back to storage
-    bible = data.bible if data.bible else dev_storage["current_bible"]
+    bible = None
+    force_cliffhanger = None
+
+    if data:
+        bible = data.bible if data.bible else dev_storage["current_bible"]
+        force_cliffhanger = data.force_cliffhanger
+    else:
+        bible = dev_storage["current_bible"]
 
     if not bible:
         raise HTTPException(status_code=400, detail="No bible created yet. Complete onboarding first.")
@@ -137,7 +144,7 @@ async def dev_generate_story(data: GenerateStoryInput):
         result = await generate_standalone_story(
             story_bible=bible,
             user_tier=tier,
-            force_cliffhanger=data.force_cliffhanger,
+            force_cliffhanger=force_cliffhanger,
             dev_mode=True
         )
 
