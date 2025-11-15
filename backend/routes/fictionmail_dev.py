@@ -38,6 +38,9 @@ class OnboardingInput(BaseModel):
     setting: str
     character_name: Optional[str] = None
     tier: str = "free"
+    cameo_name: Optional[str] = None
+    cameo_description: Optional[str] = None
+    cameo_frequency: str = "sometimes"
 
 
 class CameoInput(BaseModel):
@@ -71,6 +74,15 @@ async def dev_onboarding(data: OnboardingInput):
 
         # Store tier preference
         bible["user_tier"] = data.tier
+
+        # Add cameo character if provided
+        if data.cameo_name and data.cameo_frequency != "none":
+            log(f"Adding cameo character: {data.cameo_name}")
+            bible = add_cameo_characters(bible, [{
+                "name": data.cameo_name,
+                "description": data.cameo_description or "",
+                "frequency": data.cameo_frequency
+            }])
 
         dev_storage["current_bible"] = bible
 

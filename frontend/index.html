@@ -121,6 +121,32 @@
                             <label>Character Name (optional)</label>
                             <input type="text" id="characterName" placeholder="Elena">
                         </div>
+
+                        <hr style="margin: 25px 0; border: 1px solid #333;">
+
+                        <div class="form-group">
+                            <label>🎬 Your Cameo Character (Optional)</label>
+                            <p style="font-size: 0.85rem; color: #888; margin-bottom: 10px;">
+                                Like Hitchcock in his films - add yourself or someone special as a fun side character!
+                            </p>
+                            <input type="text" id="cameoName" placeholder="e.g., A mysterious stranger named Matt">
+                        </div>
+                        <div class="form-group">
+                            <label>Cameo Description (optional)</label>
+                            <textarea id="cameoDescription" placeholder="e.g., Always wears a purple hat and appears at key moments" style="min-height: 60px;"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>How often should they appear?</label>
+                            <select id="cameoFrequency">
+                                <option value="none">No cameo</option>
+                                <option value="rarely">Rarely (15% of stories)</option>
+                                <option value="sometimes" selected>Sometimes (30% of stories)</option>
+                                <option value="often">Often (60% of stories)</option>
+                            </select>
+                        </div>
+
+                        <hr style="margin: 25px 0; border: 1px solid #333;">
+
                         <div class="form-group">
                             <label>Tier</label>
                             <select id="tier">
@@ -198,7 +224,10 @@
                 genre: document.getElementById('genre').value,
                 setting: document.getElementById('setting').value,
                 character_name: document.getElementById('characterName').value || null,
-                tier: document.getElementById('tier').value
+                tier: document.getElementById('tier').value,
+                cameo_name: document.getElementById('cameoName').value || null,
+                cameo_description: document.getElementById('cameoDescription').value || null,
+                cameo_frequency: document.getElementById('cameoFrequency').value
             };
 
             if (!data.setting.trim()) return alert('Enter a setting');
@@ -224,10 +253,15 @@
                 if (result.success) {
                     currentBible = result.bible;
                     log('✓ Bible enhanced!');
+
+                    const cameoHtml = result.bible.cameo_characters && result.bible.cameo_characters.length > 0
+                        ? `<br><strong>Cameo:</strong> ${result.bible.cameo_characters[0].name} (${result.bible.cameo_characters[0].frequency})`
+                        : '';
+
                     document.getElementById('bible-preview').innerHTML = `
                         <strong>Setting:</strong> ${result.bible.setting.name}<br>
                         <strong>Protagonist:</strong> ${result.bible.protagonist.name}<br>
-                        <strong>Trait:</strong> ${result.bible.protagonist.defining_characteristic}<br>
+                        <strong>Trait:</strong> ${result.bible.protagonist.defining_characteristic}${cameoHtml}<br>
                         <details><summary>Full JSON</summary><pre>${JSON.stringify(result.bible, null, 2)}</pre></details>
                     `;
                     document.getElementById('onboarding-section').classList.add('hidden');
