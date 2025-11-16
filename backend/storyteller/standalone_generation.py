@@ -8,7 +8,7 @@ import time
 import json
 import asyncio
 import os
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from datetime import datetime
 from langchain_core.messages import HumanMessage
 from langchain_anthropic import ChatAnthropic
@@ -24,7 +24,8 @@ from backend.storyteller.prompts_standalone import (
 async def generate_story_audio(
     narrative: str,
     story_title: str,
-    genre: str
+    genre: str,
+    voice_id: Optional[str] = None
 ) -> str | None:
     """
     Generate TTS audio for a standalone story using ElevenLabs.
@@ -66,9 +67,13 @@ async def generate_story_audio(
         # Create ElevenLabs client
         client = ElevenLabs(api_key=config.ELEVENLABS_API_KEY)
 
+        # Use provided voice_id or fall back to config default
+        selected_voice_id = voice_id or config.ELEVENLABS_VOICE_ID
+        print(f"  Using voice ID: {selected_voice_id}")
+
         # Generate audio using Flash v2.5
         audio_generator = client.text_to_speech.convert(
-            voice_id=config.ELEVENLABS_VOICE_ID,
+            voice_id=selected_voice_id,
             text=narrative_text,
             model_id="eleven_flash_v2_5",
             voice_settings={
@@ -217,7 +222,8 @@ async def generate_standalone_story(
     story_bible: Dict[str, Any],
     user_tier: str = "free",
     force_cliffhanger: bool = None,
-    dev_mode: bool = False
+    dev_mode: bool = False,
+    voice_id: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Generate a complete standalone story using the multi-agent system.
@@ -318,11 +324,17 @@ async def generate_standalone_story(
         print(f"  Word count: {word_count}")
         print(f"  Target: {template.total_words} (±200)")
 
-        # Step 7: Generate cover image (if premium or dev mode)
+        # Step 7: Generate cover image
+        # In dev mode, ALWAYS generate for both free and premium (for testing)
+        # In production, only generate for premium
+        should_generate_media = dev_mode or user_tier == "premium"
+
         cover_image_url = None
-        if user_tier == "premium" or dev_mode:
+        if should_generate_media:
             print(f"\n{'─'*70}")
             print(f"GENERATING COVER IMAGE")
+            if dev_mode:
+                print(f"(Dev mode: generating for {user_tier} tier)")
             print(f"{'─'*70}")
 
             cover_image_url = await generate_story_image(
@@ -331,17 +343,22 @@ async def generate_standalone_story(
                 genre=genre
             )
 
-        # Step 8: Generate audio (if premium or dev mode)
+        # Step 8: Generate audio (TTS)
+        # In dev mode, ALWAYS generate for both free and premium (for testing)
+        # In production, only generate for premium
         audio_url = None
-        if user_tier == "premium" or dev_mode:
+        if should_generate_media:
             print(f"\n{'─'*70}")
-            print(f"GENERATING AUDIO")
+            print(f"GENERATING AUDIO (TTS)")
+            if dev_mode:
+                print(f"(Dev mode: generating for {user_tier} tier)")
             print(f"{'─'*70}")
 
             audio_url = await generate_story_audio(
                 narrative=narrative,
                 story_title=story_title,
-                genre=genre
+                genre=genre,
+                voice_id=voice_id
             )
 
         # Step 9: Create summary

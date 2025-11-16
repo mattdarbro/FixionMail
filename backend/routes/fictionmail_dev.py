@@ -52,6 +52,13 @@ class RatingInput(BaseModel):
     feedback: Optional[Dict[str, bool]] = None
 
 
+class GenerateStoryInput(BaseModel):
+    email: Optional[str] = None
+    voice_id: Optional[str] = None
+    bible: Optional[Dict[str, Any]] = None
+    force_cliffhanger: Optional[bool] = None
+
+
 # === API Routes ===
 
 @app.post("/api/dev/onboarding")
@@ -120,15 +127,19 @@ class GenerateStoryInput(BaseModel):
 @app.post("/api/dev/generate-story")
 async def dev_generate_story(data: Optional[GenerateStoryInput] = Body(default=None)):
     """
-    Step 2: Generate a standalone story.
+    Step 2: Generate a standalone story and optionally email it.
     """
     # Use bible from request body if provided, otherwise fall back to storage
     bible = None
     force_cliffhanger = None
+    email = None
+    voice_id = None
 
     if data:
         bible = data.bible if data.bible else dev_storage["current_bible"]
         force_cliffhanger = data.force_cliffhanger
+        email = data.email
+        voice_id = data.voice_id
     else:
         bible = dev_storage["current_bible"]
 
@@ -140,12 +151,17 @@ async def dev_generate_story(data: Optional[GenerateStoryInput] = Body(default=N
         tier = bible.get("user_tier", "free")
 
         log(f"Generating {tier} tier story...")
+        if email:
+            log(f"Will email story to: {email}")
+        if voice_id:
+            log(f"Using voice: {voice_id}")
 
         result = await generate_standalone_story(
             story_bible=bible,
             user_tier=tier,
             force_cliffhanger=force_cliffhanger,
-            dev_mode=True
+            dev_mode=True,
+            voice_id=voice_id
         )
 
         if result["success"]:
@@ -162,6 +178,8 @@ async def dev_generate_story(data: Optional[GenerateStoryInput] = Body(default=N
                 "genre": story_data["genre"],
                 "tier": story_data["tier"],
                 "is_cliffhanger": story_data["is_cliffhanger"],
+                "cover_image_url": story_data.get("cover_image_url"),
+                "audio_url": story_data.get("audio_url"),
                 "created_at": time.time(),
                 "metadata": metadata,
                 "user_rating": None
@@ -171,9 +189,46 @@ async def dev_generate_story(data: Optional[GenerateStoryInput] = Body(default=N
 
             log("Story generation complete!")
 
+            # Send email if requested
+            email_sent = False
+            if email:
+                try:
+                    log(f"Sending email to {email}...")
+                    from backend.email.database import EmailDatabase
+                    from backend.email.scheduler import EmailScheduler
+
+                    # Initialize email system
+                    email_db = EmailDatabase("email_scheduler.db")
+                    await email_db.connect()
+                    email_scheduler = EmailScheduler(email_db)
+
+                    # Send the story email
+                    email_sent = await email_scheduler.send_story_email(
+                        user_email=email,
+                        story_title=story_data["title"],
+                        story_narrative=story_data["narrative"],
+                        audio_url=story_data.get("audio_url"),
+                        image_url=story_data.get("cover_image_url"),
+                        genre=story_data["genre"],
+                        word_count=story_data["word_count"]
+                    )
+
+                    await email_db.close()
+
+                    if email_sent:
+                        log(f"✓ Email sent successfully to {email}")
+                    else:
+                        log(f"⚠️  Failed to send email to {email}")
+
+                except Exception as e:
+                    log(f"⚠️  Email error: {str(e)}")
+                    import traceback
+                    traceback.print_exc()
+
             return {
                 "success": True,
                 "story": story_record,
+                "email_sent": email_sent,
                 "debug": {
                     "beat_plan": metadata.get("beat_plan", {}),
                     "plot_type": metadata.get("plot_type", "unknown"),
