@@ -5,7 +5,7 @@ Run with: uvicorn backend.routes.fictionmail_dev:app --reload
 Then visit: http://localhost:8000/dev
 """
 
-from fastapi import FastAPI, HTTPException, Request, Body
+from fastapi import FastAPI, HTTPException, Request, Body, APIRouter
 from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -21,6 +21,10 @@ from backend.storyteller.bible_enhancement import (
 )
 from backend.storyteller.standalone_generation import generate_standalone_story
 
+# Create router for use in main.py
+router = APIRouter(prefix="/api/dev", tags=["FictionMail Dev"])
+
+# Create standalone app for local testing
 app = FastAPI(title="FictionMail Dev Dashboard")
 
 # In-memory storage for dev (replace with DB later)
@@ -61,6 +65,7 @@ class GenerateStoryInput(BaseModel):
 
 # === API Routes ===
 
+@router.post("/onboarding")
 @app.post("/api/dev/onboarding")
 async def dev_onboarding(data: OnboardingInput):
     """
@@ -98,6 +103,7 @@ async def dev_onboarding(data: OnboardingInput):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/add-cameo")
 @app.post("/api/dev/add-cameo")
 async def dev_add_cameo(data: CameoInput):
     """
@@ -119,6 +125,7 @@ async def dev_add_cameo(data: CameoInput):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/generate-story")
 @app.post("/api/dev/generate-story")
 async def dev_generate_story(data: Optional[GenerateStoryInput] = Body(default=None)):
     """
@@ -243,6 +250,7 @@ async def dev_generate_story(data: Optional[GenerateStoryInput] = Body(default=N
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/rate-story")
 @app.post("/api/dev/rate-story")
 async def dev_rate_story(data: RatingInput):
     """
@@ -279,6 +287,7 @@ async def dev_rate_story(data: RatingInput):
     }
 
 
+@router.get("/bible")
 @app.get("/api/dev/bible")
 async def dev_get_bible():
     """Get current bible."""
@@ -288,6 +297,7 @@ async def dev_get_bible():
     return dev_storage["current_bible"]
 
 
+@router.get("/stories")
 @app.get("/api/dev/stories")
 async def dev_get_stories():
     """Get all generated stories."""
@@ -297,6 +307,7 @@ async def dev_get_stories():
     }
 
 
+@router.get("/story/{story_id}")
 @app.get("/api/dev/story/{story_id}")
 async def dev_get_story(story_id: str):
     """Get a specific story."""
@@ -307,6 +318,7 @@ async def dev_get_story(story_id: str):
     raise HTTPException(status_code=404, detail="Story not found")
 
 
+@router.delete("/reset")
 @app.delete("/api/dev/reset")
 async def dev_reset():
     """Reset all dev storage."""
@@ -316,6 +328,7 @@ async def dev_reset():
     return {"success": True, "message": "Dev storage reset"}
 
 
+@router.get("/logs")
 @app.get("/api/dev/logs")
 async def dev_get_logs():
     """Get generation logs."""
