@@ -119,11 +119,6 @@ async def dev_add_cameo(data: CameoInput):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-class GenerateStoryInput(BaseModel):
-    bible: Optional[Dict[str, Any]] = None
-    force_cliffhanger: Optional[bool] = None
-
-
 @app.post("/api/dev/generate-story")
 async def dev_generate_story(data: Optional[GenerateStoryInput] = Body(default=None)):
     """
