@@ -204,12 +204,20 @@ async def dev_generate_story(data: Optional[GenerateStoryInput] = Body(default=N
                     await email_db.connect()
                     email_scheduler = EmailScheduler(email_db)
 
+                    # Convert audio URL to file path for attachment
+                    audio_file_path = None
+                    if story_data.get("audio_url"):
+                        # Convert /audio/filename.mp3 to ./generated_audio/filename.mp3
+                        audio_url = story_data["audio_url"]
+                        if audio_url.startswith("/audio/"):
+                            audio_file_path = audio_url.replace("/audio/", "./generated_audio/")
+
                     # Send the story email
                     email_sent = await email_scheduler.send_story_email(
                         user_email=email,
                         story_title=story_data["title"],
                         story_narrative=story_data["narrative"],
-                        audio_url=story_data.get("audio_url"),
+                        audio_file_path=audio_file_path,
                         image_url=story_data.get("cover_image_url"),
                         genre=story_data["genre"],
                         word_count=story_data["word_count"]

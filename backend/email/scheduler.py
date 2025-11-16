@@ -106,7 +106,7 @@ class EmailScheduler:
         user_email: str,
         story_title: str,
         story_narrative: str,
-        audio_url: Optional[str],
+        audio_file_path: Optional[str],
         image_url: Optional[str],
         genre: str,
         word_count: int
@@ -118,7 +118,7 @@ class EmailScheduler:
             user_email: Recipient email address
             story_title: Title of the story
             story_narrative: The complete story text
-            audio_url: URL to the MP3 file (optional)
+            audio_file_path: Local file path to the MP3 file (optional)
             image_url: URL to cover image (optional)
             genre: Story genre
             word_count: Story word count
@@ -126,16 +126,21 @@ class EmailScheduler:
         Returns:
             True if sent successfully, False otherwise
         """
+        # Include audio attachment status in HTML
+        has_audio = audio_file_path is not None and os.path.exists(audio_file_path) if audio_file_path else False
+
         html = self._render_story_email(
             story_title=story_title,
             story_narrative=story_narrative,
-            audio_url=audio_url,
+            has_audio=has_audio,
             image_url=image_url,
             genre=genre,
             word_count=word_count
         )
 
         try:
+            import base64
+
             from_address = os.getenv("EMAIL_FROM_ADDRESS", "onboarding@resend.dev")
 
             params = {
@@ -145,12 +150,33 @@ class EmailScheduler:
                 "html": html,
             }
 
+            # Attach audio file if available
+            if has_audio:
+                try:
+                    with open(audio_file_path, "rb") as audio_file:
+                        audio_content = base64.b64encode(audio_file.read()).decode('utf-8')
+
+                    # Extract filename from path
+                    audio_filename = os.path.basename(audio_file_path)
+
+                    params["attachments"] = [
+                        {
+                            "content": audio_content,
+                            "filename": audio_filename
+                        }
+                    ]
+                    print(f"  ✓ Attached audio file: {audio_filename}")
+                except Exception as e:
+                    print(f"  ⚠️  Failed to attach audio file: {e}")
+
             resend.Emails.send(params)
             print(f"✅ Sent story '{story_title}' to {user_email}")
             return True
 
         except Exception as e:
             print(f"❌ Failed to send story email: {e}")
+            import traceback
+            traceback.print_exc()
             return False
 
     async def send_welcome_email(self, user_email: str, first_chapter_time: datetime) -> bool:
@@ -338,7 +364,7 @@ class EmailScheduler:
         self,
         story_title: str,
         story_narrative: str,
-        audio_url: Optional[str],
+        has_audio: bool,
         image_url: Optional[str],
         genre: str,
         word_count: int
@@ -360,22 +386,20 @@ class EmailScheduler:
             </div>
             '''
 
-        # Optional audio section
+        # Optional audio section (attached file)
         audio_section = ""
-        if audio_url:
-            full_audio_url = f"{base_url}{audio_url}" if audio_url.startswith("/") else audio_url
+        if has_audio:
             audio_section = f'''
-            <div style="margin: 30px 0; padding: 25px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px;">
-              <h3 style="color: white; margin: 0 0 15px 0; font-size: 18px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
-                🎧 Listen to your story
+            <div style="margin: 30px 0; padding: 25px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; text-align: center;">
+              <h3 style="color: white; margin: 0 0 10px 0; font-size: 18px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+                🎧 Audio Narration Attached
               </h3>
-              <audio controls style="width: 100%; margin-bottom: 10px;">
-                <source src="{full_audio_url}" type="audio/mpeg">
-                Your browser does not support the audio element.
-              </audio>
-              <p style="margin: 0; font-size: 13px; color: rgba(255,255,255,0.9); text-align: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
-                Perfect for your commute or relaxing at home •
-                <a href="{full_audio_url}" style="color: white; text-decoration: underline;">Download MP3</a>
+              <p style="margin: 0; font-size: 15px; color: rgba(255,255,255,0.95); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6;">
+                Your story includes a professionally narrated MP3 file.<br>
+                Check your email attachments to listen!
+              </p>
+              <p style="margin: 10px 0 0 0; font-size: 13px; color: rgba(255,255,255,0.8); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+                Perfect for your commute or relaxing at home
               </p>
             </div>
             '''
