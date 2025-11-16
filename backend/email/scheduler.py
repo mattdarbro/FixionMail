@@ -101,6 +101,58 @@ class EmailScheduler:
             print(f"❌ Failed to send email: {e}")
             return False
 
+    async def send_story_email(
+        self,
+        user_email: str,
+        story_title: str,
+        story_narrative: str,
+        audio_url: Optional[str],
+        image_url: Optional[str],
+        genre: str,
+        word_count: int
+    ) -> bool:
+        """
+        Send a standalone story email (FictionMail format).
+
+        Args:
+            user_email: Recipient email address
+            story_title: Title of the story
+            story_narrative: The complete story text
+            audio_url: URL to the MP3 file (optional)
+            image_url: URL to cover image (optional)
+            genre: Story genre
+            word_count: Story word count
+
+        Returns:
+            True if sent successfully, False otherwise
+        """
+        html = self._render_story_email(
+            story_title=story_title,
+            story_narrative=story_narrative,
+            audio_url=audio_url,
+            image_url=image_url,
+            genre=genre,
+            word_count=word_count
+        )
+
+        try:
+            from_address = os.getenv("EMAIL_FROM_ADDRESS", "onboarding@resend.dev")
+
+            params = {
+                "from": from_address,
+                "to": [user_email],
+                "subject": f"📖 Today's Story: {story_title}",
+                "html": html,
+            }
+
+            resend.Emails.send(params)
+            print(f"✅ Sent story '{story_title}' to {user_email}")
+            return True
+
+        except Exception as e:
+            print(f"❌ Failed to send story email: {e}")
+            return False
+
     async def send_welcome_email(self, user_email: str, first_chapter_time: datetime) -> bool:
         """Send welcome email when user signs up"""
 
@@ -276,6 +328,119 @@ class EmailScheduler:
 
             <p style="color: #999; font-size: 12px; margin-top: 40px; text-align: center;">
               StoryKeeper • Your choices, your story
+            </p>
+          </div>
+        </body>
+        </html>
+        '''
+
+    def _render_story_email(
+        self,
+        story_title: str,
+        story_narrative: str,
+        audio_url: Optional[str],
+        image_url: Optional[str],
+        genre: str,
+        word_count: int
+    ) -> str:
+        """Generate HTML for standalone story email (FictionMail)"""
+
+        # Get base URL from environment
+        base_url = os.getenv("APP_BASE_URL", "http://localhost:8000")
+
+        # Optional image section
+        image_section = ""
+        if image_url:
+            full_image_url = f"{base_url}{image_url}" if image_url.startswith("/") else image_url
+            image_section = f'''
+            <div style="margin: 30px 0;">
+              <img src="{full_image_url}"
+                   alt="{story_title}"
+                   style="width: 100%; max-width: 600px; border-radius: 12px; display: block;">
+            </div>
+            '''
+
+        # Optional audio section
+        audio_section = ""
+        if audio_url:
+            full_audio_url = f"{base_url}{audio_url}" if audio_url.startswith("/") else audio_url
+            audio_section = f'''
+            <div style="margin: 30px 0; padding: 25px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px;">
+              <h3 style="color: white; margin: 0 0 15px 0; font-size: 18px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+                🎧 Listen to your story
+              </h3>
+              <audio controls style="width: 100%; margin-bottom: 10px;">
+                <source src="{full_audio_url}" type="audio/mpeg">
+                Your browser does not support the audio element.
+              </audio>
+              <p style="margin: 0; font-size: 13px; color: rgba(255,255,255,0.9); text-align: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+                Perfect for your commute or relaxing at home •
+                <a href="{full_audio_url}" style="color: white; text-decoration: underline;">Download MP3</a>
+              </p>
+            </div>
+            '''
+
+        # Format story narrative with paragraphs
+        paragraphs = story_narrative.split('\n\n')
+        formatted_story = ''.join([
+            f'<p style="margin: 0 0 20px 0; font-size: 17px; line-height: 1.8; color: #2d2d2d;">{p.strip()}</p>'
+            for p in paragraphs if p.strip()
+        ])
+
+        # Estimate reading time (average 200 words per minute)
+        reading_time = max(1, round(word_count / 200))
+
+        return f'''
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <style>
+            @media only screen and (max-width: 600px) {{
+              .container {{ padding: 20px !important; }}
+              h1 {{ font-size: 28px !important; }}
+            }}
+          </style>
+        </head>
+        <body style="margin: 0; padding: 0; font-family: Georgia, serif; background: #f5f5f5;">
+          <div class="container" style="max-width: 700px; margin: 0 auto; padding: 40px 20px;">
+
+            <!-- Header -->
+            <div style="text-align: center; margin-bottom: 30px;">
+              <h1 style="color: #1a1a1a; margin: 0 0 10px 0; font-size: 36px; font-weight: 700; letter-spacing: -0.5px;">
+                {story_title}
+              </h1>
+              <p style="margin: 0; font-size: 14px; color: #999; text-transform: uppercase; letter-spacing: 2px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+                {genre.upper()} • {word_count} words • {reading_time} min read
+              </p>
+            </div>
+
+            <!-- Cover Image -->
+            {image_section}
+
+            <!-- Audio Player -->
+            {audio_section}
+
+            <!-- Story Content -->
+            <div style="background: white; border-radius: 12px; padding: 50px 40px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); margin: 30px 0;">
+              {formatted_story}
+            </div>
+
+            <!-- Footer -->
+            <div style="text-align: center; margin-top: 40px; padding: 30px 20px; background: white; border-radius: 12px;">
+              <p style="margin: 0 0 15px 0; font-size: 16px; color: #1a1a1a; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+                <strong>Enjoyed this story?</strong>
+              </p>
+              <p style="margin: 0; font-size: 14px; color: #666; line-height: 1.6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+                You'll receive a new {genre} story tomorrow.<br>
+                Each story is unique and tailored just for you.
+              </p>
+            </div>
+
+            <!-- Branding -->
+            <p style="text-align: center; color: #999; font-size: 12px; margin-top: 30px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+              FictionMail • Daily Stories in Your Inbox
             </p>
           </div>
         </body>

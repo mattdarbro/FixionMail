@@ -6,7 +6,10 @@ This orchestrates the multi-agent system for daily story generation.
 
 import time
 import json
+import asyncio
+import os
 from typing import Dict, Any
+from datetime import datetime
 from langchain_core.messages import HumanMessage
 from langchain_anthropic import ChatAnthropic
 from backend.config import config
@@ -16,6 +19,198 @@ from backend.storyteller.prompts_standalone import (
     create_standalone_story_beat_prompt,
     create_prose_generation_prompt
 )
+
+
+async def generate_story_audio(
+    narrative: str,
+    story_title: str,
+    genre: str
+) -> str | None:
+    """
+    Generate TTS audio for a standalone story using ElevenLabs.
+
+    Args:
+        narrative: The story text to narrate
+        story_title: Title of the story (for filename)
+        genre: Story genre
+
+    Returns:
+        Local URL path to audio file, or None if generation fails
+    """
+    try:
+        from elevenlabs.client import ElevenLabs
+
+        if not config.ELEVENLABS_API_KEY:
+            print("  ⏭️  ELEVENLABS_API_KEY not set, skipping audio generation")
+            return None
+
+        # Clean and prepare text for narration
+        narrative_text = narrative.strip()
+
+        # ElevenLabs Flash v2.5 supports up to 40,000 characters
+        MAX_AUDIO_CHARS = 20000
+
+        if len(narrative_text) > MAX_AUDIO_CHARS:
+            print(f"  ⚠️  Narrative is {len(narrative_text)} chars, truncating to {MAX_AUDIO_CHARS}")
+            # Try to truncate at a sentence boundary
+            truncated = narrative_text[:MAX_AUDIO_CHARS]
+            last_period = truncated.rfind('. ')
+            if last_period > MAX_AUDIO_CHARS - 500:
+                narrative_text = truncated[:last_period + 1]
+            else:
+                narrative_text = truncated + "..."
+            print(f"  Truncated to {len(narrative_text)} chars")
+        else:
+            print(f"  ✓ Narrative is {len(narrative_text)} chars, within limit (max 40K)")
+
+        # Create ElevenLabs client
+        client = ElevenLabs(api_key=config.ELEVENLABS_API_KEY)
+
+        # Generate audio using Flash v2.5
+        audio_generator = client.text_to_speech.convert(
+            voice_id=config.ELEVENLABS_VOICE_ID,
+            text=narrative_text,
+            model_id="eleven_flash_v2_5",
+            voice_settings={
+                "stability": 0.5,
+                "similarity_boost": 0.75
+            }
+        )
+
+        # Create audio directory if it doesn't exist
+        os.makedirs("./generated_audio", exist_ok=True)
+
+        # Generate filename
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        # Clean title for filename
+        clean_title = "".join(c for c in story_title if c.isalnum() or c in (' ', '-', '_')).strip()
+        clean_title = clean_title.replace(' ', '_')[:50]  # Limit length
+        filename = f"{genre}_{clean_title}_{timestamp}.mp3"
+        filepath = f"./generated_audio/{filename}"
+
+        # Save audio bytes to file
+        with open(filepath, "wb") as f:
+            for chunk in audio_generator:
+                f.write(chunk)
+
+        # Return local path
+        local_url = f"/audio/{filename}"
+        print(f"  ✓ Audio generated successfully")
+        print(f"    Saved to: {filepath}")
+        print(f"    Accessible at: {local_url}")
+        return local_url
+
+    except Exception as e:
+        error_msg = str(e)
+        print(f"  ⚠️  Audio generation failed: {error_msg}")
+
+        if "401" in error_msg or "unauthorized" in error_msg.lower():
+            print("  ⚠️  ElevenLabs API authentication failed. Check ELEVENLABS_API_KEY.")
+        elif "429" in error_msg or "quota" in error_msg.lower():
+            print("  ⚠️  ElevenLabs API quota/rate limit exceeded.")
+
+        return None
+
+
+async def generate_story_image(
+    story_title: str,
+    beat_plan: Dict[str, Any],
+    genre: str
+) -> str | None:
+    """
+    Generate cover image for a standalone story using Replicate.
+
+    Args:
+        story_title: Title of the story
+        beat_plan: The beat plan with story details
+        genre: Story genre
+
+    Returns:
+        Local URL path to image file, or None if generation fails
+    """
+    try:
+        import replicate
+        import httpx
+
+        if not config.REPLICATE_API_TOKEN:
+            print("  ⏭️  REPLICATE_API_TOKEN not set, skipping image generation")
+            return None
+
+        # Create image prompt from story details
+        story_premise = beat_plan.get("story_premise", "")
+        thematic_focus = beat_plan.get("thematic_focus", "")
+
+        # Build a descriptive prompt
+        base_prompt = f"Book cover art for '{story_title}', {genre} genre, {story_premise}"
+        enhanced_prompt = f"{base_prompt}, cinematic lighting, high quality, detailed, professional book cover art style"
+
+        print(f"  Image prompt: {enhanced_prompt[:100]}...")
+
+        # Create client
+        client = replicate.Client(api_token=config.REPLICATE_API_TOKEN)
+
+        # Use SDXL model
+        model = "stability-ai/sdxl:39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5555e08b"
+
+        # Run image generation
+        input_params = {
+            "prompt": enhanced_prompt,
+            "width": 1024,
+            "height": 1024,
+            "num_outputs": 1,
+            "negative_prompt": "text, watermark, low quality, blurry, distorted, ugly",
+            "guidance_scale": 7.5,
+            "num_inference_steps": 25
+        }
+
+        print(f"  Generating image with Replicate...")
+        output = await client.async_run(model, input=input_params)
+
+        replicate_output = output[0] if output else None
+        if not replicate_output:
+            raise Exception("No image URL returned from Replicate")
+
+        replicate_url = str(replicate_output)
+        print(f"  ✓ Image generated by Replicate")
+
+        # Download and save image locally
+        os.makedirs("./generated_images", exist_ok=True)
+
+        # Generate filename
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        # Clean title for filename
+        clean_title = "".join(c for c in story_title if c.isalnum() or c in (' ', '-', '_')).strip()
+        clean_title = clean_title.replace(' ', '_')[:50]
+        filename = f"{genre}_{clean_title}_{timestamp}.png"
+        filepath = f"./generated_images/{filename}"
+
+        # Download image from Replicate
+        print(f"  Downloading image from Replicate...")
+        async with httpx.AsyncClient() as http_client:
+            response = await http_client.get(replicate_url)
+            response.raise_for_status()
+
+            # Save to local file
+            with open(filepath, "wb") as f:
+                f.write(response.content)
+
+        # Return local URL path
+        local_url = f"/images/{filename}"
+        print(f"  ✓ Image saved locally: {filepath}")
+        print(f"    Accessible at: {local_url}")
+
+        return local_url
+
+    except Exception as e:
+        error_msg = str(e)
+        print(f"  ⚠️  Image generation failed: {error_msg}")
+
+        if "401" in error_msg or "unauthorized" in error_msg.lower():
+            print("  ⚠️  Replicate API authentication failed. Check REPLICATE_API_TOKEN.")
+        elif "404" in error_msg:
+            print(f"  ⚠️  Invalid Replicate model.")
+
+        return None
 
 
 async def generate_standalone_story(
@@ -123,27 +318,31 @@ async def generate_standalone_story(
         print(f"  Word count: {word_count}")
         print(f"  Target: {template.total_words} (±200)")
 
-        # Step 7: Generate cover image (if premium)
+        # Step 7: Generate cover image (if premium or dev mode)
         cover_image_url = None
         if user_tier == "premium" or dev_mode:
             print(f"\n{'─'*70}")
             print(f"GENERATING COVER IMAGE")
             print(f"{'─'*70}")
 
-            # TODO: Implement image generation
-            print(f"  ⏭️  Skipping for MVP (will use Replicate)")
-            cover_image_url = None
+            cover_image_url = await generate_story_image(
+                story_title=story_title,
+                beat_plan=beat_plan,
+                genre=genre
+            )
 
-        # Step 8: Generate audio (if premium)
+        # Step 8: Generate audio (if premium or dev mode)
         audio_url = None
         if user_tier == "premium" or dev_mode:
             print(f"\n{'─'*70}")
             print(f"GENERATING AUDIO")
             print(f"{'─'*70}")
 
-            # TODO: Implement audio generation
-            print(f"  ⏭️  Skipping for MVP (will use ElevenLabs)")
-            audio_url = None
+            audio_url = await generate_story_audio(
+                narrative=narrative,
+                story_title=story_title,
+                genre=genre
+            )
 
         # Step 9: Create summary
         summary = f"{story_title}: {beat_plan.get('story_premise', 'A story in this world')}"
