@@ -263,6 +263,7 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
+                        bible: currentBible,
                         email: email || null,
                         voice_id: voiceId
                     })
