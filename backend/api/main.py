@@ -5,9 +5,9 @@ This module sets up the main FastAPI app with routes, middleware,
 and configuration.
 """
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 import os
 
@@ -29,10 +29,17 @@ except Exception as e:
     config_loaded = False
 
 # Import routes with error handling
+# ARCHIVED: Iteration 1 (Long-form interactive story with choices)
+# These routes are kept for reference but not loaded in production
+# Uncomment if you need to re-enable the interactive story mode
 try:
-    from backend.api.routes import router
-    from backend.api.email_choice import router as email_choice_router
-    routes_loaded = True
+    # from backend.api.routes import router
+    # from backend.api.email_choice import router as email_choice_router
+    # routes_loaded = True
+    routes_loaded = False
+    router = None
+    email_choice_router = None
+    print("ℹ️  Iteration 1 routes (interactive stories) are archived")
 except Exception as e:
     print(f"⚠️  Routes loading failed: {e}")
     print("⚠️  API endpoints will not be available, but healthcheck will still work")
@@ -110,17 +117,31 @@ app.mount("/images", StaticFiles(directory="./generated_images"), name="images")
 async def root():
     """Root endpoint with API information."""
     return {
-        "name": "Storyteller API",
-        "version": "1.0.0",
+        "name": "FictionMail API",
+        "version": "3.0.0",
         "status": "operational",
+        "mode": "Standalone Daily Stories",
         "docs": "/docs",
+        "dashboard": "/dev-dashboard.html",
         "endpoints": {
-            "start_story": "POST /api/story/start",
-            "continue_story": "POST /api/story/continue",
-            "get_session": "GET /api/story/session/{session_id}",
-            "list_worlds": "GET /api/worlds"
+            "onboarding": "POST /api/dev/onboarding",
+            "generate_story": "POST /api/dev/generate-story",
+            "rate_story": "POST /api/dev/rate-story",
+            "get_bible": "GET /api/dev/bible",
+            "reset": "DELETE /api/dev/reset"
         }
     }
+
+
+@app.get("/dev-dashboard.html", response_class=HTMLResponse)
+async def serve_dashboard():
+    """Serve the dev dashboard HTML file."""
+    dashboard_path = "./frontend/dev-dashboard.html"
+    if os.path.exists(dashboard_path):
+        with open(dashboard_path, "r") as f:
+            return f.read()
+    else:
+        raise HTTPException(status_code=404, detail="Dashboard not found")
 
 
 # ===== Health Check =====
@@ -207,47 +228,41 @@ async def startup_event():
         
         print("=" * 60)
 
-        # Initialize story graph with async checkpointer
-        if routes_loaded:
-            try:
-                from backend.api.routes import initialize_story_graph
-                print("\n📚 Initializing story graph...")
-                await initialize_story_graph()
-                print("✓ Story graph initialization complete")
-            except Exception as e:
-                print(f"⚠️  Error initializing story graph during startup: {e}")
-                print("⚠️  Will fall back to lazy initialization on first request")
-                import traceback
-                traceback.print_exc()
-                # Don't raise - allow app to start, lazy init will handle it
+        # ARCHIVED: Story graph initialization (Iteration 1)
+        # This is only needed for the interactive story mode
+        # if routes_loaded:
+        #     try:
+        #         from backend.api.routes import initialize_story_graph
+        #         print("\n📚 Initializing story graph...")
+        #         await initialize_story_graph()
+        #         print("✓ Story graph initialization complete")
+        #     except Exception as e:
+        #         print(f"⚠️  Error initializing story graph during startup: {e}")
+        print("ℹ️  Story graph (Iteration 1) not loaded - using FictionMail standalone generation")
 
-        # Initialize email system
-        if routes_loaded:
-            try:
-                from backend.api.routes import initialize_email_system
-                print("\n📧 Initializing email system...")
-                await initialize_email_system()
-                print("✓ Email system initialization complete")
-            except Exception as e:
-                print(f"⚠️  Error initializing email system during startup: {e}")
-                print("⚠️  Email features will be disabled")
-                import traceback
-                traceback.print_exc()
-                # Don't raise - allow app to start without email
+        # ARCHIVED: Email system from routes.py (Iteration 1)
+        # FictionMail will implement its own email integration
+        # if routes_loaded:
+        #     try:
+        #         from backend.api.routes import initialize_email_system
+        #         print("\n📧 Initializing email system...")
+        #         await initialize_email_system()
+        #         print("✓ Email system initialization complete")
+        #     except Exception as e:
+        #         print(f"⚠️  Error initializing email system during startup: {e}")
+        print("ℹ️  Email system will be initialized by FictionMail when needed")
 
-        # Start background email processor
-        if routes_loaded and os.getenv("ENABLE_EMAIL_SCHEDULER", "true").lower() == "true":
-            try:
-                from backend.email.background import start_background_processor
-                print("\n🔄 Starting background email processor...")
-                await start_background_processor()
-                print("✓ Background email processor started")
-            except Exception as e:
-                print(f"⚠️  Error starting background email processor: {e}")
-                print("⚠️  Scheduled emails will not be sent automatically")
-                import traceback
-                traceback.print_exc()
-                # Don't raise - allow app to start without background processor
+        # ARCHIVED: Background email processor (Iteration 1)
+        # Will be re-implemented for FictionMail daily stories
+        # if routes_loaded and os.getenv("ENABLE_EMAIL_SCHEDULER", "true").lower() == "true":
+        #     try:
+        #         from backend.email.background import start_background_processor
+        #         print("\n🔄 Starting background email processor...")
+        #         await start_background_processor()
+        #         print("✓ Background email processor started")
+        #     except Exception as e:
+        #         print(f"⚠️  Error starting background email processor: {e}")
+        print("ℹ️  Background email processor not loaded - will be added for FictionMail daily delivery")
 
         # Validate world templates exist (no longer using RAG)
         try:
@@ -283,18 +298,19 @@ async def shutdown_event():
     """Cleanup on shutdown."""
     try:
         print("\n" + "=" * 60)
-        print("Storyteller API Shutting Down...")
+        print("FictionMail API Shutting Down...")
         print("=" * 60)
 
-        # Stop background email processor
-        try:
-            from backend.email.background import stop_background_processor
-            print("🔄 Stopping background email processor...")
-            stop_background_processor()
-            print("✓ Background email processor stopped")
-        except Exception as e:
-            print(f"⚠️  Error stopping background email processor: {e}")
+        # ARCHIVED: Background email processor (Iteration 1)
+        # try:
+        #     from backend.email.background import stop_background_processor
+        #     print("🔄 Stopping background email processor...")
+        #     stop_background_processor()
+        #     print("✓ Background email processor stopped")
+        # except Exception as e:
+        #     print(f"⚠️  Error stopping background email processor: {e}")
 
+        print("ℹ️  Clean shutdown (no background processors to stop)")
         print("=" * 60)
         print("Shutdown complete")
         print("=" * 60)
