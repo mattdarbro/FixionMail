@@ -49,20 +49,16 @@ except Exception as e:
     email_choice_router = None
     routes_loaded = False
 
-# Import FictionMail dev routes
+# Import FictionMail dev router
 try:
-    from backend.routes.fictionmail_dev import (
-        dev_onboarding,
-        dev_generate_story,
-        dev_rate_story,
-        dev_get_bible,
-        dev_reset
-    )
+    from backend.routes.fictionmail_dev import router as fictionmail_router
     fictionmail_loaded = True
+    print("✓ FictionMail dev router imported")
 except Exception as e:
-    print(f"⚠️  FictionMail dev routes loading failed: {e}")
+    print(f"⚠️  FictionMail dev router loading failed: {e}")
     import traceback
     traceback.print_exc()
+    fictionmail_router = None
     fictionmail_loaded = False
 
 # Create FastAPI app
@@ -90,14 +86,10 @@ if routes_loaded and router:
 else:
     print("⚠️  Skipping routes registration due to initialization failure")
 
-# Include FictionMail dev routes
-if fictionmail_loaded:
-    app.add_api_route("/api/dev/onboarding", dev_onboarding, methods=["POST"])
-    app.add_api_route("/api/dev/generate-story", dev_generate_story, methods=["POST"])
-    app.add_api_route("/api/dev/rate-story", dev_rate_story, methods=["POST"])
-    app.add_api_route("/api/dev/bible", dev_get_bible, methods=["GET"])
-    app.add_api_route("/api/dev/reset", dev_reset, methods=["DELETE"])
-    print("✓ FictionMail dev routes loaded")
+# Include FictionMail dev router
+if fictionmail_loaded and fictionmail_router:
+    app.include_router(fictionmail_router)
+    print("✓ FictionMail dev routes registered")
 else:
     print("⚠️  Skipping FictionMail dev routes")
 
