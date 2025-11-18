@@ -1,5 +1,0 @@
-# Nixpacks configuration for Railway
-# Add ffmpeg for video generation
-
-[phases.setup]
-nixPkgs = ["python311", "ffmpeg"]
