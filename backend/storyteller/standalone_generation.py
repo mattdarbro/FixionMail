@@ -568,7 +568,7 @@ async def generate_beat_plan(
         temperature=0.7,  # Creative but coherent
         max_tokens=2500,
         anthropic_api_key=config.ANTHROPIC_API_KEY,
-        timeout=45.0,
+        timeout=90.0,  # Increased for complex beat plans
     )
 
     # Generate beat plan
@@ -663,7 +663,7 @@ async def generate_prose(
         temperature=0.8,  # Creative prose
         max_tokens=8000,  # Enough for full story
         anthropic_api_key=config.ANTHROPIC_API_KEY,
-        timeout=120.0,  # Longer timeout for prose generation
+        timeout=300.0,  # 5 minutes for long premium stories (sitcom, etc.)
     )
 
     # Generate prose
