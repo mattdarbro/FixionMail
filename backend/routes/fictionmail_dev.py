@@ -221,7 +221,9 @@ async def dev_generate_story(data: Optional[GenerateStoryInput] = Body(default=N
                             image_file_path = image_url.replace("/images/", "./generated_images/")
 
                     # Get video file path (premium tier)
-                    video_file_path = story_data.get("video_file_path")  # Already a full path
+                    # NOTE: Video is NOT attached to email (too large for Resend)
+                    # Video is generated for potential future use (web player, direct download)
+                    video_file_path = None  # Don't attach video to email
 
                     # Send the story email
                     email_sent = await email_scheduler.send_story_email(
@@ -230,7 +232,7 @@ async def dev_generate_story(data: Optional[GenerateStoryInput] = Body(default=N
                         story_narrative=story_data["narrative"],
                         audio_file_path=audio_file_path,
                         image_file_path=image_file_path,
-                        video_file_path=video_file_path,
+                        video_file_path=video_file_path,  # None - video not attached
                         genre=story_data["genre"],
                         word_count=story_data["word_count"],
                         user_tier=story_data["tier"]
