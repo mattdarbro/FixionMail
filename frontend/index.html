@@ -134,6 +134,25 @@
                                 <option value="premium">Premium (4500 words)</option>
                             </select>
                         </div>
+                        <div class="form-group">
+                            <label>Email (for testing email delivery)</label>
+                            <input type="email" id="userEmail" placeholder="your@email.com">
+                            <small style="color: #666; font-size: 12px;">Story will be emailed to this address after generation</small>
+                        </div>
+                        <div class="form-group">
+                            <label>Narrator Voice</label>
+                            <select id="voiceId">
+                                <option value="EXAVITQu4vr4xnSDxMaL">Default (Sarah - Female)</option>
+                                <option value="21m00Tcm4TlvDq8ikWAM">Rachel (Female - Calm)</option>
+                                <option value="AZnzlk1XvdvUeBnXmlld">Domi (Female - Strong)</option>
+                                <option value="ErXwobaYiN019PkySvjV">Antoni (Male - Well-rounded)</option>
+                                <option value="VR6AewLTigWG4xSOukaG">Arnold (Male - Crisp)</option>
+                                <option value="pNInz6obpgDQGcFmaJgB">Adam (Male - Deep)</option>
+                                <option value="yoZ06aMxZJJ28mfd3POQ">Sam (Male - Raspy)</option>
+                                <option value="CwhRBWXzGAHq8TQ4Fs17">Roger (Male - Confident)</option>
+                            </select>
+                            <small style="color: #666; font-size: 12px;">Choose a voice for text-to-speech narration</small>
+                        </div>
                         <button onclick="createBible()">✨ Enhance Bible</button>
                     </div>
                     <div class="card">
@@ -146,11 +165,23 @@
             </div>
 
             <div id="bible-section" class="hidden">
-                <div class="card">
-                    <h2>Step 2: Generate Story</h2>
-                    <div id="bible-preview" class="debug-panel" style="max-height: 300px; margin-bottom: 20px;"></div>
-                    <button onclick="generateStory()">🎬 Generate Story</button>
-                    <button onclick="resetAll()" class="btn-danger" style="margin-left: 10px;">🔄 Reset</button>
+                <div class="grid">
+                    <div class="card">
+                        <h2>Step 2: Generate Story</h2>
+                        <div id="bible-preview" class="debug-panel" style="max-height: 300px; margin-bottom: 20px;"></div>
+                        <button id="generateBtn" onclick="generateStory()">🎬 Generate Story</button>
+                        <button onclick="resetAll()" class="btn-danger" style="margin-left: 10px;">🔄 Reset</button>
+                        <div id="generation-status" class="hidden" style="margin-top: 20px; padding: 15px; background: #1a3a52; border: 1px solid #2563eb; border-radius: 6px; text-align: center;">
+                            <div class="spinner" style="margin: 0 auto 10px;"></div>
+                            <div id="status-text">Generating story...</div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h2>🔧 Generation Progress</h2>
+                        <div id="generation-logs" class="debug-panel">
+                            <div class="log-entry">Click "Generate Story" to begin...</div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -210,22 +241,11 @@
             if (!data.setting.trim()) return alert('Enter a setting');
 
             try {
-                log(`Calling: ${API_URL}/api/dev/onboarding`);
                 const res = await fetch(`${API_URL}/api/dev/onboarding`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify(data)
                 });
-
-                log(`Response status: ${res.status} ${res.statusText}`);
-
-                if (!res.ok) {
-                    const errorText = await res.text();
-                    log(`✗ HTTP Error ${res.status}: ${errorText}`);
-                    alert(`Error ${res.status}: ${errorText.substring(0, 200)}`);
-                    return;
-                }
-
                 const result = await res.json();
                 if (result.success) {
                     currentBible = result.bible;
@@ -238,45 +258,84 @@
                     `;
                     document.getElementById('onboarding-section').classList.add('hidden');
                     document.getElementById('bible-section').classList.remove('hidden');
-                } else {
-                    log(`✗ API Error: ${result.error || 'Unknown error'}`);
-                    alert(`API Error: ${result.error || 'Unknown error'}`);
                 }
             } catch (e) {
                 log('✗ Error: ' + e.message);
-                log('✗ Full error: ' + JSON.stringify(e));
-                alert('Error: ' + e.message + '\n\nCheck the debug logs for details.');
+                alert('Error: ' + e.message);
+            }
+        }
+
+        function generationLog(msg) {
+            const logs = document.getElementById('generation-logs');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            logs.appendChild(entry);
+            logs.scrollTop = logs.scrollHeight;
+        }
+
+        let logPollingInterval = null;
+
+        async function pollGenerationLogs() {
+            try {
+                const res = await fetch(`${API_URL}/api/dev/logs`);
+                const data = await res.json();
+                if (data.logs && data.logs.length > 0) {
+                    const lastLog = data.logs[data.logs.length - 1];
+                    generationLog(lastLog.message);
+                }
+            } catch (e) {
+                // Silently fail polling
             }
         }
 
         async function generateStory() {
-            log('Generating story (2-4 min)...');
-            try {
-                if (!currentBible) {
-                    alert('No bible found. Please start over.');
-                    return;
-                }
+            // Disable button to prevent double-clicks
+            const btn = document.getElementById('generateBtn');
+            btn.disabled = true;
+            btn.textContent = '⏳ Generating...';
 
-                log(`Calling: ${API_URL}/api/dev/generate-story`);
+            // Clear logs
+            document.getElementById('generation-logs').innerHTML = '';
+
+            // Show status
+            document.getElementById('generation-status').classList.remove('hidden');
+            generationLog('Starting story generation...');
+
+            // Start polling logs every 2 seconds
+            logPollingInterval = setInterval(pollGenerationLogs, 2000);
+
+            try {
+                const email = document.getElementById('userEmail').value;
+                const voiceId = document.getElementById('voiceId').value;
+
+                generationLog('Sending request to server...');
+
                 const res = await fetch(`${API_URL}/api/dev/generate-story`, {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ bible: currentBible })
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        bible: currentBible,
+                        email: email || null,
+                        voice_id: voiceId
+                    })
                 });
 
-                log(`Response status: ${res.status} ${res.statusText}`);
-
-                if (!res.ok) {
-                    const errorText = await res.text();
-                    log(`✗ HTTP Error ${res.status}: ${errorText}`);
-                    alert(`Error ${res.status}: ${errorText.substring(0, 200)}`);
-                    return;
-                }
-
+                generationLog('Server responded, processing...');
                 const data = await res.json();
+
+                // Stop polling
+                clearInterval(logPollingInterval);
+                logPollingInterval = null;
+
                 if (data.success) {
                     currentStory = data.story;
-                    log(`✓ Generated! ${data.story.word_count} words in ${data.debug.generation_time.toFixed(1)}s`);
+                    generationLog(`✓ Story generated! ${data.story.word_count} words in ${data.debug.generation_time.toFixed(1)}s`);
+
+                    if (data.email_sent) {
+                        generationLog(`✓ Email sent successfully!`);
+                    }
+
                     document.getElementById('story-content').innerHTML = `
                         <div class="story-title">${data.story.title}</div>
                         <div class="story-text">${data.story.narrative}</div>
@@ -285,19 +344,33 @@
                         <strong>Words:</strong> ${data.story.word_count}<br>
                         <strong>Time:</strong> ${data.debug.generation_time.toFixed(1)}s<br>
                         <strong>Plot:</strong> ${data.debug.plot_type}<br>
+                        <strong>Email Sent:</strong> ${data.email_sent ? 'Yes ✓' : 'No'}<br>
                         <details><summary>Beat Plan</summary><pre>${JSON.stringify(data.debug.beat_plan, null, 2)}</pre></details>
                     `;
+
+                    // Hide status and move to story section
+                    document.getElementById('generation-status').classList.add('hidden');
                     document.getElementById('bible-section').classList.add('hidden');
                     document.getElementById('story-section').classList.remove('hidden');
                     setupRating();
                 } else {
-                    log(`✗ API Error: ${data.error || 'Unknown error'}`);
-                    alert(`API Error: ${data.error || 'Unknown error'}`);
+                    generationLog('✗ Error: ' + (data.error || 'Unknown error'));
+                    alert('Generation failed: ' + (data.error || 'Unknown error'));
                 }
             } catch (e) {
-                log('✗ Error: ' + e.message);
-                log('✗ Full error: ' + JSON.stringify(e));
-                alert('Error: ' + e.message + '\n\nCheck the debug logs for details.');
+                // Stop polling
+                if (logPollingInterval) {
+                    clearInterval(logPollingInterval);
+                    logPollingInterval = null;
+                }
+
+                generationLog('✗ Error: ' + e.message);
+                alert('Error: ' + e.message);
+            } finally {
+                // Re-enable button
+                btn.disabled = false;
+                btn.textContent = '🎬 Generate Story';
+                document.getElementById('generation-status').classList.add('hidden');
             }
         }
 
