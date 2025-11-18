@@ -106,23 +106,21 @@ class EmailScheduler:
         user_email: str,
         story_title: str,
         story_narrative: str,
-        audio_file_path: Optional[str],
-        image_file_path: Optional[str],
-        video_file_path: Optional[str],
+        audio_url: Optional[str],
+        image_url: Optional[str],
         genre: str,
         word_count: int,
         user_tier: str = "free"
     ) -> bool:
         """
-        Send a standalone story email (FictionMail format).
+        Send a standalone story email (FictionMail format) with inline content.
 
         Args:
             user_email: Recipient email address
             story_title: Title of the story
             story_narrative: The complete story text
-            audio_file_path: Local file path to the MP3 file (optional)
-            image_file_path: Local file path to the cover image (optional)
-            video_file_path: Local file path to the MP4 video (optional, premium only)
+            audio_url: URL to the hosted MP3 file (optional)
+            image_url: URL to the hosted cover image (optional)
             genre: Story genre
             word_count: Story word count
             user_tier: User's subscription tier (free/premium)
@@ -130,25 +128,17 @@ class EmailScheduler:
         Returns:
             True if sent successfully, False otherwise
         """
-        # Check if files exist
-        has_audio = audio_file_path is not None and os.path.exists(audio_file_path) if audio_file_path else False
-        has_image = image_file_path is not None and os.path.exists(image_file_path) if image_file_path else False
-        has_video = video_file_path is not None and os.path.exists(video_file_path) if video_file_path else False
-
         html = self._render_story_email(
             story_title=story_title,
             story_narrative=story_narrative,
-            has_audio=has_audio,
-            has_image=has_image,
-            has_video=has_video,
+            audio_url=audio_url,
+            image_url=image_url,
             user_tier=user_tier,
             genre=genre,
             word_count=word_count
         )
 
         try:
-            import base64
-
             from_address = os.getenv("EMAIL_FROM_ADDRESS", "onboarding@resend.dev")
 
             params = {
@@ -158,60 +148,15 @@ class EmailScheduler:
                 "html": html,
             }
 
-            attachments = []
-
-            # Attach audio file if available
-            if has_audio:
-                try:
-                    with open(audio_file_path, "rb") as audio_file:
-                        audio_content = base64.b64encode(audio_file.read()).decode('utf-8')
-
-                    audio_filename = os.path.basename(audio_file_path)
-                    attachments.append({
-                        "content": audio_content,
-                        "filename": audio_filename
-                    })
-                    print(f"  ✓ Attached audio file: {audio_filename}")
-                except Exception as e:
-                    print(f"  ⚠️  Failed to attach audio file: {e}")
-
-            # Attach image file if available
-            if has_image:
-                try:
-                    with open(image_file_path, "rb") as image_file:
-                        image_content = base64.b64encode(image_file.read()).decode('utf-8')
-
-                    image_filename = os.path.basename(image_file_path)
-                    attachments.append({
-                        "content": image_content,
-                        "filename": image_filename
-                    })
-                    print(f"  ✓ Attached cover image: {image_filename}")
-                except Exception as e:
-                    print(f"  ⚠️  Failed to attach image file: {e}")
-
-            # Attach video file if available (premium tier)
-            if has_video:
-                try:
-                    with open(video_file_path, "rb") as video_file:
-                        video_content = base64.b64encode(video_file.read()).decode('utf-8')
-
-                    video_filename = os.path.basename(video_file_path)
-                    attachments.append({
-                        "content": video_content,
-                        "filename": video_filename
-                    })
-                    video_size_mb = os.path.getsize(video_file_path) / (1024 * 1024)
-                    print(f"  ✓ Attached video: {video_filename} ({video_size_mb:.2f} MB)")
-                except Exception as e:
-                    print(f"  ⚠️  Failed to attach video file: {e}")
-
-            if attachments:
-                params["attachments"] = attachments
-
             response = resend.Emails.send(params)
             print(f"✅ Sent story '{story_title}' to {user_email}")
             print(f"   Resend email ID: {response.get('id', 'unknown')}")
+
+            if audio_url:
+                print(f"   🎧 Inline audio player: {audio_url}")
+            if image_url:
+                print(f"   🎨 Inline cover image: {image_url}")
+
             return True
 
         except Exception as e:
@@ -406,76 +351,75 @@ class EmailScheduler:
         self,
         story_title: str,
         story_narrative: str,
-        has_audio: bool,
-        has_image: bool,
-        has_video: bool,
+        audio_url: Optional[str],
+        image_url: Optional[str],
         user_tier: str,
         genre: str,
         word_count: int
     ) -> str:
-        """Generate HTML for standalone story email (FictionMail)"""
+        """Generate HTML for standalone story email (FictionMail) with inline content"""
 
-        # Optional video section (premium tier - attached file)
-        video_section = ""
-        if has_video:
-            video_section = f'''
-            <div style="margin: 30px 0; padding: 30px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border-radius: 12px; text-align: center;">
-              <h3 style="color: white; margin: 0 0 15px 0; font-size: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
-                🎥 Premium Video Attached
-              </h3>
-              <p style="margin: 0; font-size: 16px; color: rgba(255,255,255,0.95); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6;">
-                Your story includes a beautiful MP4 video combining<br>
-                the cover art with professional narration!
-              </p>
-              <p style="margin: 15px 0 0 0; font-size: 14px; color: rgba(255,255,255,0.85); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
-                📲 Download and play on any device<br>
-                Perfect for your commute or relaxing at home
-              </p>
-            </div>
-            '''
+        # Get base URL from environment
+        base_url = os.getenv("APP_BASE_URL", "http://localhost:8000")
 
-        # Optional image section (attached file)
+        # Inline cover image (shown prominently at top)
         image_section = ""
-        if has_image and not has_video:  # Only show image notice if no video (video includes image)
+        if image_url:
+            # Construct full URL
+            full_image_url = f"{base_url}{image_url}" if image_url.startswith('/') else image_url
             image_section = f'''
-            <div style="margin: 30px 0; padding: 25px; background: linear-gradient(135deg, #764ba2 0%, #667eea 100%); border-radius: 12px; text-align: center;">
-              <h3 style="color: white; margin: 0 0 10px 0; font-size: 18px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
-                🎨 Cover Art Attached
-              </h3>
-              <p style="margin: 0; font-size: 15px; color: rgba(255,255,255,0.95); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
-                A custom cover image is attached to this email.<br>
-                View it in your attachments!
-              </p>
+            <div style="margin: 30px 0; text-align: center;">
+              <img src="{full_image_url}"
+                   alt="{story_title}"
+                   style="width: 100%; max-width: 600px; height: auto; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); display: block; margin: 0 auto;">
             </div>
             '''
 
-        # Optional audio section (attached file)
+        # Inline audio player (beautiful design with controls)
         audio_section = ""
-        if has_audio:
+        if audio_url:
+            # Construct full URL
+            full_audio_url = f"{base_url}{audio_url}" if audio_url.startswith('/') else audio_url
             audio_section = f'''
-            <div style="margin: 30px 0; padding: 25px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; text-align: center;">
-              <h3 style="color: white; margin: 0 0 10px 0; font-size: 18px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
-                🎧 Audio Narration Attached
-              </h3>
-              <p style="margin: 0; font-size: 15px; color: rgba(255,255,255,0.95); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6;">
-                Your story includes a professionally narrated MP3 file.<br>
-                Check your email attachments to listen!
-              </p>
-              <p style="margin: 10px 0 0 0; font-size: 13px; color: rgba(255,255,255,0.8); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
-                Perfect for your commute or relaxing at home
-              </p>
+            <div style="margin: 30px 0; padding: 30px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 16px; box-shadow: 0 8px 24px rgba(102, 126, 234, 0.25);">
+              <div style="text-align: center; margin-bottom: 20px;">
+                <h3 style="color: white; margin: 0 0 8px 0; font-size: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-weight: 600;">
+                  🎧 Listen to Your Story
+                </h3>
+                <p style="margin: 0; font-size: 14px; color: rgba(255,255,255,0.9); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+                  Professional narration • Perfect for your commute
+                </p>
+              </div>
+              <div style="background: rgba(255,255,255,0.15); border-radius: 12px; padding: 20px; backdrop-filter: blur(10px);">
+                <audio controls style="width: 100%; height: 40px; border-radius: 8px;">
+                  <source src="{full_audio_url}" type="audio/mpeg">
+                  Your browser does not support the audio element.
+                </audio>
+                <p style="margin: 15px 0 0 0; font-size: 12px; color: rgba(255,255,255,0.85); text-align: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+                  <a href="{full_audio_url}" style="color: white; text-decoration: none; font-weight: 500;">📥 Download MP3</a>
+                </p>
+              </div>
             </div>
             '''
 
-        # Format story narrative with paragraphs
+        # Format story narrative with beautiful typography
         paragraphs = story_narrative.split('\n\n')
         formatted_story = ''.join([
-            f'<p style="margin: 0 0 20px 0; font-size: 17px; line-height: 1.8; color: #2d2d2d;">{p.strip()}</p>'
+            f'<p style="margin: 0 0 24px 0; font-size: 18px; line-height: 1.8; color: #2d2d2d; font-family: Georgia, serif;">{p.strip()}</p>'
             for p in paragraphs if p.strip()
         ])
 
         # Estimate reading time (average 200 words per minute)
         reading_time = max(1, round(word_count / 200))
+
+        # Premium badge for premium tier users
+        tier_badge = ""
+        if user_tier == "premium":
+            tier_badge = '''
+            <div style="display: inline-block; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 600; letter-spacing: 1px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin-top: 10px;">
+              ✨ PREMIUM
+            </div>
+            '''
 
         return f'''
         <!DOCTYPE html>
@@ -486,51 +430,60 @@ class EmailScheduler:
           <style>
             @media only screen and (max-width: 600px) {{
               .container {{ padding: 20px !important; }}
-              h1 {{ font-size: 28px !important; }}
+              .story-title {{ font-size: 28px !important; }}
+              .story-content {{ padding: 30px 24px !important; }}
             }}
           </style>
         </head>
-        <body style="margin: 0; padding: 0; font-family: Georgia, serif; background: #f5f5f5;">
+        <body style="margin: 0; padding: 0; font-family: Georgia, serif; background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%); min-height: 100vh;">
           <div class="container" style="max-width: 700px; margin: 0 auto; padding: 40px 20px;">
 
             <!-- Header -->
-            <div style="text-align: center; margin-bottom: 30px;">
-              <h1 style="color: #1a1a1a; margin: 0 0 10px 0; font-size: 36px; font-weight: 700; letter-spacing: -0.5px;">
+            <div style="text-align: center; margin-bottom: 40px;">
+              <div style="display: inline-block; background: white; padding: 12px 24px; border-radius: 30px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px;">
+                <p style="margin: 0; font-size: 13px; color: #6c757d; text-transform: uppercase; letter-spacing: 2px; font-weight: 600; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+                  {genre.upper()}
+                </p>
+              </div>
+              <h1 class="story-title" style="color: #1a1a1a; margin: 0 0 12px 0; font-size: 42px; font-weight: 700; letter-spacing: -1px; line-height: 1.2;">
                 {story_title}
               </h1>
-              <p style="margin: 0; font-size: 14px; color: #999; text-transform: uppercase; letter-spacing: 2px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
-                {genre.upper()} • {word_count} words • {reading_time} min read
+              <p style="margin: 0; font-size: 15px; color: #6c757d; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+                {word_count:,} words • {reading_time} min read
               </p>
+              {tier_badge}
             </div>
 
-            <!-- Premium Video (if available) -->
-            {video_section}
-
-            <!-- Cover Image -->
+            <!-- Cover Image (inline, prominent) -->
             {image_section}
 
-            <!-- Audio Player -->
+            <!-- Audio Player (inline, beautiful) -->
             {audio_section}
 
             <!-- Story Content -->
-            <div style="background: white; border-radius: 12px; padding: 50px 40px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); margin: 30px 0;">
+            <div class="story-content" style="background: white; border-radius: 16px; padding: 60px 50px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); margin: 30px 0;">
               {formatted_story}
             </div>
 
             <!-- Footer -->
-            <div style="text-align: center; margin-top: 40px; padding: 30px 20px; background: white; border-radius: 12px;">
-              <p style="margin: 0 0 15px 0; font-size: 16px; color: #1a1a1a; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
-                <strong>Enjoyed this story?</strong>
+            <div style="text-align: center; margin-top: 50px; padding: 40px 30px; background: white; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.06);">
+              <p style="margin: 0 0 12px 0; font-size: 18px; color: #1a1a1a; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-weight: 600;">
+                ✨ Enjoyed this story?
               </p>
-              <p style="margin: 0; font-size: 14px; color: #666; line-height: 1.6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+              <p style="margin: 0 0 20px 0; font-size: 15px; color: #6c757d; line-height: 1.6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
                 You'll receive a new {genre} story tomorrow.<br>
-                Each story is unique and tailored just for you.
+                Each one is unique and tailored just for you.
               </p>
+              <div style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 12px 32px; border-radius: 25px; margin-top: 10px;">
+                <p style="margin: 0; font-size: 13px; color: white; font-weight: 600; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; letter-spacing: 0.5px;">
+                  📬 FICTION MAIL
+                </p>
+              </div>
             </div>
 
             <!-- Branding -->
-            <p style="text-align: center; color: #999; font-size: 12px; margin-top: 30px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
-              FictionMail • Daily Stories in Your Inbox
+            <p style="text-align: center; color: #adb5bd; font-size: 12px; margin-top: 30px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+              FictionMail • Daily Stories Delivered to Your Inbox
             </p>
           </div>
         </body>

@@ -204,35 +204,19 @@ async def dev_generate_story(data: Optional[GenerateStoryInput] = Body(default=N
                     await email_db.connect()
                     email_scheduler = EmailScheduler(email_db)
 
-                    # Convert audio URL to file path for attachment
-                    audio_file_path = None
-                    if story_data.get("audio_url"):
-                        # Convert /audio/filename.mp3 to ./generated_audio/filename.mp3
-                        audio_url = story_data["audio_url"]
-                        if audio_url.startswith("/audio/"):
-                            audio_file_path = audio_url.replace("/audio/", "./generated_audio/")
+                    # Get URLs for inline content (no file path conversion needed!)
+                    audio_url = story_data.get("audio_url")  # e.g., /audio/filename.mp3
+                    image_url = story_data.get("cover_image_url")  # e.g., /images/filename.png
 
-                    # Convert image URL to file path for attachment
-                    image_file_path = None
-                    if story_data.get("cover_image_url"):
-                        # Convert /images/filename.png to ./generated_images/filename.png
-                        image_url = story_data["cover_image_url"]
-                        if image_url.startswith("/images/"):
-                            image_file_path = image_url.replace("/images/", "./generated_images/")
-
-                    # Get video file path (premium tier)
-                    # NOTE: Video is NOT attached to email (too large for Resend)
-                    # Video is generated for potential future use (web player, direct download)
-                    video_file_path = None  # Don't attach video to email
-
-                    # Send the story email
+                    # Send the story email with inline content
+                    # Audio and images will be embedded inline using hosted URLs
+                    # No attachments - everything is hosted and linked
                     email_sent = await email_scheduler.send_story_email(
                         user_email=email,
                         story_title=story_data["title"],
                         story_narrative=story_data["narrative"],
-                        audio_file_path=audio_file_path,
-                        image_file_path=image_file_path,
-                        video_file_path=video_file_path,  # None - video not attached
+                        audio_url=audio_url,
+                        image_url=image_url,
                         genre=story_data["genre"],
                         word_count=story_data["word_count"],
                         user_tier=story_data["tier"]
