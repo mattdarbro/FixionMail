@@ -209,12 +209,14 @@ class EmailScheduler:
             if attachments:
                 params["attachments"] = attachments
 
-            resend.Emails.send(params)
+            response = resend.Emails.send(params)
             print(f"✅ Sent story '{story_title}' to {user_email}")
+            print(f"   Resend email ID: {response.get('id', 'unknown')}")
             return True
 
         except Exception as e:
             print(f"❌ Failed to send story email: {e}")
+            print(f"   Error type: {type(e).__name__}")
             import traceback
             traceback.print_exc()
             return False
