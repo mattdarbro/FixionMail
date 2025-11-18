@@ -136,6 +136,15 @@ async def serve_dashboard():
         raise HTTPException(status_code=404, detail="Dashboard not found")
 
 
+# Handle apple-touch-icon requests to prevent 404s
+@app.get("/apple-touch-icon.png")
+@app.get("/apple-touch-icon-precomposed.png")
+async def apple_touch_icon():
+    """Return 204 No Content for apple icon requests."""
+    from fastapi.responses import Response
+    return Response(status_code=204)
+
+
 # ===== Health Check =====
 
 @app.get("/health")
