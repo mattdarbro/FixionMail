@@ -271,7 +271,14 @@ class EmailScheduler:
         """Generate HTML for chapter email"""
 
         # Get base URL from environment (Railway URL in production, localhost in dev)
-        base_url = os.getenv("APP_BASE_URL", "http://localhost:8000")
+        base_url = os.getenv("APP_BASE_URL", "http://localhost:8000").rstrip('/')
+
+        # Convert relative URLs to absolute URLs for email (avoid double slashes)
+        if audio_url and audio_url.startswith('/'):
+            audio_url = f"{base_url}{audio_url}"
+
+        if image_url and image_url.startswith('/'):
+            image_url = f"{base_url}{image_url}"
 
         # Render choice buttons
         choice_buttons = '\n'.join([
