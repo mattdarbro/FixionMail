@@ -98,12 +98,14 @@ async def generate_story_audio(
             for chunk in audio_generator:
                 f.write(chunk)
 
-        # Return local path
-        local_url = f"/audio/{filename}"
+        # Upload to storage backend (Supabase in prod, local in dev)
+        from backend.storage import upload_audio
+        public_url = upload_audio(filepath, filename)
+
         print(f"  ✓ Audio generated successfully")
         print(f"    Saved to: {filepath}")
-        print(f"    Accessible at: {local_url}")
-        return local_url
+        print(f"    Public URL: {public_url}")
+        return public_url
 
     except Exception as e:
         error_msg = str(e)
@@ -201,12 +203,14 @@ async def generate_story_image(
             with open(filepath, "wb") as f:
                 f.write(response.content)
 
-        # Return local URL path
-        local_url = f"/images/{filename}"
-        print(f"  ✓ Image saved locally: {filepath}")
-        print(f"    Accessible at: {local_url}")
+        # Upload to storage backend (Supabase in prod, local in dev)
+        from backend.storage import upload_image
+        public_url = upload_image(filepath, filename)
 
-        return local_url
+        print(f"  ✓ Image saved locally: {filepath}")
+        print(f"    Public URL: {public_url}")
+
+        return public_url
 
     except Exception as e:
         error_msg = str(e)

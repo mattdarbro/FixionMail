@@ -94,6 +94,17 @@ class AppConfig(BaseSettings):
             return f"{storage_path}/story_checkpoints.db"
         return self.CHECKPOINT_DB_PATH
 
+    # ===== Supabase Storage Configuration =====
+    SUPABASE_URL: str | None = Field(
+        default=None,
+        description="Supabase project URL (for production storage)"
+    )
+
+    SUPABASE_SERVICE_KEY: str | None = Field(
+        default=None,
+        description="Supabase service role key (for storage uploads)"
+    )
+
     # ===== Story Settings =====
     DEFAULT_WORLD: str = Field(
         default="west_haven",
