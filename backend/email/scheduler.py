@@ -331,12 +331,22 @@ class EmailScheduler:
             {image_section}
 
             <div style="margin: 30px 0; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+              <!-- iOS-friendly Play Button -->
+              <div style="text-align: center; margin-bottom: 15px;">
+                <a href="{audio_url}"
+                   target="_blank"
+                   style="display: inline-block; background: #6366f1; color: white; padding: 14px 32px; border-radius: 50px; text-decoration: none; font-weight: 600; font-size: 15px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);">
+                  ▶️ Play Audio
+                </a>
+              </div>
+
+              <!-- Embedded Player for Desktop -->
               <audio controls style="width: 100%;">
                 <source src="{audio_url}" type="audio/mpeg">
                 Your browser does not support the audio element.
               </audio>
               <p style="margin: 10px 0 0 0; font-size: 12px; color: #666; text-align: center;">
-                <a href="{audio_url}" style="color: #6366f1; text-decoration: none;">Download audio</a>
+                <a href="{audio_url}" download style="color: #6366f1; text-decoration: none;">Download audio</a>
               </p>
             </div>
 
@@ -408,13 +418,24 @@ class EmailScheduler:
                   Professional narration • Perfect for your commute
                 </p>
               </div>
+
+              <!-- Primary CTA: Play in Browser (iOS-friendly) -->
+              <div style="text-align: center; margin-bottom: 20px;">
+                <a href="{full_audio_url}"
+                   target="_blank"
+                   style="display: inline-block; background: white; color: #667eea; padding: 16px 40px; border-radius: 50px; text-decoration: none; font-weight: 700; font-size: 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; box-shadow: 0 4px 12px rgba(0,0,0,0.15); transition: transform 0.2s;">
+                  ▶️ Play Audio
+                </a>
+              </div>
+
+              <!-- Secondary: Embedded Player (for desktop) -->
               <div style="background: rgba(255,255,255,0.15); border-radius: 12px; padding: 20px; backdrop-filter: blur(10px);">
                 <audio controls style="width: 100%; height: 40px; border-radius: 8px;">
                   <source src="{full_audio_url}" type="audio/mpeg">
                   Your browser does not support the audio element.
                 </audio>
                 <p style="margin: 15px 0 0 0; font-size: 12px; color: rgba(255,255,255,0.85); text-align: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
-                  <a href="{full_audio_url}" style="color: white; text-decoration: none; font-weight: 500;">📥 Download MP3</a>
+                  <a href="{full_audio_url}" download style="color: white; text-decoration: none; font-weight: 500;">📥 Download MP3</a>
                 </p>
               </div>
             </div>
