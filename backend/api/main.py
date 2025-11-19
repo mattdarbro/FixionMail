@@ -105,16 +105,27 @@ app.mount("/images", StaticFiles(directory="./generated_images"), name="images")
 
 # ===== Root Endpoint =====
 
-@app.get("/")
+@app.get("/", response_class=HTMLResponse)
 async def root():
-    """Root endpoint with API information."""
+    """Serve the landing page."""
+    landing_path = "./frontend/landing.html"
+    if os.path.exists(landing_path):
+        with open(landing_path, "r") as f:
+            return f.read()
+    else:
+        raise HTTPException(status_code=404, detail="Landing page not found")
+
+
+@app.get("/api")
+async def api_info():
+    """API information endpoint."""
     return {
         "name": "FictionMail API",
         "version": "3.0.0",
         "status": "operational",
         "mode": "Standalone Daily Stories",
         "docs": "/docs",
-        "dashboard": "/dev-dashboard.html",
+        "dashboard": "/dev",
         "endpoints": {
             "onboarding": "POST /api/dev/onboarding",
             "generate_story": "POST /api/dev/generate-story",
@@ -125,7 +136,7 @@ async def root():
     }
 
 
-@app.get("/dev-dashboard.html", response_class=HTMLResponse)
+@app.get("/dev", response_class=HTMLResponse)
 async def serve_dashboard():
     """Serve the dev dashboard HTML file."""
     dashboard_path = "./frontend/dev-dashboard.html"
@@ -134,6 +145,40 @@ async def serve_dashboard():
             return f.read()
     else:
         raise HTTPException(status_code=404, detail="Dashboard not found")
+
+
+# Keep legacy route for backwards compatibility
+@app.get("/dev-dashboard.html", response_class=HTMLResponse)
+async def serve_dashboard_legacy():
+    """Legacy dev dashboard route - redirects to /dev."""
+    dashboard_path = "./frontend/dev-dashboard.html"
+    if os.path.exists(dashboard_path):
+        with open(dashboard_path, "r") as f:
+            return f.read()
+    else:
+        raise HTTPException(status_code=404, detail="Dashboard not found")
+
+
+@app.get("/app", response_class=HTMLResponse)
+async def serve_app_placeholder():
+    """Serve the app placeholder (coming soon) page."""
+    placeholder_path = "./frontend/coming-soon.html"
+    if os.path.exists(placeholder_path):
+        with open(placeholder_path, "r") as f:
+            return f.read()
+    else:
+        raise HTTPException(status_code=404, detail="Placeholder page not found")
+
+
+@app.get("/signup", response_class=HTMLResponse)
+async def serve_signup_placeholder():
+    """Serve the signup placeholder (coming soon) page."""
+    placeholder_path = "./frontend/coming-soon.html"
+    if os.path.exists(placeholder_path):
+        with open(placeholder_path, "r") as f:
+            return f.read()
+    else:
+        raise HTTPException(status_code=404, detail="Placeholder page not found")
 
 
 # Handle apple-touch-icon requests to prevent 404s

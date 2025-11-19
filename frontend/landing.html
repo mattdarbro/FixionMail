@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FictionMail - Interactive Stories Delivered to Your Inbox</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            background: white;
+            border-radius: 20px;
+            padding: 60px 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            text-align: center;
+        }
+
+        .logo {
+            font-size: 3em;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 20px;
+        }
+
+        .tagline {
+            font-size: 1.5em;
+            color: #666;
+            margin-bottom: 40px;
+            font-weight: 300;
+        }
+
+        .description {
+            font-size: 1.1em;
+            color: #555;
+            margin-bottom: 40px;
+            line-height: 1.8;
+        }
+
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 30px;
+            margin: 40px 0;
+            text-align: left;
+        }
+
+        .feature {
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            transition: transform 0.3s ease;
+        }
+
+        .feature:hover {
+            transform: translateY(-5px);
+        }
+
+        .feature-icon {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+
+        .feature-title {
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #667eea;
+        }
+
+        .feature-text {
+            font-size: 0.95em;
+            color: #666;
+        }
+
+        .cta-section {
+            margin-top: 50px;
+            padding-top: 40px;
+            border-top: 1px solid #eee;
+        }
+
+        .cta-text {
+            font-size: 1.2em;
+            color: #555;
+            margin-bottom: 30px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 15px 40px;
+            font-size: 1.1em;
+            font-weight: 600;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        .btn-secondary {
+            background: white;
+            color: #667eea;
+            border: 2px solid #667eea;
+        }
+
+        .btn-secondary:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        .coming-soon {
+            display: inline-block;
+            background: #ffd700;
+            color: #333;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+
+        footer {
+            margin-top: 50px;
+            padding-top: 30px;
+            border-top: 1px solid #eee;
+            color: #999;
+            font-size: 0.9em;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 40px 30px;
+            }
+
+            .logo {
+                font-size: 2em;
+            }
+
+            .tagline {
+                font-size: 1.2em;
+            }
+
+            .features {
+                grid-template-columns: 1fr;
+            }
+
+            .button-group {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="logo">FictionMail</h1>
+        <p class="tagline">Interactive Stories Delivered to Your Inbox</p>
+
+        <p class="description">
+            Experience immersive, AI-powered fiction where <strong>you control the story</strong>.
+            Each day, receive a new chapter via email and make choices that shape your narrative journey.
+        </p>
+
+        <div class="features">
+            <div class="feature">
+                <div class="feature-icon">📧</div>
+                <div class="feature-title">Daily Delivery</div>
+                <div class="feature-text">
+                    Fresh story chapters delivered straight to your inbox
+                </div>
+            </div>
+
+            <div class="feature">
+                <div class="feature-icon">🎭</div>
+                <div class="feature-title">Your Choices Matter</div>
+                <div class="feature-text">
+                    Make decisions that influence the plot and character development
+                </div>
+            </div>
+
+            <div class="feature">
+                <div class="feature-icon">🎨</div>
+                <div class="feature-title">Rich Media</div>
+                <div class="feature-text">
+                    Stunning AI-generated images and optional audio narration
+                </div>
+            </div>
+
+            <div class="feature">
+                <div class="feature-icon">🌍</div>
+                <div class="feature-title">Multiple Worlds</div>
+                <div class="feature-text">
+                    Explore sci-fi, fantasy, mystery, and romance story universes
+                </div>
+            </div>
+        </div>
+
+        <div class="cta-section">
+            <p class="cta-text">
+                Ready to start your adventure?
+            </p>
+
+            <div class="button-group">
+                <a href="/app" class="btn btn-primary">
+                    Launch App
+                    <span class="coming-soon">COMING SOON</span>
+                </a>
+                <a href="/dev" class="btn btn-secondary">
+                    Dev Dashboard
+                </a>
+            </div>
+        </div>
+
+        <footer>
+            <p>&copy; 2024 FictionMail. Powered by AI storytelling.</p>
+        </footer>
+    </div>
+</body>
+</html>
