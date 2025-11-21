@@ -312,18 +312,29 @@ Make this feel like a real, lived-in world that can sustain many different stori
         return enhanced_bible
 
     except json.JSONDecodeError as e:
-        print(f"Failed to parse enhanced bible JSON: {e}")
+        error_msg = f"Failed to parse enhanced bible JSON: {e}"
+        print(error_msg)
         print(f"Response: {response_text[:500]}")
 
-        # Return minimal fallback
-        return create_fallback_bible(genre, user_setting, character_name)
+        # Return minimal fallback with error info
+        fallback = create_fallback_bible(genre, user_setting, character_name, intensity, story_length)
+        fallback["_error"] = error_msg
+        return fallback
 
     except Exception as e:
-        print(f"Error enhancing bible: {e}")
+        error_msg = f"Error enhancing bible: {type(e).__name__}: {str(e)}"
+        print(error_msg)
         import traceback
         traceback.print_exc()
 
-        return create_fallback_bible(genre, user_setting, character_name)
+        # Check if it's an API key issue
+        if "api_key" in str(e).lower() or "authentication" in str(e).lower():
+            error_msg = "ANTHROPIC_API_KEY not set or invalid. Please add it to Railway environment variables."
+
+        # Return minimal fallback with error info
+        fallback = create_fallback_bible(genre, user_setting, character_name, intensity, story_length)
+        fallback["_error"] = error_msg
+        return fallback
 
 
 def create_fallback_bible(
