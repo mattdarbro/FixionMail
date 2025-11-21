@@ -152,6 +152,18 @@ async def enhance_story_bible(
     else:
         character_instruction = f'Each story will have FRESH characters generated at story time. Create a CHARACTER TEMPLATE (archetype, typical traits) rather than specific characters.{f" Premise hint: {premise}" if premise else ""}'
 
+    character_key = "protagonist" if genre_cfg["characters"] == "user" else "character_template"
+
+    # Build character field based on genre type
+    if character_name and genre_cfg["characters"] == "user":
+        character_name_field = f'"name": "{character_name}",'
+    elif genre_cfg["characters"] == "ai":
+        character_name_field = '"archetype": "Type of protagonist typical for this genre",'
+    else:
+        character_name_field = '"name": "Choose an interesting name",'
+
+    supporting_key = "supporting_characters" if genre_cfg["characters"] == "user" else "supporting_cast_template"
+
     # Create enhancement prompt
     prompt = f"""You are a creative writing assistant helping to expand a story world.
 
@@ -186,8 +198,8 @@ Return a JSON object with the following structure:
     "atmosphere": "The overall mood and feel of this world",
     "rules": "Any important rules of this world (tech level, magic system, social norms, etc.)"
   }},
-  {"protagonist" if genre_cfg["characters"] == "user" else "character_template"}: {{
-    {"f'"name": "{character_name}",' if character_name and genre_cfg["characters"] == "user" else '"archetype": "Type of protagonist typical for this genre",' if genre_cfg["characters"] == "ai" else '"name": "Choose an interesting name",'}
+  "{character_key}": {{
+    {character_name_field}
     "role": "Their typical job, position, or main identity",
     "age_range": "Typical age range",
     "key_traits": ["trait1", "trait2", "trait3"],
@@ -196,7 +208,7 @@ Return a JSON object with the following structure:
     "motivation": "What drives characters in this genre",
     "voice": "How they typically speak/think"
   }},
-  "supporting_cast{"" if genre_cfg["characters"] == "user" else "_template"}": [
+  "{supporting_key}": [
     {{
       "role": "Role type (e.g., mentor, rival, love interest)",
       "personality": "Typical personality traits",
