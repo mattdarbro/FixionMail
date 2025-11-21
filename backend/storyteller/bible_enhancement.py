@@ -6,6 +6,111 @@ Takes simple user input (genre + 1-2 sentences) and creates detailed story bible
 
 import json
 from typing import Dict, Any
+
+# Genre Configuration
+# Defines what elements persist vs change between stories
+# characters: "user" = user defines recurring cast, "ai" = fresh characters each story
+# setting: "same" = consistent locations, "different" = new places each story
+# world: "same" = consistent rules/lore, "different" = new world each story
+GENRE_CONFIG = {
+    "comedy_sitcom": {
+        "label": "Comedy / Sitcom",
+        "characters": "user",
+        "setting": "same",
+        "world": "same",
+        "description": "Recurring cast in familiar settings, comedic situations"
+    },
+    "detective": {
+        "label": "Detective",
+        "characters": "user",  # Same detective, different villains/extras
+        "setting": "different",
+        "world": "same",
+        "description": "Same sleuth, new cases and locations"
+    },
+    "action": {
+        "label": "Action",
+        "characters": "user",
+        "setting": "different",
+        "world": "same",
+        "description": "Same hero, different missions and locales"
+    },
+    "romance": {
+        "label": "Romance",
+        "characters": "ai",
+        "setting": "different",
+        "world": "same",
+        "description": "Fresh love stories with consistent romantic tone"
+    },
+    "cozy": {
+        "label": "Cozy",
+        "characters": "ai",
+        "setting": "different",
+        "world": "same",
+        "description": "Warm, comforting tales with new characters"
+    },
+    "historical": {
+        "label": "Historical",
+        "characters": "ai",
+        "setting": "same",
+        "world": "same",
+        "description": "Different characters in a consistent historical period/place"
+    },
+    "western": {
+        "label": "Western",
+        "characters": "ai",
+        "setting": "different",
+        "world": "same",
+        "description": "New frontier tales in the Old West"
+    },
+    "fantasy": {
+        "label": "Fantasy",
+        "characters": "ai",
+        "setting": "different",
+        "world": "same",
+        "description": "Fresh adventures in a consistent magical world"
+    },
+    "scifi": {
+        "label": "Sci-Fi",
+        "characters": "ai",
+        "setting": "different",
+        "world": "different",
+        "description": "New characters, settings, and speculative worlds"
+    },
+    "strange_fables": {
+        "label": "Strange Fables",
+        "characters": "ai",
+        "setting": "different",
+        "world": "different",
+        "description": "Twist endings, morality tales, anthology-style"
+    }
+}
+
+# Intensity levels
+INTENSITY_LEVELS = {
+    1: {"label": "Cozy", "description": "Light, comforting, low stakes"},
+    2: {"label": "Light", "description": "Gentle tension, mild conflict"},
+    3: {"label": "Moderate", "description": "Balanced drama and calm"},
+    4: {"label": "Dramatic", "description": "High stakes, strong emotions"},
+    5: {"label": "Intense", "description": "Edge-of-seat tension, heavy themes"}
+}
+
+# Story length options (word counts)
+STORY_LENGTHS = {
+    "short": {"words": 1500, "label": "Quick Read", "tier": "free"},
+    "medium": {"words": 3000, "label": "Standard", "tier": "premium"},
+    "long": {"words": 4500, "label": "Extended", "tier": "premium"}
+}
+
+
+def get_genre_config(genre: str) -> Dict[str, Any]:
+    """Get configuration for a genre, with fallback to defaults."""
+    return GENRE_CONFIG.get(genre, {
+        "label": genre.title(),
+        "characters": "ai",
+        "setting": "different",
+        "world": "same",
+        "description": f"{genre.title()} stories"
+    })
 from langchain_core.messages import HumanMessage
 from langchain_anthropic import ChatAnthropic
 from backend.config import config
@@ -15,28 +120,54 @@ async def enhance_story_bible(
     genre: str,
     user_setting: str,
     character_name: str = None,
-    user_id: str = None
+    user_id: str = None,
+    intensity: int = 3,
+    story_length: str = "short",
+    premise: str = None,
+    cameo_pool: list = None
 ) -> Dict[str, Any]:
     """
     Take minimal user input and expand into a rich story bible.
 
     Args:
-        genre: Genre selected by user (scifi, mystery, romance, etc.)
+        genre: Genre selected by user (comedy_sitcom, detective, romance, etc.)
         user_setting: User's 1-2 sentence setting description
-        character_name: Optional character name provided by user
+        character_name: Optional character name provided by user (for user-defined character genres)
         user_id: Optional user ID for personalization
+        intensity: 1-5 scale (1=cozy, 5=intense)
+        story_length: "short" (1500), "medium" (3000), or "long" (4500)
+        premise: Optional general premise for AI-generated character genres
+        cameo_pool: Optional list of people to include as cameos
 
     Returns:
         Enhanced story bible with full details
     """
+    genre_cfg = get_genre_config(genre)
+    intensity_cfg = INTENSITY_LEVELS.get(intensity, INTENSITY_LEVELS[3])
+    length_cfg = STORY_LENGTHS.get(story_length, STORY_LENGTHS["short"])
+
+    # Determine character handling based on genre
+    if genre_cfg["characters"] == "user":
+        character_instruction = f'The user wants recurring characters. Main character name: {character_name or "Create a name"}. These characters will appear in EVERY story.'
+    else:
+        character_instruction = f'Each story will have FRESH characters generated at story time. Create a CHARACTER TEMPLATE (archetype, typical traits) rather than specific characters.{f" Premise hint: {premise}" if premise else ""}'
 
     # Create enhancement prompt
     prompt = f"""You are a creative writing assistant helping to expand a story world.
 
-The user wants {genre} stories and provided this setting:
+GENRE: {genre_cfg["label"]}
+Genre style: {genre_cfg["description"]}
+- Characters: {"Recurring (user-defined)" if genre_cfg["characters"] == "user" else "Fresh each story (AI-generated)"}
+- Settings: {"Consistent" if genre_cfg["setting"] == "same" else "Varies each story"}
+- World: {"Same universe/rules" if genre_cfg["world"] == "same" else "Can vary"}
+
+INTENSITY: {intensity_cfg["label"]} - {intensity_cfg["description"]}
+STORY LENGTH: {length_cfg["label"]} (~{length_cfg["words"]} words)
+
+The user provided this setting/world description:
 "{user_setting}"
 
-{f'They want the main character named: {character_name}' if character_name else 'Create an interesting protagonist name.'}
+{character_instruction}
 
 Your task: Expand this minimal input into a rich, detailed story bible that will enable consistent, engaging stories.
 
@@ -55,33 +186,24 @@ Return a JSON object with the following structure:
     "atmosphere": "The overall mood and feel of this world",
     "rules": "Any important rules of this world (tech level, magic system, social norms, etc.)"
   }},
-  "protagonist": {{
-    "name": "{character_name if character_name else 'Choose an interesting name'}",
-    "role": "Their job, position, or main identity",
-    "age_range": "Approximate age (e.g., 'late 20s', 'middle-aged', 'young adult')",
+  {"protagonist" if genre_cfg["characters"] == "user" else "character_template"}: {{
+    {"f'"name": "{character_name}",' if character_name and genre_cfg["characters"] == "user" else '"archetype": "Type of protagonist typical for this genre",' if genre_cfg["characters"] == "ai" else '"name": "Choose an interesting name",'}
+    "role": "Their typical job, position, or main identity",
+    "age_range": "Typical age range",
     "key_traits": ["trait1", "trait2", "trait3"],
-    "defining_characteristic": "One unique trait or limitation that makes them interesting (physical, emotional, or situational)",
-    "background": "Brief backstory (2-3 sentences)",
-    "motivation": "What drives them generally",
-    "voice": "How they speak/think (cynical, optimistic, analytical, emotional, etc.)"
+    "defining_characteristic": "What makes protagonists in this world interesting",
+    "background": "Typical background elements",
+    "motivation": "What drives characters in this genre",
+    "voice": "How they typically speak/think"
   }},
-  "supporting_characters": [
+  "supporting_cast{"" if genre_cfg["characters"] == "user" else "_template"}": [
     {{
-      "name": "Character 2 name",
-      "role": "Their role/job",
-      "relationship_to_protagonist": "How they relate to the protagonist",
-      "personality": "2-3 word personality descriptor",
-      "purpose": "Their narrative purpose (mentor, foil, ally, comic relief, etc.)"
-    }},
-    {{
-      "name": "Character 3 name",
-      "role": "Their role/job",
-      "relationship_to_protagonist": "How they relate to the protagonist",
-      "personality": "2-3 word personality descriptor",
+      "role": "Role type (e.g., mentor, rival, love interest)",
+      "personality": "Typical personality traits",
       "purpose": "Their narrative purpose"
     }}
   ],
-  "tone": "The emotional tone of stories (tense, hopeful, mysterious, light, dark, heartwarming, etc.)",
+  "tone": "The emotional tone matching intensity level: {intensity_cfg["label"]}",
   "themes": ["theme1", "theme2", "theme3"],
   "story_style": "Brief description of what makes these stories distinctive"
 }}
@@ -89,11 +211,10 @@ Return a JSON object with the following structure:
 
 Guidelines:
 1. **Be specific**: "Space station" → "Deep Space Station Aurora, a crumbling research outpost on the edge of charted space"
-2. **Add depth**: Give characters flaws, quirks, history
-3. **Create contrast**: Support characters should complement/contrast with protagonist
-4. **Establish tone**: Match the genre expectations
-5. **Interesting limitation**: Give protagonist something that makes stories richer (disability, personality trait, situation)
-6. **Internal consistency**: Everything should fit together logically
+2. **Match intensity**: {intensity_cfg["label"]} means {intensity_cfg["description"]}
+3. **Establish tone**: Match the genre expectations and intensity level
+4. {"**Recurring cast**: These characters will appear in every story, so make them memorable" if genre_cfg["characters"] == "user" else "**Character templates**: Provide archetypes that can generate fresh, interesting characters each story"}
+5. **Internal consistency**: Everything should fit together logically
 
 Make this feel like a real, lived-in world that can sustain many different stories.
 """
@@ -121,12 +242,42 @@ Make this feel like a real, lived-in world that can sustain many different stori
         # Parse JSON
         enhanced_bible = json.loads(response_text)
 
-        # Add metadata
+        # Add metadata and configuration
         enhanced_bible["user_input"] = {
             "genre": genre,
             "setting": user_setting,
-            "character_name": character_name
+            "character_name": character_name,
+            "premise": premise
         }
+
+        # Store genre configuration
+        enhanced_bible["genre_config"] = {
+            "genre_key": genre,
+            "label": genre_cfg["label"],
+            "characters": genre_cfg["characters"],  # "user" or "ai"
+            "setting": genre_cfg["setting"],  # "same" or "different"
+            "world": genre_cfg["world"],  # "same" or "different"
+        }
+
+        # Store intensity and length settings
+        enhanced_bible["story_settings"] = {
+            "intensity": intensity,
+            "intensity_label": intensity_cfg["label"],
+            "story_length": story_length,
+            "word_target": length_cfg["words"]
+        }
+
+        # Add cameo pool if provided
+        if cameo_pool:
+            enhanced_bible["cameo_characters"] = [
+                {
+                    "name": c.get("name", ""),
+                    "description": c.get("description", ""),
+                    "frequency": c.get("frequency", "sometimes"),
+                    "appearances": 0
+                }
+                for c in cameo_pool
+            ]
 
         # Initialize tracking fields
         enhanced_bible["story_history"] = {
@@ -163,10 +314,20 @@ Make this feel like a real, lived-in world that can sustain many different stori
         return create_fallback_bible(genre, user_setting, character_name)
 
 
-def create_fallback_bible(genre: str, user_setting: str, character_name: str = None) -> Dict[str, Any]:
+def create_fallback_bible(
+    genre: str,
+    user_setting: str,
+    character_name: str = None,
+    intensity: int = 3,
+    story_length: str = "short"
+) -> Dict[str, Any]:
     """
     Create a minimal fallback bible if AI enhancement fails.
     """
+    genre_cfg = get_genre_config(genre)
+    intensity_cfg = INTENSITY_LEVELS.get(intensity, INTENSITY_LEVELS[3])
+    length_cfg = STORY_LENGTHS.get(story_length, STORY_LENGTHS["short"])
+
     return {
         "genre": genre,
         "setting": {
@@ -176,7 +337,7 @@ def create_fallback_bible(genre: str, user_setting: str, character_name: str = N
             "atmosphere": genre,
             "rules": "Standard genre conventions"
         },
-        "protagonist": {
+        "protagonist" if genre_cfg["characters"] == "user" else "character_template": {
             "name": character_name or "Alex",
             "role": "Protagonist",
             "age_range": "adult",
@@ -187,13 +348,26 @@ def create_fallback_bible(genre: str, user_setting: str, character_name: str = N
             "voice": "thoughtful"
         },
         "supporting_characters": [],
-        "tone": genre,
+        "tone": intensity_cfg["label"],
         "themes": [genre, "adventure", "discovery"],
-        "story_style": f"{genre.capitalize()} stories in this world",
+        "story_style": f"{genre_cfg['label']} stories in this world",
         "user_input": {
             "genre": genre,
             "setting": user_setting,
             "character_name": character_name
+        },
+        "genre_config": {
+            "genre_key": genre,
+            "label": genre_cfg["label"],
+            "characters": genre_cfg["characters"],
+            "setting": genre_cfg["setting"],
+            "world": genre_cfg["world"],
+        },
+        "story_settings": {
+            "intensity": intensity,
+            "intensity_label": intensity_cfg["label"],
+            "story_length": story_length,
+            "word_target": length_cfg["words"]
         },
         "story_history": {
             "total_stories": 0,

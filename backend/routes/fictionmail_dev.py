@@ -41,7 +41,10 @@ class OnboardingInput(BaseModel):
     genre: str
     setting: str
     character_name: Optional[str] = None
-    tier: str = "free"
+    intensity: int = 3
+    story_length: str = "short"
+    premise: Optional[str] = None
+    cameo_pool: Optional[list] = None
 
 
 class CameoInput(BaseModel):
@@ -78,24 +81,30 @@ async def dev_onboarding(data: OnboardingInput):
         bible = await enhance_story_bible(
             genre=data.genre,
             user_setting=data.setting,
-            character_name=data.character_name
+            character_name=data.character_name,
+            intensity=data.intensity,
+            story_length=data.story_length,
+            premise=data.premise,
+            cameo_pool=data.cameo_pool
         )
-
-        # Store tier preference
-        bible["user_tier"] = data.tier
 
         dev_storage["current_bible"] = bible
 
         log("Bible enhancement complete!")
+
+        # Handle both protagonist and character_template based on genre
+        char_info = bible.get("protagonist", bible.get("character_template", {}))
 
         return {
             "success": True,
             "bible": bible,
             "debug": {
                 "input": data.dict(),
-                "protagonist": bible.get("protagonist", {}),
-                "supporting_count": len(bible.get("supporting_characters", [])),
-                "setting_name": bible.get("setting", {}).get("name", "N/A")
+                "genre_config": bible.get("genre_config", {}),
+                "character_info": char_info,
+                "setting_name": bible.get("setting", {}).get("name", "N/A"),
+                "intensity": bible.get("story_settings", {}).get("intensity_label", "N/A"),
+                "word_target": bible.get("story_settings", {}).get("word_target", 1500)
             }
         }
     except Exception as e:

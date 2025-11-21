@@ -107,32 +107,61 @@
                         <h2>Step 1: Create Your Story World</h2>
                         <div class="form-group">
                             <label>Genre</label>
-                            <select id="genre">
-                                <option value="scifi">🚀 Sci-Fi</option>
-                                <option value="mystery">🔍 Mystery</option>
-                                <option value="romance">💕 Romance</option>
-                                <option value="fantasy">🧙 Fantasy</option>
-                                <option value="horror">👻 Horror</option>
-                                <option value="drama">🎭 Drama</option>
-                                <option value="western">🤠 Western</option>
-                                <option value="historical">📜 Historical</option>
-                                <option value="sitcom">😂 Sitcom (Premium)</option>
+                            <select id="genre" onchange="updateGenreUI()">
+                                <optgroup label="Recurring Characters">
+                                    <option value="comedy_sitcom">😂 Comedy / Sitcom</option>
+                                    <option value="detective">🔍 Detective</option>
+                                    <option value="action">💥 Action</option>
+                                </optgroup>
+                                <optgroup label="Fresh Characters Each Story">
+                                    <option value="romance">💕 Romance</option>
+                                    <option value="cozy">☕ Cozy</option>
+                                    <option value="fantasy">🧙 Fantasy</option>
+                                    <option value="western">🤠 Western</option>
+                                    <option value="historical">📜 Historical</option>
+                                    <option value="scifi">🚀 Sci-Fi</option>
+                                    <option value="strange_fables">🌀 Strange Fables</option>
+                                </optgroup>
                             </select>
+                            <small id="genre-hint" style="color: #888; font-size: 12px;"></small>
                         </div>
                         <div class="form-group">
-                            <label>Setting (1-2 sentences)</label>
+                            <label>Setting / World (1-2 sentences)</label>
                             <textarea id="setting" placeholder="Space station on the edge of known space"></textarea>
                         </div>
-                        <div class="form-group">
-                            <label>Character Name (optional)</label>
+                        <div class="form-group" id="character-name-group">
+                            <label>Character Name <span id="char-name-note">(optional)</span></label>
                             <input type="text" id="characterName" placeholder="Elena">
                         </div>
+                        <div class="form-group hidden" id="premise-group">
+                            <label>Story Premise (optional)</label>
+                            <textarea id="premise" placeholder="A hint for the types of stories you'd like (e.g., 'stories about second chances' or 'underdog heroes')"></textarea>
+                            <small style="color: #888; font-size: 12px;">Guides AI character generation</small>
+                        </div>
                         <div class="form-group">
-                            <label>Tier</label>
-                            <select id="tier">
-                                <option value="free">Free (1500 words)</option>
-                                <option value="premium">Premium (4500 words)</option>
+                            <label>Intensity: <span id="intensity-label">Moderate</span></label>
+                            <input type="range" id="intensity" min="1" max="5" value="3" oninput="updateIntensityLabel()">
+                            <div style="display: flex; justify-content: space-between; font-size: 11px; color: #666;">
+                                <span>Cozy</span><span>Light</span><span>Moderate</span><span>Dramatic</span><span>Intense</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Story Length</label>
+                            <select id="storyLength">
+                                <option value="short">Quick Read (~1500 words)</option>
+                                <option value="medium">Standard (~3000 words) - Premium</option>
+                                <option value="long">Extended (~4500 words) - Premium</option>
                             </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Cameo Pool (optional)</label>
+                            <div id="cameo-list"></div>
+                            <div style="display: flex; gap: 8px; margin-top: 8px;">
+                                <input type="text" id="cameoName" placeholder="Name" style="width: 30%;">
+                                <input type="text" id="cameoDesc" placeholder="Brief description" style="width: 50%;">
+                                <button type="button" onclick="addCameo()" style="width: 20%; padding: 8px;">+ Add</button>
+                            </div>
+                            <small style="color: #888; font-size: 12px;">People to appear as cameos in stories</small>
                         </div>
                         <div class="form-group">
                             <label>Email (for testing email delivery)</label>
@@ -219,6 +248,70 @@
         let currentBible = null;
         let currentStory = null;
         let selectedRating = 0;
+        let cameoPool = [];
+
+        // Genre configuration (mirrors backend)
+        const GENRE_CONFIG = {
+            comedy_sitcom: { characters: 'user', setting: 'same', world: 'same', hint: 'Recurring cast in familiar settings' },
+            detective: { characters: 'user', setting: 'different', world: 'same', hint: 'Same sleuth, new cases' },
+            action: { characters: 'user', setting: 'different', world: 'same', hint: 'Same hero, different missions' },
+            romance: { characters: 'ai', setting: 'different', world: 'same', hint: 'Fresh love stories each time' },
+            cozy: { characters: 'ai', setting: 'different', world: 'same', hint: 'Warm tales with new characters' },
+            fantasy: { characters: 'ai', setting: 'different', world: 'same', hint: 'New adventures in your magical world' },
+            western: { characters: 'ai', setting: 'different', world: 'same', hint: 'New frontier tales' },
+            historical: { characters: 'ai', setting: 'same', world: 'same', hint: 'Different characters, same era' },
+            scifi: { characters: 'ai', setting: 'different', world: 'different', hint: 'New worlds and possibilities' },
+            strange_fables: { characters: 'ai', setting: 'different', world: 'different', hint: 'Twist endings and morality tales' }
+        };
+
+        const INTENSITY_LABELS = ['', 'Cozy', 'Light', 'Moderate', 'Dramatic', 'Intense'];
+
+        function updateGenreUI() {
+            const genre = document.getElementById('genre').value;
+            const cfg = GENRE_CONFIG[genre] || { characters: 'ai' };
+
+            document.getElementById('genre-hint').textContent = cfg.hint || '';
+
+            if (cfg.characters === 'user') {
+                document.getElementById('character-name-group').classList.remove('hidden');
+                document.getElementById('char-name-note').textContent = '(recommended)';
+                document.getElementById('premise-group').classList.add('hidden');
+            } else {
+                document.getElementById('character-name-group').classList.add('hidden');
+                document.getElementById('premise-group').classList.remove('hidden');
+            }
+        }
+
+        function updateIntensityLabel() {
+            const val = document.getElementById('intensity').value;
+            document.getElementById('intensity-label').textContent = INTENSITY_LABELS[val];
+        }
+
+        function addCameo() {
+            const name = document.getElementById('cameoName').value.trim();
+            const desc = document.getElementById('cameoDesc').value.trim();
+            if (!name) return;
+
+            cameoPool.push({ name, description: desc, frequency: 'sometimes' });
+            renderCameoList();
+            document.getElementById('cameoName').value = '';
+            document.getElementById('cameoDesc').value = '';
+        }
+
+        function removeCameo(idx) {
+            cameoPool.splice(idx, 1);
+            renderCameoList();
+        }
+
+        function renderCameoList() {
+            const list = document.getElementById('cameo-list');
+            list.innerHTML = cameoPool.map((c, i) =>
+                `<div style="display:flex;justify-content:space-between;padding:4px 8px;background:#222;border-radius:4px;margin-bottom:4px;">
+                    <span>${c.name}${c.description ? ' - ' + c.description : ''}</span>
+                    <span style="cursor:pointer;color:#f66;" onclick="removeCameo(${i})">×</span>
+                </div>`
+            ).join('');
+        }
 
         function log(msg) {
             const logs = document.getElementById('logs');
@@ -235,10 +328,16 @@
                 genre: document.getElementById('genre').value,
                 setting: document.getElementById('setting').value,
                 character_name: document.getElementById('characterName').value || null,
-                tier: document.getElementById('tier').value
+                intensity: parseInt(document.getElementById('intensity').value),
+                story_length: document.getElementById('storyLength').value,
+                premise: document.getElementById('premise').value || null,
+                cameo_pool: cameoPool.length > 0 ? cameoPool : null
             };
 
             if (!data.setting.trim()) return alert('Enter a setting');
+
+            // Initialize genre UI
+            updateGenreUI();
 
             try {
                 const res = await fetch(`${API_URL}/api/dev/onboarding`, {
@@ -250,10 +349,19 @@
                 if (result.success) {
                     currentBible = result.bible;
                     log('✓ Bible enhanced!');
+
+                    // Handle both protagonist (user-defined) and character_template (AI-generated)
+                    const charInfo = result.bible.protagonist
+                        ? `<strong>Protagonist:</strong> ${result.bible.protagonist.name}<br><strong>Trait:</strong> ${result.bible.protagonist.defining_characteristic}`
+                        : `<strong>Character Style:</strong> ${result.bible.character_template?.archetype || 'Template-based'}<br><strong>Trait:</strong> ${result.bible.character_template?.defining_characteristic || 'Varies'}`;
+
+                    const genreLabel = result.bible.genre_config?.label || result.bible.genre;
+                    const intensityLabel = result.bible.story_settings?.intensity_label || 'Moderate';
+
                     document.getElementById('bible-preview').innerHTML = `
+                        <strong>Genre:</strong> ${genreLabel} | <strong>Intensity:</strong> ${intensityLabel}<br>
                         <strong>Setting:</strong> ${result.bible.setting.name}<br>
-                        <strong>Protagonist:</strong> ${result.bible.protagonist.name}<br>
-                        <strong>Trait:</strong> ${result.bible.protagonist.defining_characteristic}<br>
+                        ${charInfo}<br>
                         <details><summary>Full JSON</summary><pre>${JSON.stringify(result.bible, null, 2)}</pre></details>
                     `;
                     document.getElementById('onboarding-section').classList.add('hidden');
@@ -430,6 +538,12 @@
                 location.reload();
             }
         }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            updateGenreUI();
+            updateIntensityLabel();
+        });
     </script>
 </body>
 </html>

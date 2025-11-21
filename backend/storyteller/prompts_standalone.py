@@ -31,11 +31,16 @@ def create_standalone_story_beat_prompt(
     # Extract bible components
     genre = story_bible.get("genre", "fiction")
     setting = story_bible.get("setting", {})
-    protagonist = story_bible.get("protagonist", {})
-    supporting = story_bible.get("supporting_characters", [])
     tone = story_bible.get("tone", "")
     themes = story_bible.get("themes", [])
     story_history = story_bible.get("story_history", {})
+    genre_config = story_bible.get("genre_config", {})
+    story_settings = story_bible.get("story_settings", {})
+
+    # Handle both recurring characters (protagonist) and AI-generated (character_template)
+    has_recurring_chars = genre_config.get("characters") == "user" or "protagonist" in story_bible
+    protagonist = story_bible.get("protagonist", story_bible.get("character_template", {}))
+    supporting = story_bible.get("supporting_characters", story_bible.get("supporting_cast_template", []))
 
     # Get template details
     template_name = beat_template.get("name", "")
@@ -150,8 +155,9 @@ This is a STANDALONE story (not part of a series), but it exists in an establish
 
 ## STORY WORLD
 
-**Genre**: {genre}
+**Genre**: {genre_config.get('label', genre)}
 **Tone**: {tone}
+**Intensity**: {story_settings.get('intensity_label', 'Moderate')} - {"Light stakes, comforting" if story_settings.get('intensity', 3) <= 2 else "High stakes, dramatic tension" if story_settings.get('intensity', 3) >= 4 else "Balanced drama"}
 **Themes**: {', '.join(themes) if themes else 'To be discovered'}
 
 **Setting**: {setting.get('name', 'N/A')}
@@ -162,9 +168,9 @@ This is a STANDALONE story (not part of a series), but it exists in an establish
 **Key Locations**:
 {json.dumps(setting.get('key_locations', []), indent=2)}
 
-## PROTAGONIST
+## {"PROTAGONIST (recurring)" if has_recurring_chars else "CHARACTER TEMPLATE (generate fresh characters)"}
 
-**Name**: {protagonist.get('name', 'N/A')}
+{"**Name**: " + protagonist.get('name', 'N/A') if has_recurring_chars else "**Archetype**: " + protagonist.get('archetype', 'To be determined')}
 **Role**: {protagonist.get('role', 'N/A')}
 **Age**: {protagonist.get('age_range', 'adult')}
 **Traits**: {', '.join(protagonist.get('key_traits', []))}
@@ -172,9 +178,11 @@ This is a STANDALONE story (not part of a series), but it exists in an establish
 **Background**: {protagonist.get('background', 'N/A')}
 **Voice**: {protagonist.get('voice', 'N/A')}
 
-## SUPPORTING CHARACTERS (available to use)
+{"" if has_recurring_chars else "**IMPORTANT**: Create NEW, unique characters for this story based on the template above. Give them fresh names and specific details."}
 
-{json.dumps(supporting, indent=2) if supporting else 'None defined - may create as needed for this story'}
+## {"SUPPORTING CHARACTERS (recurring cast)" if has_recurring_chars else "SUPPORTING CAST TEMPLATE"}
+
+{json.dumps(supporting, indent=2) if supporting else 'None defined - create as needed for this story'}
 
 {history_context}
 {prefs_context}
@@ -251,9 +259,13 @@ def create_prose_generation_prompt(
         Formatted prompt for PA
     """
     genre = story_bible.get("genre", "fiction")
-    protagonist = story_bible.get("protagonist", {})
     tone = story_bible.get("tone", "")
     total_words = beat_template.get("total_words", 1500)
+    genre_config = story_bible.get("genre_config", {})
+
+    # Handle both recurring characters and AI-generated
+    has_recurring_chars = genre_config.get("characters") == "user" or "protagonist" in story_bible
+    protagonist = story_bible.get("protagonist", story_bible.get("character_template", {}))
 
     # Extract CEA guidance if present
     cea_guidance = ""
@@ -286,14 +298,15 @@ This should be polished, engaging prose ready for readers to enjoy.
 **Tone**: {tone}
 **Target Length**: {total_words} words (±200 words is acceptable)
 
-## PROTAGONIST
+## {"PROTAGONIST" if has_recurring_chars else "CHARACTER GUIDANCE"}
 
-**Name**: {protagonist.get('name', 'N/A')}
+{"**Name**: " + protagonist.get('name', 'N/A') if has_recurring_chars else "Create a NEW protagonist based on this template:"}
 **Voice**: {protagonist.get('voice', 'thoughtful')}
 **Key Traits**: {', '.join(protagonist.get('key_traits', []))}
 **Defining Characteristic**: {protagonist.get('defining_characteristic', 'N/A')}
 
 **CRITICAL**: {protagonist.get('defining_characteristic', 'N/A')} - This MUST be reflected consistently in the prose.
+{"" if has_recurring_chars else "Give your protagonist a unique, memorable name and specific details that fit this story."}
 
 ## BEAT PLAN
 

@@ -371,8 +371,16 @@ async def generate_standalone_story(
         genre = story_bible.get("genre", "scifi")
         template = get_template(genre, user_tier)
 
-        print(f"\n✓ Template selected: {template.name}")
-        print(f"  Total words: {template.total_words}")
+        # Override word count if specified in story_settings
+        story_settings = story_bible.get("story_settings", {})
+        word_target = story_settings.get("word_target")
+        if word_target:
+            template.total_words = word_target
+            print(f"\n✓ Template selected: {template.name}")
+            print(f"  Word target (from settings): {word_target}")
+        else:
+            print(f"\n✓ Template selected: {template.name}")
+            print(f"  Total words: {template.total_words}")
         print(f"  Beats: {len(template.beats)}")
 
         # Step 2: Determine cliffhanger (free tier only)
