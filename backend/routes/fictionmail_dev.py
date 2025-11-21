@@ -40,7 +40,7 @@ dev_storage = {
 class OnboardingInput(BaseModel):
     genre: str
     setting: str
-    character_name: Optional[str] = None
+    character_pool: Optional[list] = None  # Array of {name, description}
     intensity: int = 3
     story_length: str = "short"
     premise: Optional[str] = None
@@ -81,7 +81,7 @@ async def dev_onboarding(data: OnboardingInput):
         bible = await enhance_story_bible(
             genre=data.genre,
             user_setting=data.setting,
-            character_name=data.character_name,
+            character_pool=data.character_pool,
             intensity=data.intensity,
             story_length=data.story_length,
             premise=data.premise,

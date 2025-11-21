@@ -119,7 +119,7 @@ from backend.config import config
 async def enhance_story_bible(
     genre: str,
     user_setting: str,
-    character_name: str = None,
+    character_pool: list = None,
     user_id: str = None,
     intensity: int = 3,
     story_length: str = "short",
@@ -132,7 +132,7 @@ async def enhance_story_bible(
     Args:
         genre: Genre selected by user (comedy_sitcom, detective, romance, etc.)
         user_setting: User's 1-2 sentence setting description
-        character_name: Optional character name provided by user (for user-defined character genres)
+        character_pool: Optional list of {name, description} for recurring character genres
         user_id: Optional user ID for personalization
         intensity: 1-5 scale (1=cozy, 5=intense)
         story_length: "short" (1500), "medium" (3000), or "long" (4500)
@@ -148,21 +148,60 @@ async def enhance_story_bible(
 
     # Determine character handling based on genre
     if genre_cfg["characters"] == "user":
-        character_instruction = f'The user wants recurring characters. Main character name: {character_name or "Create a name"}. These characters will appear in EVERY story.'
+        # Build character list from pool
+        if character_pool and len(character_pool) > 0:
+            char_list = "\n".join([f"- {c['name']}: {c.get('description', 'Main character')}" for c in character_pool])
+            character_instruction = f'''The user wants these RECURRING characters to appear in EVERY story:
+{char_list}
+
+Expand on these characters with full details (traits, background, voice, etc.). These are the main ensemble cast.'''
+        else:
+            character_instruction = 'The user wants recurring characters but did not provide names. Create 1-2 memorable main characters with full details.'
     else:
         character_instruction = f'Each story will have FRESH characters generated at story time. Create a CHARACTER TEMPLATE (archetype, typical traits) rather than specific characters.{f" Premise hint: {premise}" if premise else ""}'
 
-    character_key = "protagonist" if genre_cfg["characters"] == "user" else "character_template"
-
-    # Build character field based on genre type
-    if character_name and genre_cfg["characters"] == "user":
-        character_name_field = f'"name": "{character_name}",'
-    elif genre_cfg["characters"] == "ai":
-        character_name_field = '"archetype": "Type of protagonist typical for this genre",'
+    # Build JSON structure based on character type
+    if genre_cfg["characters"] == "user" and character_pool:
+        character_json = '''"main_characters": [
+    {
+      "name": "Character from user list",
+      "role": "Their role/job",
+      "age_range": "Approximate age",
+      "key_traits": ["trait1", "trait2", "trait3"],
+      "defining_characteristic": "One unique trait that makes them interesting",
+      "background": "Brief backstory (2-3 sentences)",
+      "motivation": "What drives them",
+      "voice": "How they speak/think"
+    }
+    // Include ALL characters from the user's list, expanding each one
+  ],
+  "supporting_characters": [
+    {
+      "name": "Optional supporting cast member",
+      "role": "Their role",
+      "relationship": "How they relate to main cast",
+      "personality": "Brief descriptor",
+      "purpose": "Narrative purpose"
+    }
+  ]'''
     else:
-        character_name_field = '"name": "Choose an interesting name",'
-
-    supporting_key = "supporting_characters" if genre_cfg["characters"] == "user" else "supporting_cast_template"
+        character_json = '''"character_template": {
+    "archetype": "Type of protagonist typical for this genre",
+    "role": "Their typical job/position",
+    "age_range": "Typical age range",
+    "key_traits": ["trait1", "trait2", "trait3"],
+    "defining_characteristic": "What makes protagonists interesting",
+    "background": "Typical background elements",
+    "motivation": "What drives characters",
+    "voice": "How they typically speak/think"
+  },
+  "supporting_cast_template": [
+    {
+      "role": "Role type (mentor, rival, love interest)",
+      "personality": "Typical traits",
+      "purpose": "Narrative purpose"
+    }
+  ]'''
 
     # Create enhancement prompt
     prompt = f"""You are a creative writing assistant helping to expand a story world.
@@ -198,23 +237,7 @@ Return a JSON object with the following structure:
     "atmosphere": "The overall mood and feel of this world",
     "rules": "Any important rules of this world (tech level, magic system, social norms, etc.)"
   }},
-  "{character_key}": {{
-    {character_name_field}
-    "role": "Their typical job, position, or main identity",
-    "age_range": "Typical age range",
-    "key_traits": ["trait1", "trait2", "trait3"],
-    "defining_characteristic": "What makes protagonists in this world interesting",
-    "background": "Typical background elements",
-    "motivation": "What drives characters in this genre",
-    "voice": "How they typically speak/think"
-  }},
-  "{supporting_key}": [
-    {{
-      "role": "Role type (e.g., mentor, rival, love interest)",
-      "personality": "Typical personality traits",
-      "purpose": "Their narrative purpose"
-    }}
-  ],
+  {character_json},
   "tone": "The emotional tone matching intensity level: {intensity_cfg["label"]}",
   "themes": ["theme1", "theme2", "theme3"],
   "story_style": "Brief description of what makes these stories distinctive"
@@ -258,7 +281,7 @@ Make this feel like a real, lived-in world that can sustain many different stori
         enhanced_bible["user_input"] = {
             "genre": genre,
             "setting": user_setting,
-            "character_name": character_name,
+            "character_pool": character_pool,
             "premise": premise
         }
 
@@ -317,7 +340,7 @@ Make this feel like a real, lived-in world that can sustain many different stori
         print(f"Response: {response_text[:500]}")
 
         # Return minimal fallback with error info
-        fallback = create_fallback_bible(genre, user_setting, character_name, intensity, story_length)
+        fallback = create_fallback_bible(genre, user_setting, character_pool, intensity, story_length)
         fallback["_error"] = error_msg
         return fallback
 
@@ -332,7 +355,7 @@ Make this feel like a real, lived-in world that can sustain many different stori
             error_msg = "ANTHROPIC_API_KEY not set or invalid. Please add it to Railway environment variables."
 
         # Return minimal fallback with error info
-        fallback = create_fallback_bible(genre, user_setting, character_name, intensity, story_length)
+        fallback = create_fallback_bible(genre, user_setting, character_pool, intensity, story_length)
         fallback["_error"] = error_msg
         return fallback
 
@@ -340,7 +363,7 @@ Make this feel like a real, lived-in world that can sustain many different stori
 def create_fallback_bible(
     genre: str,
     user_setting: str,
-    character_name: str = None,
+    character_pool: list = None,
     intensity: int = 3,
     story_length: str = "short"
 ) -> Dict[str, Any]:
@@ -351,7 +374,7 @@ def create_fallback_bible(
     intensity_cfg = INTENSITY_LEVELS.get(intensity, INTENSITY_LEVELS[3])
     length_cfg = STORY_LENGTHS.get(story_length, STORY_LENGTHS["short"])
 
-    return {
+    bible = {
         "genre": genre,
         "setting": {
             "name": "Your World",
@@ -360,16 +383,6 @@ def create_fallback_bible(
             "atmosphere": genre,
             "rules": "Standard genre conventions"
         },
-        "protagonist" if genre_cfg["characters"] == "user" else "character_template": {
-            "name": character_name or "Alex",
-            "role": "Protagonist",
-            "age_range": "adult",
-            "key_traits": ["determined", "curious", "resourceful"],
-            "defining_characteristic": "Quick thinking",
-            "background": "To be developed",
-            "motivation": "Solve problems and help others",
-            "voice": "thoughtful"
-        },
         "supporting_characters": [],
         "tone": intensity_cfg["label"],
         "themes": [genre, "adventure", "discovery"],
@@ -377,7 +390,7 @@ def create_fallback_bible(
         "user_input": {
             "genre": genre,
             "setting": user_setting,
-            "character_name": character_name
+            "character_pool": character_pool
         },
         "genre_config": {
             "genre_key": genre,
@@ -408,6 +421,35 @@ def create_fallback_bible(
             "emotional_depth": "medium"
         }
     }
+
+    # Add characters based on genre type
+    if genre_cfg["characters"] == "user" and character_pool:
+        bible["main_characters"] = [
+            {
+                "name": c.get("name", "Character"),
+                "role": c.get("description", "Main character"),
+                "age_range": "adult",
+                "key_traits": ["determined", "curious", "resourceful"],
+                "defining_characteristic": "Quick thinking",
+                "background": "To be developed",
+                "motivation": "Solve problems and help others",
+                "voice": "thoughtful"
+            }
+            for c in character_pool
+        ]
+    else:
+        bible["character_template"] = {
+            "archetype": "To be determined",
+            "role": "Protagonist",
+            "age_range": "adult",
+            "key_traits": ["determined", "curious", "resourceful"],
+            "defining_characteristic": "Quick thinking",
+            "background": "To be developed",
+            "motivation": "Solve problems and help others",
+            "voice": "thoughtful"
+        }
+
+    return bible
 
 
 def add_cameo_characters(bible: Dict[str, Any], cameos: list[Dict[str, str]]) -> Dict[str, Any]:
