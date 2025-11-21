@@ -147,9 +147,9 @@ async def generate_story_image(
         story_premise = beat_plan.get("story_premise", "")
         thematic_focus = beat_plan.get("thematic_focus", "")
 
-        # Build a descriptive prompt
-        base_prompt = f"Book cover art for '{story_title}', {genre} genre, {story_premise}"
-        enhanced_prompt = f"{base_prompt}, cinematic lighting, high quality, detailed, professional book cover art style"
+        # Build a descriptive prompt WITHOUT text (to avoid gibberish letters)
+        base_prompt = f"{genre} story cover art, {story_premise}, atmospheric scene"
+        enhanced_prompt = f"{base_prompt}, cinematic lighting, high quality, detailed, professional illustration, no text, no letters, no words"
 
         print(f"  Image prompt: {enhanced_prompt[:100]}...")
 
