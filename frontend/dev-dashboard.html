@@ -348,7 +348,15 @@
                 const result = await res.json();
                 if (result.success) {
                     currentBible = result.bible;
-                    log('✓ Bible enhanced!');
+
+                    // Check for error in fallback bible
+                    if (result.bible._error) {
+                        log('⚠️  Using fallback bible due to error');
+                        log('Error: ' + result.bible._error);
+                        alert('⚠️  Bible created with fallback data.\n\nError: ' + result.bible._error + '\n\nPlease check Railway environment variables.');
+                    } else {
+                        log('✓ Bible enhanced!');
+                    }
 
                     // Handle both protagonist (user-defined) and character_template (AI-generated)
                     const charInfo = result.bible.protagonist
@@ -358,7 +366,12 @@
                     const genreLabel = result.bible.genre_config?.label || result.bible.genre;
                     const intensityLabel = result.bible.story_settings?.intensity_label || 'Moderate';
 
+                    const errorBanner = result.bible._error
+                        ? `<div style="background:#dc3545;color:white;padding:10px;border-radius:6px;margin-bottom:10px;">⚠️  ${result.bible._error}</div>`
+                        : '';
+
                     document.getElementById('bible-preview').innerHTML = `
+                        ${errorBanner}
                         <strong>Genre:</strong> ${genreLabel} | <strong>Intensity:</strong> ${intensityLabel}<br>
                         <strong>Setting:</strong> ${result.bible.setting.name}<br>
                         ${charInfo}<br>
