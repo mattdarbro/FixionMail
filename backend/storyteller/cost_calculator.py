@@ -97,6 +97,46 @@ class Pricing:
     }
     ELEVENLABS_DEFAULT_PLAN = "pro"
 
+    # OpenAI TTS pricing (pay-as-you-go)
+    # TTS-1 (standard): $0.015 per 1,000 characters
+    # TTS-1-HD (high quality): $0.030 per 1,000 characters
+    OPENAI_TTS_PER_1K_CHARS = 0.015  # TTS-1 standard
+    OPENAI_TTS_HD_PER_1K_CHARS = 0.030  # TTS-1-HD
+
+    # Amazon Polly pricing (Neural voices)
+    # Neural: $0.016 per 1,000 characters
+    # Standard: $0.004 per 1,000 characters
+    AMAZON_POLLY_NEURAL_PER_1K_CHARS = 0.016
+    AMAZON_POLLY_STANDARD_PER_1K_CHARS = 0.004
+
+    # TTS Provider configurations
+    TTS_PROVIDERS = {
+        "elevenlabs": {
+            "name": "ElevenLabs",
+            "per_1k_chars": 0.198,  # Pro plan effective rate
+            "monthly_subscription": 99,
+            "is_subscription": True,
+            "quality": "premium",
+            "notes": "Best quality, subscription-based ($99/mo for 500k chars)"
+        },
+        "openai": {
+            "name": "OpenAI TTS",
+            "per_1k_chars": 0.015,
+            "monthly_subscription": 0,
+            "is_subscription": False,
+            "quality": "good",
+            "notes": "Pay-per-use, good quality, ~10x cheaper than ElevenLabs"
+        },
+        "amazon_polly": {
+            "name": "Amazon Polly",
+            "per_1k_chars": 0.016,
+            "monthly_subscription": 0,
+            "is_subscription": False,
+            "quality": "good",
+            "notes": "Pay-per-use, neural voices, comparable to OpenAI"
+        }
+    }
+
     # Token estimation factors
     # Average tokens per word varies by content type
     TOKENS_PER_WORD_INPUT = 1.3  # Prompts tend to be more structured
@@ -142,7 +182,8 @@ def calculate_story_cost(
     word_target: int,
     include_audio: bool = True,
     include_image: bool = True,
-    elevenlabs_plan: str = "pro"
+    elevenlabs_plan: str = "pro",
+    tts_provider: str = "elevenlabs"
 ) -> CostBreakdown:
     """
     Calculate estimated cost for generating a single story.
@@ -152,6 +193,7 @@ def calculate_story_cost(
         include_audio: Whether to generate audio narration
         include_image: Whether to generate cover image
         elevenlabs_plan: ElevenLabs plan for pricing (starter, creator, pro, pay_as_you_go)
+        tts_provider: TTS provider ("elevenlabs", "openai", "amazon_polly")
 
     Returns:
         CostBreakdown with detailed cost information
@@ -191,9 +233,17 @@ def calculate_story_cost(
         # Estimate characters from word count
         breakdown.audio_characters = int(word_target * Pricing.CHARS_PER_WORD)
 
-        # Get pricing from plan
-        plan_info = Pricing.ELEVENLABS_PLANS.get(elevenlabs_plan, Pricing.ELEVENLABS_PLANS["pro"])
-        breakdown.audio_cost_per_1k_chars = plan_info["per_1k"]
+        # Get pricing based on TTS provider
+        if tts_provider == "elevenlabs":
+            plan_info = Pricing.ELEVENLABS_PLANS.get(elevenlabs_plan, Pricing.ELEVENLABS_PLANS["pro"])
+            breakdown.audio_cost_per_1k_chars = plan_info["per_1k"]
+        elif tts_provider == "openai":
+            breakdown.audio_cost_per_1k_chars = Pricing.OPENAI_TTS_PER_1K_CHARS
+        elif tts_provider == "amazon_polly":
+            breakdown.audio_cost_per_1k_chars = Pricing.AMAZON_POLLY_NEURAL_PER_1K_CHARS
+        else:
+            # Default to OpenAI pricing for unknown providers
+            breakdown.audio_cost_per_1k_chars = Pricing.OPENAI_TTS_PER_1K_CHARS
 
         breakdown.audio_total_cost = (
             breakdown.audio_characters / 1000 * breakdown.audio_cost_per_1k_chars
@@ -239,7 +289,8 @@ def estimate_generation_cost(
     tier: str = "free",
     story_length: str = "short",
     include_audio: bool = True,
-    include_image: bool = True
+    include_image: bool = True,
+    tts_provider: str = "elevenlabs"
 ) -> Dict[str, Any]:
     """
     High-level function to estimate story generation cost.
@@ -249,6 +300,7 @@ def estimate_generation_cost(
         story_length: Story length ("short", "medium", "long")
         include_audio: Whether to include audio narration
         include_image: Whether to include cover image
+        tts_provider: TTS provider ("elevenlabs", "openai", "amazon_polly")
 
     Returns:
         Dictionary with cost breakdown and formatted output
@@ -257,8 +309,12 @@ def estimate_generation_cost(
     breakdown = calculate_story_cost(
         word_target=word_target,
         include_audio=include_audio,
-        include_image=include_image
+        include_image=include_image,
+        tts_provider=tts_provider
     )
+
+    # Get provider info
+    provider_info = Pricing.TTS_PROVIDERS.get(tts_provider, Pricing.TTS_PROVIDERS["elevenlabs"])
 
     result = breakdown.to_dict()
     result["settings"] = {
@@ -266,10 +322,64 @@ def estimate_generation_cost(
         "story_length": story_length,
         "word_target": word_target,
         "include_audio": include_audio,
-        "include_image": include_image
+        "include_image": include_image,
+        "tts_provider": tts_provider
     }
+    result["tts_provider_info"] = provider_info
 
     return result
+
+
+def get_tts_providers() -> Dict[str, Any]:
+    """
+    Get information about available TTS providers.
+
+    Returns:
+        Dictionary with TTS provider configurations
+    """
+    return Pricing.TTS_PROVIDERS
+
+
+def compare_tts_providers(word_target: int = 1500) -> Dict[str, Any]:
+    """
+    Compare costs across all TTS providers for a given word target.
+
+    Args:
+        word_target: Target word count for comparison
+
+    Returns:
+        Dictionary with cost comparisons for each provider
+    """
+    char_count = int(word_target * Pricing.CHARS_PER_WORD)
+
+    comparisons = {}
+    for provider_id, provider_info in Pricing.TTS_PROVIDERS.items():
+        per_story_cost = char_count / 1000 * provider_info["per_1k_chars"]
+        monthly_cost = per_story_cost * 30  # 30 stories per month
+        monthly_total = monthly_cost + provider_info["monthly_subscription"]
+
+        comparisons[provider_id] = {
+            "name": provider_info["name"],
+            "per_story_audio": round(per_story_cost, 4),
+            "monthly_audio_30_stories": round(monthly_cost, 2),
+            "monthly_subscription": provider_info["monthly_subscription"],
+            "monthly_total": round(monthly_total, 2),
+            "quality": provider_info["quality"],
+            "notes": provider_info["notes"],
+            "is_subscription": provider_info["is_subscription"],
+            "formatted": {
+                "per_story": f"${per_story_cost:.4f}",
+                "monthly_audio": f"${monthly_cost:.2f}",
+                "monthly_subscription": f"${provider_info['monthly_subscription']:.2f}",
+                "monthly_total": f"${monthly_total:.2f}"
+            }
+        }
+
+    return {
+        "word_target": word_target,
+        "character_count": char_count,
+        "providers": comparisons
+    }
 
 
 # === Quick reference costs ===

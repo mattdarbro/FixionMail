@@ -185,16 +185,41 @@
                             <small style="color: #666; font-size: 12px;">Story will be emailed to this address after generation</small>
                         </div>
                         <div class="form-group">
+                            <label>TTS Provider</label>
+                            <select id="ttsProvider" onchange="updateTtsVoiceOptions(); updateCostEstimate();">
+                                <option value="elevenlabs">ElevenLabs (Premium Quality, $99/mo subscription)</option>
+                                <option value="openai">OpenAI TTS (Good Quality, Pay-per-use ~10x cheaper)</option>
+                                <option value="amazon_polly">Amazon Polly (Good Quality, Pay-per-use)</option>
+                            </select>
+                            <small id="tts-provider-hint" style="color: #888; font-size: 12px;">Best quality, subscription-based ($99/mo for 500k chars)</small>
+                        </div>
+                        <div class="form-group">
                             <label>Narrator Voice</label>
                             <select id="voiceId">
-                                <option value="EXAVITQu4vr4xnSDxMaL">Default (Sarah - Female)</option>
-                                <option value="21m00Tcm4TlvDq8ikWAM">Rachel (Female - Calm)</option>
-                                <option value="AZnzlk1XvdvUeBnXmlld">Domi (Female - Strong)</option>
-                                <option value="ErXwobaYiN019PkySvjV">Antoni (Male - Well-rounded)</option>
-                                <option value="VR6AewLTigWG4xSOukaG">Arnold (Male - Crisp)</option>
-                                <option value="pNInz6obpgDQGcFmaJgB">Adam (Male - Deep)</option>
-                                <option value="yoZ06aMxZJJ28mfd3POQ">Sam (Male - Raspy)</option>
-                                <option value="CwhRBWXzGAHq8TQ4Fs17">Roger (Male - Confident)</option>
+                                <optgroup label="ElevenLabs Voices" id="elevenlabs-voices">
+                                    <option value="EXAVITQu4vr4xnSDxMaL">Default (Sarah - Female)</option>
+                                    <option value="21m00Tcm4TlvDq8ikWAM">Rachel (Female - Calm)</option>
+                                    <option value="AZnzlk1XvdvUeBnXmlld">Domi (Female - Strong)</option>
+                                    <option value="ErXwobaYiN019PkySvjV">Antoni (Male - Well-rounded)</option>
+                                    <option value="VR6AewLTigWG4xSOukaG">Arnold (Male - Crisp)</option>
+                                    <option value="pNInz6obpgDQGcFmaJgB">Adam (Male - Deep)</option>
+                                    <option value="yoZ06aMxZJJ28mfd3POQ">Sam (Male - Raspy)</option>
+                                    <option value="CwhRBWXzGAHq8TQ4Fs17">Roger (Male - Confident)</option>
+                                </optgroup>
+                                <optgroup label="OpenAI Voices" id="openai-voices" class="hidden">
+                                    <option value="alloy">Alloy (Neutral)</option>
+                                    <option value="echo">Echo (Male)</option>
+                                    <option value="fable">Fable (Expressive)</option>
+                                    <option value="onyx">Onyx (Male Deep)</option>
+                                    <option value="nova">Nova (Female)</option>
+                                    <option value="shimmer">Shimmer (Female Light)</option>
+                                </optgroup>
+                                <optgroup label="Amazon Polly Voices" id="polly-voices" class="hidden">
+                                    <option value="Joanna">Joanna (Female US)</option>
+                                    <option value="Matthew">Matthew (Male US)</option>
+                                    <option value="Ivy">Ivy (Female Child)</option>
+                                    <option value="Kendra">Kendra (Female US)</option>
+                                </optgroup>
                             </select>
                             <small style="color: #666; font-size: 12px;">Choose a voice for text-to-speech narration</small>
                         </div>
@@ -228,7 +253,7 @@
                                     <div id="cost-image" style="color: #fff; font-weight: 600;">$0.0250</div>
                                 </div>
                                 <div>
-                                    <div style="color: #9ca3af;">ElevenLabs (Audio)</div>
+                                    <div style="color: #9ca3af;"><span id="audio-provider-label">ElevenLabs</span> (Audio)</div>
                                     <div id="cost-audio" style="color: #fff; font-weight: 600;">$0.0000</div>
                                 </div>
                                 <div>
@@ -241,6 +266,7 @@
                                     <div style="color: #9ca3af; font-size: 0.85rem;">Monthly (30 stories/day)</div>
                                     <div id="cost-monthly" style="color: #f59e0b; font-weight: 700; font-size: 1.2rem;">$0.00</div>
                                 </div>
+                                <div id="tts-subscription-note" style="color: #9ca3af; font-size: 0.75rem; margin-top: 5px;"></div>
                             </div>
                         </div>
 
@@ -320,17 +346,67 @@
             truby_beats: 'Character-driven structure based on weakness, desire, and moral transformation'
         };
 
+        const TTS_PROVIDER_HINTS = {
+            elevenlabs: 'Best quality, subscription-based ($99/mo for 500k chars)',
+            openai: 'Good quality, pay-per-use ($0.015/1k chars) - ~10x cheaper at scale',
+            amazon_polly: 'Good quality, pay-per-use ($0.016/1k chars) - Not yet implemented'
+        };
+
+        const TTS_PROVIDER_NAMES = {
+            elevenlabs: 'ElevenLabs',
+            openai: 'OpenAI TTS',
+            amazon_polly: 'Amazon Polly'
+        };
+
         function updateStructureInfo() {
             const structure = document.getElementById('beatStructure').value;
             document.getElementById('structure-hint').textContent = STRUCTURE_HINTS[structure] || '';
         }
 
+        function updateTtsVoiceOptions() {
+            const provider = document.getElementById('ttsProvider').value;
+            const voiceSelect = document.getElementById('voiceId');
+
+            // Update hint
+            document.getElementById('tts-provider-hint').textContent = TTS_PROVIDER_HINTS[provider] || '';
+
+            // Show/hide voice groups
+            const groups = {
+                elevenlabs: document.getElementById('elevenlabs-voices'),
+                openai: document.getElementById('openai-voices'),
+                amazon_polly: document.getElementById('polly-voices')
+            };
+
+            // Hide all groups
+            Object.values(groups).forEach(g => {
+                if (g) g.classList.add('hidden');
+            });
+
+            // Show selected group
+            if (groups[provider]) {
+                groups[provider].classList.remove('hidden');
+            }
+
+            // Reset to first option in selected group
+            const selectedGroup = groups[provider];
+            if (selectedGroup) {
+                const firstOption = selectedGroup.querySelector('option');
+                if (firstOption) {
+                    voiceSelect.value = firstOption.value;
+                }
+            }
+        }
+
         async function updateCostEstimate() {
             const storyLength = document.getElementById('storyLength').value;
             const tier = storyLength === 'short' ? 'free' : 'premium';
+            const ttsProvider = document.getElementById('ttsProvider').value;
+
+            // Update provider label in cost panel
+            document.getElementById('audio-provider-label').textContent = TTS_PROVIDER_NAMES[ttsProvider] || ttsProvider;
 
             try {
-                const res = await fetch(`${API_URL}/api/dev/estimate-cost?tier=${tier}&story_length=${storyLength}&include_audio=true&include_image=true`);
+                const res = await fetch(`${API_URL}/api/dev/estimate-cost?tier=${tier}&story_length=${storyLength}&include_audio=true&include_image=true&tts_provider=${ttsProvider}`);
                 const data = await res.json();
 
                 if (data.success) {
@@ -340,6 +416,14 @@
                     document.getElementById('cost-audio').textContent = `$${est.audio.total_cost.toFixed(4)}`;
                     document.getElementById('cost-total').textContent = `$${est.total_cost.toFixed(4)}`;
                     document.getElementById('cost-monthly').textContent = `$${est.monthly_cost_30_stories.toFixed(2)}`;
+
+                    // Show subscription note for ElevenLabs
+                    const subNote = document.getElementById('tts-subscription-note');
+                    if (ttsProvider === 'elevenlabs') {
+                        subNote.textContent = '+ $99/mo ElevenLabs Pro subscription';
+                    } else {
+                        subNote.textContent = 'Pay-per-use, no subscription required';
+                    }
                 }
             } catch (e) {
                 console.error('Cost estimation error:', e);
@@ -557,8 +641,10 @@
             try {
                 const email = document.getElementById('userEmail').value;
                 const voiceId = document.getElementById('voiceId').value;
+                const ttsProvider = document.getElementById('ttsProvider').value;
 
                 generationLog('Sending request to server...');
+                generationLog(`TTS Provider: ${TTS_PROVIDER_NAMES[ttsProvider]}`);
 
                 const res = await fetch(`${API_URL}/api/dev/generate-story`, {
                     method: 'POST',
@@ -566,7 +652,9 @@
                     body: JSON.stringify({
                         bible: currentBible,
                         email: email || null,
-                        voice_id: voiceId
+                        voice_id: voiceId,
+                        tts_provider: ttsProvider,
+                        tts_voice: voiceId
                     })
                 });
 
@@ -593,6 +681,7 @@
                         <strong>Words:</strong> ${data.story.word_count}<br>
                         <strong>Time:</strong> ${data.debug.generation_time.toFixed(1)}s<br>
                         <strong>Plot:</strong> ${data.debug.plot_type}<br>
+                        <strong>TTS Provider:</strong> ${TTS_PROVIDER_NAMES[data.story.tts_provider] || data.story.tts_provider}<br>
                         <strong>Email Sent:</strong> ${data.email_sent ? 'Yes ✓' : 'No'}<br>
                         <details><summary>Beat Plan</summary><pre>${JSON.stringify(data.debug.beat_plan, null, 2)}</pre></details>
                     `;
@@ -684,6 +773,7 @@
         document.addEventListener('DOMContentLoaded', () => {
             updateGenreUI();
             updateIntensityLabel();
+            updateTtsVoiceOptions();
         });
     </script>
 </body>

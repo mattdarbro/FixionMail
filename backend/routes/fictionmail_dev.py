@@ -20,7 +20,12 @@ from backend.storyteller.bible_enhancement import (
     update_story_history
 )
 from backend.storyteller.standalone_generation import generate_standalone_story
-from backend.storyteller.cost_calculator import estimate_generation_cost, get_quick_cost_summary
+from backend.storyteller.cost_calculator import (
+    estimate_generation_cost,
+    get_quick_cost_summary,
+    get_tts_providers,
+    compare_tts_providers
+)
 from backend.storyteller.beat_templates import list_beat_structures, get_beat_structure_info
 
 # Create router for use in main.py
@@ -67,6 +72,8 @@ class GenerateStoryInput(BaseModel):
     voice_id: Optional[str] = None
     bible: Optional[Dict[str, Any]] = None
     force_cliffhanger: Optional[bool] = None
+    tts_provider: str = "elevenlabs"  # elevenlabs, openai, amazon_polly
+    tts_voice: Optional[str] = None
 
 
 class CostEstimateInput(BaseModel):
@@ -74,6 +81,7 @@ class CostEstimateInput(BaseModel):
     story_length: str = "short"
     include_audio: bool = True
     include_image: bool = True
+    tts_provider: str = "elevenlabs"  # elevenlabs, openai, amazon_polly
 
 
 # === API Routes ===
@@ -84,19 +92,22 @@ async def dev_estimate_cost(
     tier: str = "free",
     story_length: str = "short",
     include_audio: bool = True,
-    include_image: bool = True
+    include_image: bool = True,
+    tts_provider: str = "elevenlabs"
 ):
     """
     Estimate cost for story generation before actually generating.
 
     Returns detailed cost breakdown for Claude API, image generation, and audio.
+    Supports different TTS providers: elevenlabs, openai, amazon_polly
     """
     try:
         cost_estimate = estimate_generation_cost(
             tier=tier,
             story_length=story_length,
             include_audio=include_audio,
-            include_image=include_image
+            include_image=include_image,
+            tts_provider=tts_provider
         )
         return {
             "success": True,
@@ -158,6 +169,43 @@ async def dev_get_beat_structure_detail(structure_id: str):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/tts-providers")
+@app.get("/api/dev/tts-providers")
+async def dev_get_tts_providers():
+    """
+    Get available TTS providers and their configurations.
+
+    Returns providers with pricing info, quality ratings, and notes.
+    """
+    try:
+        providers = get_tts_providers()
+        return {
+            "success": True,
+            "providers": providers
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/compare-tts")
+@app.get("/api/dev/compare-tts")
+async def dev_compare_tts_providers(word_target: int = 1500):
+    """
+    Compare costs across all TTS providers for a given word count.
+
+    Useful for deciding which TTS provider to use based on volume.
+    """
+    try:
+        comparison = compare_tts_providers(word_target=word_target)
+        return {
+            "success": True,
+            "comparison": comparison
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.post("/onboarding")
 @app.post("/api/dev/onboarding")
@@ -237,12 +285,16 @@ async def dev_generate_story(data: Optional[GenerateStoryInput] = Body(default=N
     force_cliffhanger = None
     email = None
     voice_id = None
+    tts_provider = "elevenlabs"
+    tts_voice = None
 
     if data:
         bible = data.bible if data.bible else dev_storage["current_bible"]
         force_cliffhanger = data.force_cliffhanger
         email = data.email
         voice_id = data.voice_id
+        tts_provider = data.tts_provider
+        tts_voice = data.tts_voice
     else:
         bible = dev_storage["current_bible"]
 
@@ -254,17 +306,20 @@ async def dev_generate_story(data: Optional[GenerateStoryInput] = Body(default=N
         tier = bible.get("user_tier", "free")
 
         log(f"Generating {tier} tier story...")
+        log(f"TTS Provider: {tts_provider}")
         if email:
             log(f"Will email story to: {email}")
-        if voice_id:
-            log(f"Using voice: {voice_id}")
+        if voice_id or tts_voice:
+            log(f"Using voice: {tts_voice or voice_id}")
 
         result = await generate_standalone_story(
             story_bible=bible,
             user_tier=tier,
             force_cliffhanger=force_cliffhanger,
             dev_mode=True,
-            voice_id=voice_id
+            voice_id=voice_id,
+            tts_provider=tts_provider,
+            tts_voice=tts_voice
         )
 
         if result["success"]:
@@ -283,6 +338,7 @@ async def dev_generate_story(data: Optional[GenerateStoryInput] = Body(default=N
                 "is_cliffhanger": story_data["is_cliffhanger"],
                 "cover_image_url": story_data.get("cover_image_url"),
                 "audio_url": story_data.get("audio_url"),
+                "tts_provider": metadata.get("tts_provider", tts_provider),
                 "created_at": time.time(),
                 "metadata": metadata,
                 "user_rating": None
