@@ -20,6 +20,8 @@ from backend.storyteller.bible_enhancement import (
     update_story_history
 )
 from backend.storyteller.standalone_generation import generate_standalone_story
+from backend.storyteller.cost_calculator import estimate_generation_cost, get_quick_cost_summary
+from backend.storyteller.beat_templates import list_beat_structures, get_beat_structure_info
 
 # Create router for use in main.py
 router = APIRouter(prefix="/api/dev", tags=["FictionMail Dev"])
@@ -45,6 +47,7 @@ class OnboardingInput(BaseModel):
     story_length: str = "short"
     premise: Optional[str] = None
     cameo_pool: Optional[list] = None
+    beat_structure: str = "classic"  # classic, save_the_cat, heros_journey, truby_beats
 
 
 class CameoInput(BaseModel):
@@ -66,7 +69,95 @@ class GenerateStoryInput(BaseModel):
     force_cliffhanger: Optional[bool] = None
 
 
+class CostEstimateInput(BaseModel):
+    tier: str = "free"
+    story_length: str = "short"
+    include_audio: bool = True
+    include_image: bool = True
+
+
 # === API Routes ===
+
+@router.get("/estimate-cost")
+@app.get("/api/dev/estimate-cost")
+async def dev_estimate_cost(
+    tier: str = "free",
+    story_length: str = "short",
+    include_audio: bool = True,
+    include_image: bool = True
+):
+    """
+    Estimate cost for story generation before actually generating.
+
+    Returns detailed cost breakdown for Claude API, image generation, and audio.
+    """
+    try:
+        cost_estimate = estimate_generation_cost(
+            tier=tier,
+            story_length=story_length,
+            include_audio=include_audio,
+            include_image=include_image
+        )
+        return {
+            "success": True,
+            "estimate": cost_estimate
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/cost-summary")
+@app.get("/api/dev/cost-summary")
+async def dev_cost_summary():
+    """
+    Get cost summary for all tier/length configurations.
+
+    Useful for pricing page or comparison.
+    """
+    try:
+        summary = get_quick_cost_summary()
+        return {
+            "success": True,
+            "summary": summary
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/beat-structures")
+@app.get("/api/dev/beat-structures")
+async def dev_get_beat_structures():
+    """
+    Get available beat structure options (Save the Cat, Hero's Journey, etc.).
+    """
+    try:
+        structures = list_beat_structures()
+        return {
+            "success": True,
+            "structures": structures
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/beat-structure/{structure_id}")
+@app.get("/api/dev/beat-structure/{structure_id}")
+async def dev_get_beat_structure_detail(structure_id: str):
+    """
+    Get detailed info about a specific beat structure.
+    """
+    try:
+        info = get_beat_structure_info(structure_id)
+        if info is None:
+            raise HTTPException(status_code=404, detail=f"Beat structure '{structure_id}' not found")
+        return {
+            "success": True,
+            "structure": info
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/onboarding")
 @app.post("/api/dev/onboarding")
@@ -85,7 +176,8 @@ async def dev_onboarding(data: OnboardingInput):
             intensity=data.intensity,
             story_length=data.story_length,
             premise=data.premise,
-            cameo_pool=data.cameo_pool
+            cameo_pool=data.cameo_pool,
+            beat_structure=data.beat_structure
         )
 
         dev_storage["current_bible"] = bible

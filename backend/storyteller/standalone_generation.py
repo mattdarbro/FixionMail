@@ -13,7 +13,7 @@ from datetime import datetime
 from langchain_core.messages import HumanMessage
 from langchain_anthropic import ChatAnthropic
 from backend.config import config
-from backend.storyteller.beat_templates import get_template
+from backend.storyteller.beat_templates import get_template, get_structure_template
 from backend.storyteller.bible_enhancement import should_use_cliffhanger, should_include_cameo
 from backend.storyteller.prompts_standalone import (
     create_standalone_story_beat_prompt,
@@ -369,17 +369,31 @@ async def generate_standalone_story(
     try:
         # Step 1: Select beat template
         genre = story_bible.get("genre", "scifi")
-        template = get_template(genre, user_tier)
+        beat_structure = story_bible.get("beat_structure", "classic")
+
+        # Check if using a named story structure (Save the Cat, Hero's Journey, etc.)
+        if beat_structure and beat_structure != "classic":
+            template = get_structure_template(beat_structure, user_tier)
+            if template:
+                print(f"\n✓ Using story structure: {beat_structure}")
+            else:
+                # Fallback to genre template if structure not found
+                template = get_template(genre, user_tier)
+                print(f"\n✓ Structure '{beat_structure}' not found, using genre template")
+        else:
+            # Use classic genre-specific template
+            template = get_template(genre, user_tier)
+            print(f"\n✓ Using classic genre template")
 
         # Override word count if specified in story_settings
         story_settings = story_bible.get("story_settings", {})
         word_target = story_settings.get("word_target")
         if word_target:
             template.total_words = word_target
-            print(f"\n✓ Template selected: {template.name}")
+            print(f"  Template: {template.name}")
             print(f"  Word target (from settings): {word_target}")
         else:
-            print(f"\n✓ Template selected: {template.name}")
+            print(f"  Template: {template.name}")
             print(f"  Total words: {template.total_words}")
         print(f"  Beats: {len(template.beats)}")
 

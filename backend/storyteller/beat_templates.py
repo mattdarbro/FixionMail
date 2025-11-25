@@ -984,6 +984,567 @@ PREMIUM_HISTORICAL_SAGA = BeatTemplate(
 )
 
 
+# ===== STORY STRUCTURE TEMPLATES =====
+# These are meta-templates based on famous storytelling frameworks
+
+# Save the Cat! Beat Sheet (Blake Snyder) - Adapted for short stories
+SAVE_THE_CAT_SHORT = BeatTemplate(
+    name="save_the_cat_short",
+    genre="universal",
+    total_words=1500,
+    description="Blake Snyder's Save the Cat structure adapted for short fiction",
+    beats=[
+        {
+            "beat_number": 1,
+            "beat_name": "opening_image_and_setup",
+            "word_target": 300,
+            "description": "Opening Image + Set-up: Show protagonist's world before change",
+            "guidance": "Establish 'before' snapshot. Show protagonist's flaw or want. Include a 'save the cat' moment that makes us root for them."
+        },
+        {
+            "beat_number": 2,
+            "beat_name": "catalyst_and_debate",
+            "word_target": 350,
+            "description": "Catalyst + Debate: Life-changing moment and hesitation",
+            "guidance": "Something disrupts their world. Protagonist resists or debates the call. Stakes become clear."
+        },
+        {
+            "beat_number": 3,
+            "beat_name": "break_into_two",
+            "word_target": 350,
+            "description": "Break Into Two + Fun and Games: Enter new world, explore premise",
+            "guidance": "Protagonist commits and enters Act 2. Promise of the premise - give readers what they came for."
+        },
+        {
+            "beat_number": 4,
+            "beat_name": "midpoint_to_all_is_lost",
+            "word_target": 300,
+            "description": "Midpoint + All Is Lost: False victory/defeat leads to dark moment",
+            "guidance": "Stakes raise at midpoint. Then everything falls apart. Dark Night of the Soul."
+        },
+        {
+            "beat_number": 5,
+            "beat_name": "finale",
+            "word_target": 200,
+            "description": "Break Into Three + Final Image: Apply lesson, show transformation",
+            "guidance": "Protagonist uses what they learned. New solution. Final image mirrors opening but shows change."
+        }
+    ]
+)
+
+SAVE_THE_CAT_PREMIUM = BeatTemplate(
+    name="save_the_cat_premium",
+    genre="universal",
+    total_words=4500,
+    description="Full Blake Snyder Save the Cat beat sheet",
+    beats=[
+        {
+            "beat_number": 1,
+            "beat_name": "opening_image",
+            "word_target": 300,
+            "description": "Opening Image: Visual 'before' snapshot of protagonist's world",
+            "guidance": "Tone-setting image. Show the world before transformation. Hint at theme."
+        },
+        {
+            "beat_number": 2,
+            "beat_name": "setup",
+            "word_target": 400,
+            "description": "Set-Up: Establish protagonist's world and what's missing",
+            "guidance": "Introduce protagonist and supporting cast. Show their want vs need. Plant story elements."
+        },
+        {
+            "beat_number": 3,
+            "beat_name": "theme_stated",
+            "word_target": 200,
+            "description": "Theme Stated: Someone hints at the story's moral",
+            "guidance": "Often dialogue where someone tells protagonist what they need to learn. Protagonist doesn't get it yet."
+        },
+        {
+            "beat_number": 4,
+            "beat_name": "catalyst",
+            "word_target": 400,
+            "description": "Catalyst: The moment that changes everything",
+            "guidance": "Life-altering event. Can't go back to normal after this. Clear inciting incident."
+        },
+        {
+            "beat_number": 5,
+            "beat_name": "debate",
+            "word_target": 400,
+            "description": "Debate: Protagonist questions whether to act",
+            "guidance": "Should I go? What should I do? Last chance to remain in comfort zone. Building pressure."
+        },
+        {
+            "beat_number": 6,
+            "beat_name": "break_into_two",
+            "word_target": 350,
+            "description": "Break Into Two: Protagonist commits to action",
+            "guidance": "Decisive action. Leaves old world behind. Enters Act 2 upside-down world."
+        },
+        {
+            "beat_number": 7,
+            "beat_name": "b_story",
+            "word_target": 300,
+            "description": "B Story: Secondary relationship that carries theme",
+            "guidance": "New character or relationship. Often love interest or mentor. Discusses theme differently."
+        },
+        {
+            "beat_number": 8,
+            "beat_name": "fun_and_games",
+            "word_target": 600,
+            "description": "Fun and Games: The promise of the premise",
+            "guidance": "What the audience came for. Genre-specific fun. Protagonist exploring new world. Successes."
+        },
+        {
+            "beat_number": 9,
+            "beat_name": "midpoint",
+            "word_target": 400,
+            "description": "Midpoint: False victory or false defeat",
+            "guidance": "Stakes raise. Party's over or seeming success. Connect A and B stories. Time clock starts."
+        },
+        {
+            "beat_number": 10,
+            "beat_name": "bad_guys_close_in",
+            "word_target": 500,
+            "description": "Bad Guys Close In: Forces regroup, internal doubts surface",
+            "guidance": "External pressure mounts. Team fractures. Self-doubt. Everything falls apart."
+        },
+        {
+            "beat_number": 11,
+            "beat_name": "all_is_lost",
+            "word_target": 300,
+            "description": "All Is Lost: The opposite of the Midpoint",
+            "guidance": "False defeat (if midpoint was victory). Whiff of death - something dies. Lowest point."
+        },
+        {
+            "beat_number": 12,
+            "beat_name": "dark_night_soul",
+            "word_target": 250,
+            "description": "Dark Night of the Soul: Despair before the breakthrough",
+            "guidance": "Wallowing in hopelessness. Then... the 'aha' moment. Realizes what was missing."
+        },
+        {
+            "beat_number": 13,
+            "beat_name": "break_into_three",
+            "word_target": 300,
+            "description": "Break Into Three: Solution using A and B story lessons",
+            "guidance": "Combines what learned in both stories. New idea. Ready to finish this."
+        },
+        {
+            "beat_number": 14,
+            "beat_name": "finale",
+            "word_target": 400,
+            "description": "Finale: Execute new plan, face antagonist, transform",
+            "guidance": "Storm the castle. Use new knowledge. High point. Transformation complete."
+        },
+        {
+            "beat_number": 15,
+            "beat_name": "final_image",
+            "word_target": 200,
+            "description": "Final Image: Proof that change has occurred",
+            "guidance": "Mirror opening image but different. Show transformation. New world/status quo."
+        }
+    ]
+)
+
+# Hero's Journey (Joseph Campbell / Christopher Vogler)
+HEROS_JOURNEY_SHORT = BeatTemplate(
+    name="heros_journey_short",
+    genre="universal",
+    total_words=1500,
+    description="Joseph Campbell's Hero's Journey condensed for short fiction",
+    beats=[
+        {
+            "beat_number": 1,
+            "beat_name": "ordinary_world",
+            "word_target": 300,
+            "description": "Ordinary World: Hero in their comfort zone",
+            "guidance": "Show hero's normal life. Establish what they'll leave behind. Hint at inner need."
+        },
+        {
+            "beat_number": 2,
+            "beat_name": "call_and_crossing",
+            "word_target": 350,
+            "description": "Call to Adventure + Crossing the Threshold",
+            "guidance": "Hero receives call, may refuse briefly, then commits. Enters Special World."
+        },
+        {
+            "beat_number": 3,
+            "beat_name": "tests_and_allies",
+            "word_target": 400,
+            "description": "Tests, Allies, Enemies: Learning the new world's rules",
+            "guidance": "Hero faces challenges, meets helpers, identifies enemies. Training/growth."
+        },
+        {
+            "beat_number": 4,
+            "beat_name": "ordeal",
+            "word_target": 300,
+            "description": "The Ordeal: Face death/greatest fear, seize the reward",
+            "guidance": "Central crisis. Near-death experience. Hero emerges transformed with prize."
+        },
+        {
+            "beat_number": 5,
+            "beat_name": "return",
+            "word_target": 150,
+            "description": "The Road Back + Return: Bring elixir home changed",
+            "guidance": "Hero returns transformed. Applies wisdom. Master of two worlds."
+        }
+    ]
+)
+
+HEROS_JOURNEY_PREMIUM = BeatTemplate(
+    name="heros_journey_premium",
+    genre="universal",
+    total_words=4500,
+    description="Full Hero's Journey with all twelve stages",
+    beats=[
+        {
+            "beat_number": 1,
+            "beat_name": "ordinary_world",
+            "word_target": 400,
+            "description": "The Ordinary World: Hero's limited awareness",
+            "guidance": "Hero in comfortable but unfulfilling world. Show their flaw. Establish sympathy."
+        },
+        {
+            "beat_number": 2,
+            "beat_name": "call_to_adventure",
+            "word_target": 350,
+            "description": "Call to Adventure: Something disrupts ordinary",
+            "guidance": "Herald brings news. Problem presents itself. Adventure beckons."
+        },
+        {
+            "beat_number": 3,
+            "beat_name": "refusal_of_call",
+            "word_target": 300,
+            "description": "Refusal of the Call: Hero hesitates",
+            "guidance": "Fear, obligation, or inadequacy. What's at stake if they go? If they don't?"
+        },
+        {
+            "beat_number": 4,
+            "beat_name": "meeting_mentor",
+            "word_target": 350,
+            "description": "Meeting with the Mentor: Guidance and gifts",
+            "guidance": "Wise figure provides advice, training, or magical aid. Gives confidence to proceed."
+        },
+        {
+            "beat_number": 5,
+            "beat_name": "crossing_threshold",
+            "word_target": 350,
+            "description": "Crossing the First Threshold: Commit to adventure",
+            "guidance": "Hero fully enters Special World. No turning back. Threshold guardian may appear."
+        },
+        {
+            "beat_number": 6,
+            "beat_name": "tests_allies_enemies",
+            "word_target": 500,
+            "description": "Tests, Allies, Enemies: Navigate Special World",
+            "guidance": "Learn rules of new world. Gain allies, identify foes. Skills tested and developed."
+        },
+        {
+            "beat_number": 7,
+            "beat_name": "approach_inmost_cave",
+            "word_target": 400,
+            "description": "Approach to the Inmost Cave: Prepare for ordeal",
+            "guidance": "Approach to the most dangerous place. Team reorganizes. Final preparations."
+        },
+        {
+            "beat_number": 8,
+            "beat_name": "ordeal",
+            "word_target": 500,
+            "description": "The Ordeal: Death and rebirth",
+            "guidance": "Hero's greatest fear. Death experience (literal or symbolic). Transformation moment."
+        },
+        {
+            "beat_number": 9,
+            "beat_name": "reward",
+            "word_target": 350,
+            "description": "Reward (Seizing the Sword): Claim the prize",
+            "guidance": "Hero takes treasure, knowledge, or reconciliation. Celebration. But not over yet."
+        },
+        {
+            "beat_number": 10,
+            "beat_name": "road_back",
+            "word_target": 400,
+            "description": "The Road Back: Chase or flight",
+            "guidance": "Consequences of taking reward. Pursued. Must return to Ordinary World."
+        },
+        {
+            "beat_number": 11,
+            "beat_name": "resurrection",
+            "word_target": 400,
+            "description": "Resurrection: Final test, full transformation",
+            "guidance": "Climactic battle. Hero fully transformed. Death and rebirth at higher level."
+        },
+        {
+            "beat_number": 12,
+            "beat_name": "return_with_elixir",
+            "word_target": 200,
+            "description": "Return with the Elixir: Share the gift",
+            "guidance": "Hero returns changed. Brings boon to community. Master of two worlds."
+        }
+    ]
+)
+
+# Truby's 22 Building Blocks (John Truby) - Adapted
+TRUBY_BEATS_SHORT = BeatTemplate(
+    name="truby_beats_short",
+    genre="universal",
+    total_words=1500,
+    description="John Truby's story anatomy condensed for short fiction",
+    beats=[
+        {
+            "beat_number": 1,
+            "beat_name": "weakness_and_need",
+            "word_target": 300,
+            "description": "Weakness/Need + Ghost: Hero's psychological and moral flaw",
+            "guidance": "Establish hero's weakness (psychological) and need (moral). The ghost event that caused it."
+        },
+        {
+            "beat_number": 2,
+            "beat_name": "desire_and_opponent",
+            "word_target": 350,
+            "description": "Desire + Opponent: What hero wants and who blocks them",
+            "guidance": "Clear external goal. Introduce opponent who wants same thing. Conflict established."
+        },
+        {
+            "beat_number": 3,
+            "beat_name": "plan_and_battle",
+            "word_target": 400,
+            "description": "Plan + Battle: Strategy and conflict escalation",
+            "guidance": "Hero's plan to achieve desire. Series of attacks and counterattacks with opponent."
+        },
+        {
+            "beat_number": 4,
+            "beat_name": "self_revelation",
+            "word_target": 300,
+            "description": "Self-Revelation: Hero sees their flaw clearly",
+            "guidance": "Psychological revelation - hero learns truth about themselves. Moral revelation - learns right action."
+        },
+        {
+            "beat_number": 5,
+            "beat_name": "new_equilibrium",
+            "word_target": 150,
+            "description": "New Equilibrium: Changed life based on revelation",
+            "guidance": "Hero at higher or lower level than start. Show moral ramifications. New balance."
+        }
+    ]
+)
+
+TRUBY_BEATS_PREMIUM = BeatTemplate(
+    name="truby_beats_premium",
+    genre="universal",
+    total_words=4500,
+    description="John Truby's comprehensive story anatomy",
+    beats=[
+        {
+            "beat_number": 1,
+            "beat_name": "weakness_and_need",
+            "word_target": 350,
+            "description": "Weakness and Need: Hero's core flaw",
+            "guidance": "Psychological weakness: hurts self. Moral need: hurts others. Both must be addressed."
+        },
+        {
+            "beat_number": 2,
+            "beat_name": "ghost_and_world",
+            "word_target": 300,
+            "description": "Ghost + Story World: Past trauma and arena",
+            "guidance": "Event from past that created weakness. Establish story world as expression of hero's inner state."
+        },
+        {
+            "beat_number": 3,
+            "beat_name": "desire",
+            "word_target": 350,
+            "description": "Desire: Hero's concrete goal",
+            "guidance": "Specific, external goal. What hero WANTS (vs what they NEED). Clear finish line."
+        },
+        {
+            "beat_number": 4,
+            "beat_name": "opponent",
+            "word_target": 400,
+            "description": "Opponent: The necessary antagonist",
+            "guidance": "Opponent wants same goal. Is best at attacking hero's weakness. Forces hero to change."
+        },
+        {
+            "beat_number": 5,
+            "beat_name": "plan",
+            "word_target": 350,
+            "description": "Plan: Hero's strategy to win",
+            "guidance": "Guidelines and tactics to reach goal. Will need to adjust. Shows character."
+        },
+        {
+            "beat_number": 6,
+            "beat_name": "battle",
+            "word_target": 600,
+            "description": "Battle: Escalating conflict",
+            "guidance": "Series of attacks and counterattacks. Each side adjusts. Stakes rise. Multiple reversals."
+        },
+        {
+            "beat_number": 7,
+            "beat_name": "apparent_defeat",
+            "word_target": 400,
+            "description": "Apparent Defeat: Hero seems to lose",
+            "guidance": "All seems lost. Hero at lowest point. Must dig deep. Question everything."
+        },
+        {
+            "beat_number": 8,
+            "beat_name": "obsessive_drive",
+            "word_target": 350,
+            "description": "Obsessive Drive: Hero pushes through",
+            "guidance": "Desperate push toward goal. May make moral compromises. Tension peaks."
+        },
+        {
+            "beat_number": 9,
+            "beat_name": "self_revelation",
+            "word_target": 400,
+            "description": "Self-Revelation: Hero sees truth",
+            "guidance": "Psychological: learns truth about self. Moral: learns right way to treat others. Transformative moment."
+        },
+        {
+            "beat_number": 10,
+            "beat_name": "moral_decision",
+            "word_target": 350,
+            "description": "Moral Decision: Prove the change",
+            "guidance": "Hero acts on revelation. Makes choice that proves transformation. Action based on new self."
+        },
+        {
+            "beat_number": 11,
+            "beat_name": "new_equilibrium",
+            "word_target": 250,
+            "description": "New Equilibrium: Changed status quo",
+            "guidance": "New balance higher or lower than start. Show moral ramifications for world. Resolution."
+        }
+    ]
+)
+
+
+# ===== BEAT STRUCTURE REGISTRY =====
+# These are the selectable story structures
+
+BEAT_STRUCTURES = {
+    "save_the_cat": {
+        "id": "save_the_cat",
+        "name": "Save the Cat!",
+        "author": "Blake Snyder",
+        "description": "Hollywood's go-to beat sheet. Focused on audience engagement and clear emotional beats.",
+        "best_for": ["Commercial fiction", "Action", "Romance", "Comedy"],
+        "short_template": SAVE_THE_CAT_SHORT,
+        "premium_template": SAVE_THE_CAT_PREMIUM
+    },
+    "heros_journey": {
+        "id": "heros_journey",
+        "name": "Hero's Journey",
+        "author": "Joseph Campbell / Christopher Vogler",
+        "description": "The monomyth. Universal story pattern of departure, initiation, and return.",
+        "best_for": ["Fantasy", "Adventure", "Sci-Fi", "Coming-of-age"],
+        "short_template": HEROS_JOURNEY_SHORT,
+        "premium_template": HEROS_JOURNEY_PREMIUM
+    },
+    "truby_beats": {
+        "id": "truby_beats",
+        "name": "Truby's Story Anatomy",
+        "author": "John Truby",
+        "description": "Character-driven structure based on weakness, desire, and moral transformation.",
+        "best_for": ["Drama", "Character studies", "Literary fiction", "Psychological"],
+        "short_template": TRUBY_BEATS_SHORT,
+        "premium_template": TRUBY_BEATS_PREMIUM
+    },
+    "classic": {
+        "id": "classic",
+        "name": "Classic Genre Structure",
+        "author": "FictionMail",
+        "description": "Genre-optimized beats tailored for each story type (sci-fi, mystery, romance, etc.)",
+        "best_for": ["All genres", "Genre-specific conventions", "Reader expectations"],
+        "short_template": None,  # Uses genre-specific templates
+        "premium_template": None  # Uses genre-specific templates
+    }
+}
+
+
+def list_beat_structures() -> list[dict]:
+    """
+    List all available beat structures for the dropdown.
+
+    Returns:
+        List of beat structure info dictionaries
+    """
+    return [
+        {
+            "id": structure["id"],
+            "name": structure["name"],
+            "author": structure["author"],
+            "description": structure["description"],
+            "best_for": structure["best_for"]
+        }
+        for structure in BEAT_STRUCTURES.values()
+    ]
+
+
+def get_beat_structure_info(structure_id: str) -> dict | None:
+    """
+    Get detailed info about a specific beat structure.
+
+    Args:
+        structure_id: ID of the beat structure
+
+    Returns:
+        Dictionary with structure info and beat details, or None if not found
+    """
+    structure = BEAT_STRUCTURES.get(structure_id)
+    if not structure:
+        return None
+
+    result = {
+        "id": structure["id"],
+        "name": structure["name"],
+        "author": structure["author"],
+        "description": structure["description"],
+        "best_for": structure["best_for"]
+    }
+
+    # Add beat details if not classic (which uses genre templates)
+    if structure["short_template"]:
+        result["short_beats"] = [
+            {
+                "beat_name": beat["beat_name"],
+                "word_target": beat["word_target"],
+                "description": beat["description"]
+            }
+            for beat in structure["short_template"].beats
+        ]
+
+    if structure["premium_template"]:
+        result["premium_beats"] = [
+            {
+                "beat_name": beat["beat_name"],
+                "word_target": beat["word_target"],
+                "description": beat["description"]
+            }
+            for beat in structure["premium_template"].beats
+        ]
+
+    return result
+
+
+def get_structure_template(structure_id: str, tier: str = "free") -> BeatTemplate | None:
+    """
+    Get the beat template for a specific structure and tier.
+
+    Args:
+        structure_id: ID of the beat structure
+        tier: User tier (free or premium)
+
+    Returns:
+        BeatTemplate or None if structure uses genre-specific templates
+    """
+    structure = BEAT_STRUCTURES.get(structure_id)
+    if not structure:
+        return None
+
+    if tier == "premium":
+        return structure.get("premium_template")
+    else:
+        return structure.get("short_template")
+
+
 # ===== TEMPLATE REGISTRY =====
 
 TEMPLATES = {

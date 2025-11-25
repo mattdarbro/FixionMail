@@ -124,7 +124,8 @@ async def enhance_story_bible(
     intensity: int = 3,
     story_length: str = "short",
     premise: str = None,
-    cameo_pool: list = None
+    cameo_pool: list = None,
+    beat_structure: str = "classic"
 ) -> Dict[str, Any]:
     """
     Take minimal user input and expand into a rich story bible.
@@ -138,6 +139,7 @@ async def enhance_story_bible(
         story_length: "short" (1500), "medium" (3000), or "long" (4500)
         premise: Optional general premise for AI-generated character genres
         cameo_pool: Optional list of people to include as cameos
+        beat_structure: Story structure to use (classic, save_the_cat, heros_journey, truby_beats)
 
     Returns:
         Enhanced story bible with full details
@@ -294,13 +296,17 @@ Make this feel like a real, lived-in world that can sustain many different stori
             "world": genre_cfg["world"],  # "same" or "different"
         }
 
-        # Store intensity and length settings
+        # Store intensity, length, and beat structure settings
         enhanced_bible["story_settings"] = {
             "intensity": intensity,
             "intensity_label": intensity_cfg["label"],
             "story_length": story_length,
-            "word_target": length_cfg["words"]
+            "word_target": length_cfg["words"],
+            "beat_structure": beat_structure
         }
+
+        # Also store at top level for easy access
+        enhanced_bible["beat_structure"] = beat_structure
 
         # Add cameo pool if provided
         if cameo_pool:
@@ -340,7 +346,7 @@ Make this feel like a real, lived-in world that can sustain many different stori
         print(f"Response: {response_text[:500]}")
 
         # Return minimal fallback with error info
-        fallback = create_fallback_bible(genre, user_setting, character_pool, intensity, story_length)
+        fallback = create_fallback_bible(genre, user_setting, character_pool, intensity, story_length, beat_structure)
         fallback["_error"] = error_msg
         return fallback
 
@@ -355,7 +361,7 @@ Make this feel like a real, lived-in world that can sustain many different stori
             error_msg = "ANTHROPIC_API_KEY not set or invalid. Please add it to Railway environment variables."
 
         # Return minimal fallback with error info
-        fallback = create_fallback_bible(genre, user_setting, character_pool, intensity, story_length)
+        fallback = create_fallback_bible(genre, user_setting, character_pool, intensity, story_length, beat_structure)
         fallback["_error"] = error_msg
         return fallback
 
@@ -365,7 +371,8 @@ def create_fallback_bible(
     user_setting: str,
     character_pool: list = None,
     intensity: int = 3,
-    story_length: str = "short"
+    story_length: str = "short",
+    beat_structure: str = "classic"
 ) -> Dict[str, Any]:
     """
     Create a minimal fallback bible if AI enhancement fails.
@@ -403,8 +410,10 @@ def create_fallback_bible(
             "intensity": intensity,
             "intensity_label": intensity_cfg["label"],
             "story_length": story_length,
-            "word_target": length_cfg["words"]
+            "word_target": length_cfg["words"],
+            "beat_structure": beat_structure
         },
+        "beat_structure": beat_structure,
         "story_history": {
             "total_stories": 0,
             "recent_plot_types": [],
