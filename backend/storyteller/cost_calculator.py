@@ -42,6 +42,9 @@ class CostBreakdown:
     monthly_cost_30_stories: float = 0.0
 
     def to_dict(self) -> Dict[str, Any]:
+        # Variable costs = Claude + Image (per story)
+        variable_cost = self.claude_total_cost + self.image_total_cost
+
         return {
             "claude": {
                 "input_tokens": self.claude_input_tokens,
@@ -62,9 +65,13 @@ class CostBreakdown:
             },
             "total_cost": round(self.total_cost, 4),
             "monthly_cost_30_stories": round(self.monthly_cost_30_stories, 2),
+            "variable_cost_per_story": round(variable_cost, 4),
+            "variable_cost_monthly": round(variable_cost * 30, 2),
             "formatted": {
                 "per_story": f"${self.total_cost:.4f}",
-                "monthly": f"${self.monthly_cost_30_stories:.2f}"
+                "monthly": f"${self.monthly_cost_30_stories:.2f}",
+                "variable_per_story": f"${variable_cost:.4f}",
+                "variable_monthly": f"${variable_cost * 30:.2f}"
             }
         }
 
@@ -80,10 +87,15 @@ class Pricing:
     # Replicate Imagen-3-Fast pricing
     IMAGEN_3_FAST_PER_IMAGE = 0.025
 
-    # ElevenLabs pricing (approximate, varies by plan)
-    # Creator plan: ~$0.30 per 1000 characters
-    # Pro plan: ~$0.24 per 1000 characters
-    ELEVENLABS_PER_1K_CHARS = 0.30
+    # ElevenLabs pricing by plan (monthly cost / characters included)
+    # Pro plan: $99/month for 500,000 characters = $0.198/1k chars
+    ELEVENLABS_PLANS = {
+        "pay_as_you_go": {"monthly": 0, "chars": 0, "per_1k": 0.30},
+        "starter": {"monthly": 5, "chars": 30_000, "per_1k": 0.167},
+        "creator": {"monthly": 22, "chars": 100_000, "per_1k": 0.22},
+        "pro": {"monthly": 99, "chars": 500_000, "per_1k": 0.198},
+    }
+    ELEVENLABS_DEFAULT_PLAN = "pro"
 
     # Token estimation factors
     # Average tokens per word varies by content type
@@ -130,7 +142,7 @@ def calculate_story_cost(
     word_target: int,
     include_audio: bool = True,
     include_image: bool = True,
-    elevenlabs_plan: str = "creator"
+    elevenlabs_plan: str = "pro"
 ) -> CostBreakdown:
     """
     Calculate estimated cost for generating a single story.
@@ -139,7 +151,7 @@ def calculate_story_cost(
         word_target: Target word count (1500, 3000, or 4500)
         include_audio: Whether to generate audio narration
         include_image: Whether to generate cover image
-        elevenlabs_plan: ElevenLabs plan for pricing ("creator" or "pro")
+        elevenlabs_plan: ElevenLabs plan for pricing (starter, creator, pro, pay_as_you_go)
 
     Returns:
         CostBreakdown with detailed cost information
@@ -179,11 +191,9 @@ def calculate_story_cost(
         # Estimate characters from word count
         breakdown.audio_characters = int(word_target * Pricing.CHARS_PER_WORD)
 
-        # Adjust pricing based on plan
-        if elevenlabs_plan == "pro":
-            breakdown.audio_cost_per_1k_chars = 0.24
-        else:
-            breakdown.audio_cost_per_1k_chars = Pricing.ELEVENLABS_PER_1K_CHARS
+        # Get pricing from plan
+        plan_info = Pricing.ELEVENLABS_PLANS.get(elevenlabs_plan, Pricing.ELEVENLABS_PLANS["pro"])
+        breakdown.audio_cost_per_1k_chars = plan_info["per_1k"]
 
         breakdown.audio_total_cost = (
             breakdown.audio_characters / 1000 * breakdown.audio_cost_per_1k_chars
