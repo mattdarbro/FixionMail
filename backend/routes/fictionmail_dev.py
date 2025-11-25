@@ -72,7 +72,7 @@ class GenerateStoryInput(BaseModel):
     voice_id: Optional[str] = None
     bible: Optional[Dict[str, Any]] = None
     force_cliffhanger: Optional[bool] = None
-    tts_provider: str = "elevenlabs"  # elevenlabs, openai, amazon_polly
+    tts_provider: str = "elevenlabs"  # elevenlabs or openai
     tts_voice: Optional[str] = None
 
 
@@ -81,7 +81,7 @@ class CostEstimateInput(BaseModel):
     story_length: str = "short"
     include_audio: bool = True
     include_image: bool = True
-    tts_provider: str = "elevenlabs"  # elevenlabs, openai, amazon_polly
+    tts_provider: str = "elevenlabs"  # elevenlabs or openai
 
 
 # === API Routes ===
@@ -99,7 +99,7 @@ async def dev_estimate_cost(
     Estimate cost for story generation before actually generating.
 
     Returns detailed cost breakdown for Claude API, image generation, and audio.
-    Supports different TTS providers: elevenlabs, openai, amazon_polly
+    Supports different TTS providers: elevenlabs, openai
     """
     try:
         cost_estimate = estimate_generation_cost(
@@ -788,7 +788,7 @@ async def dev_dashboard():
                             <label>Tier</label>
                             <select id="tier">
                                 <option value="free">Free (1500 words)</option>
-                                <option value="premium">Premium (4500 words)</option>
+                                <option value="premium">Premium (3000 words)</option>
                             </select>
                         </div>
 

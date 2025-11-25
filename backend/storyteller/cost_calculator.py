@@ -103,12 +103,6 @@ class Pricing:
     OPENAI_TTS_PER_1K_CHARS = 0.015  # TTS-1 standard
     OPENAI_TTS_HD_PER_1K_CHARS = 0.030  # TTS-1-HD
 
-    # Amazon Polly pricing (Neural voices)
-    # Neural: $0.016 per 1,000 characters
-    # Standard: $0.004 per 1,000 characters
-    AMAZON_POLLY_NEURAL_PER_1K_CHARS = 0.016
-    AMAZON_POLLY_STANDARD_PER_1K_CHARS = 0.004
-
     # TTS Provider configurations
     TTS_PROVIDERS = {
         "elevenlabs": {
@@ -126,14 +120,6 @@ class Pricing:
             "is_subscription": False,
             "quality": "good",
             "notes": "Pay-per-use, good quality, ~10x cheaper than ElevenLabs"
-        },
-        "amazon_polly": {
-            "name": "Amazon Polly",
-            "per_1k_chars": 0.016,
-            "monthly_subscription": 0,
-            "is_subscription": False,
-            "quality": "good",
-            "notes": "Pay-per-use, neural voices, comparable to OpenAI"
         }
     }
 
@@ -189,11 +175,11 @@ def calculate_story_cost(
     Calculate estimated cost for generating a single story.
 
     Args:
-        word_target: Target word count (1500, 3000, or 4500)
+        word_target: Target word count (1500 or 3000)
         include_audio: Whether to generate audio narration
         include_image: Whether to generate cover image
         elevenlabs_plan: ElevenLabs plan for pricing (starter, creator, pro, pay_as_you_go)
-        tts_provider: TTS provider ("elevenlabs", "openai", "amazon_polly")
+        tts_provider: TTS provider ("elevenlabs" or "openai")
 
     Returns:
         CostBreakdown with detailed cost information
@@ -239,8 +225,6 @@ def calculate_story_cost(
             breakdown.audio_cost_per_1k_chars = plan_info["per_1k"]
         elif tts_provider == "openai":
             breakdown.audio_cost_per_1k_chars = Pricing.OPENAI_TTS_PER_1K_CHARS
-        elif tts_provider == "amazon_polly":
-            breakdown.audio_cost_per_1k_chars = Pricing.AMAZON_POLLY_NEURAL_PER_1K_CHARS
         else:
             # Default to OpenAI pricing for unknown providers
             breakdown.audio_cost_per_1k_chars = Pricing.OPENAI_TTS_PER_1K_CHARS
@@ -276,10 +260,9 @@ def get_tier_word_target(tier: str, story_length: str = "short") -> int:
     if tier == "premium":
         length_map = {
             "short": 1500,
-            "medium": 3000,
-            "long": 4500
+            "medium": 3000
         }
-        return length_map.get(story_length, 4500)
+        return length_map.get(story_length, 3000)
     else:
         # Free tier is always short
         return 1500
@@ -297,10 +280,10 @@ def estimate_generation_cost(
 
     Args:
         tier: User tier ("free" or "premium")
-        story_length: Story length ("short", "medium", "long")
+        story_length: Story length ("short" or "medium")
         include_audio: Whether to include audio narration
         include_image: Whether to include cover image
-        tts_provider: TTS provider ("elevenlabs", "openai", "amazon_polly")
+        tts_provider: TTS provider ("elevenlabs" or "openai")
 
     Returns:
         Dictionary with cost breakdown and formatted output
@@ -394,7 +377,6 @@ def get_quick_cost_summary() -> Dict[str, Any]:
         ("free", "short", True, True),
         ("premium", "short", True, True),
         ("premium", "medium", True, True),
-        ("premium", "long", True, True),
         ("free", "short", False, False),  # Text only
     ]
 

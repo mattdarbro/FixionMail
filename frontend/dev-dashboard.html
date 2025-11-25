@@ -156,7 +156,6 @@
                             <select id="storyLength" onchange="updateCostEstimate()">
                                 <option value="short">Quick Read (~1500 words)</option>
                                 <option value="medium">Standard (~3000 words) - Premium</option>
-                                <option value="long">Extended (~4500 words) - Premium</option>
                             </select>
                         </div>
                         <div class="form-group">
@@ -189,7 +188,6 @@
                             <select id="ttsProvider" onchange="updateTtsVoiceOptions(); updateCostEstimate();">
                                 <option value="elevenlabs">ElevenLabs (Premium Quality, $99/mo subscription)</option>
                                 <option value="openai">OpenAI TTS (Good Quality, Pay-per-use ~10x cheaper)</option>
-                                <option value="amazon_polly">Amazon Polly (Good Quality, Pay-per-use)</option>
                             </select>
                             <small id="tts-provider-hint" style="color: #888; font-size: 12px;">Best quality, subscription-based ($99/mo for 500k chars)</small>
                         </div>
@@ -213,12 +211,6 @@
                                     <option value="onyx">Onyx (Male Deep)</option>
                                     <option value="nova">Nova (Female)</option>
                                     <option value="shimmer">Shimmer (Female Light)</option>
-                                </optgroup>
-                                <optgroup label="Amazon Polly Voices" id="polly-voices" class="hidden">
-                                    <option value="Joanna">Joanna (Female US)</option>
-                                    <option value="Matthew">Matthew (Male US)</option>
-                                    <option value="Ivy">Ivy (Female Child)</option>
-                                    <option value="Kendra">Kendra (Female US)</option>
                                 </optgroup>
                             </select>
                             <small style="color: #666; font-size: 12px;">Choose a voice for text-to-speech narration</small>
@@ -348,14 +340,12 @@
 
         const TTS_PROVIDER_HINTS = {
             elevenlabs: 'Best quality, subscription-based ($99/mo for 500k chars)',
-            openai: 'Good quality, pay-per-use ($0.015/1k chars) - ~10x cheaper at scale',
-            amazon_polly: 'Good quality, pay-per-use ($0.016/1k chars) - Not yet implemented'
+            openai: 'Good quality, pay-per-use ($0.015/1k chars) - ~10x cheaper at scale'
         };
 
         const TTS_PROVIDER_NAMES = {
             elevenlabs: 'ElevenLabs',
-            openai: 'OpenAI TTS',
-            amazon_polly: 'Amazon Polly'
+            openai: 'OpenAI TTS'
         };
 
         function updateStructureInfo() {
@@ -373,8 +363,7 @@
             // Show/hide voice groups
             const groups = {
                 elevenlabs: document.getElementById('elevenlabs-voices'),
-                openai: document.getElementById('openai-voices'),
-                amazon_polly: document.getElementById('polly-voices')
+                openai: document.getElementById('openai-voices')
             };
 
             // Hide all groups

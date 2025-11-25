@@ -268,30 +268,6 @@ async def generate_story_audio_openai(
         return None
 
 
-async def generate_story_audio_amazon_polly(
-    narrative: str,
-    story_title: str,
-    genre: str,
-    voice_id: str = "Joanna"
-) -> str | None:
-    """
-    Generate TTS audio using Amazon Polly (placeholder for future implementation).
-
-    This is a stub that returns None - implement when AWS credentials are available.
-
-    Args:
-        narrative: The story text to narrate
-        story_title: Title of the story (for filename)
-        genre: Story genre
-        voice_id: Amazon Polly voice ID
-
-    Returns:
-        None (not implemented)
-    """
-    print("  ⏭️  Amazon Polly TTS not yet implemented")
-    return None
-
-
 # TTS Provider routing
 TTS_PROVIDERS = {
     "elevenlabs": {
@@ -318,17 +294,6 @@ TTS_PROVIDERS = {
             "shimmer": "shimmer"
         },
         "default_voice": "alloy"
-    },
-    "amazon_polly": {
-        "name": "Amazon Polly",
-        "function": "generate_story_audio_amazon_polly",
-        "voices": {
-            "joanna": "Joanna",
-            "matthew": "Matthew",
-            "ivy": "Ivy",
-            "kendra": "Kendra"
-        },
-        "default_voice": "joanna"
     }
 }
 
@@ -347,7 +312,7 @@ async def generate_story_audio_with_provider(
         narrative: The story text to narrate
         story_title: Title of the story (for filename)
         genre: Story genre
-        provider: TTS provider ("elevenlabs", "openai", "amazon_polly")
+        provider: TTS provider ("elevenlabs" or "openai")
         voice: Voice name/ID (optional, uses default for provider)
 
     Returns:
@@ -376,13 +341,6 @@ async def generate_story_audio_with_provider(
             story_title=story_title,
             genre=genre,
             voice=voice_id
-        )
-    elif provider == "amazon_polly":
-        return await generate_story_audio_amazon_polly(
-            narrative=narrative,
-            story_title=story_title,
-            genre=genre,
-            voice_id=voice_id
         )
     else:
         print(f"  ⚠️  Unknown TTS provider: {provider}, falling back to ElevenLabs")
@@ -632,7 +590,7 @@ async def generate_standalone_story(
         force_cliffhanger: Override cliffhanger logic (for dev mode)
         dev_mode: Enable dev mode features
         voice_id: Legacy voice_id for ElevenLabs (deprecated, use tts_voice)
-        tts_provider: TTS provider ("elevenlabs", "openai", "amazon_polly")
+        tts_provider: TTS provider ("elevenlabs" or "openai")
         tts_voice: Voice name for selected provider
 
     Returns:
