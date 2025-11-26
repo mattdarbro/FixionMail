@@ -590,12 +590,13 @@ def should_use_cliffhanger(bible: Dict[str, Any], tier: str) -> bool:
     return (story_count - 4) % 6 == 0
 
 
-def should_include_cameo(bible: Dict[str, Any]) -> Dict[str, Any]:
+def should_include_cameo(bible: Dict[str, Any], dev_mode: bool = False) -> Dict[str, Any]:
     """
     Decide if a cameo should appear and which one.
 
     Args:
         bible: Story bible with cameo characters
+        dev_mode: If True, always include a cameo (for testing)
 
     Returns:
         Cameo character dict if should include, None otherwise
@@ -606,6 +607,12 @@ def should_include_cameo(bible: Dict[str, Any]) -> Dict[str, Any]:
 
     if not cameos:
         return None
+
+    # In dev mode, always include a cameo (pick randomly from pool)
+    if dev_mode:
+        cameo = random.choice(cameos)
+        cameo["appearances"] = cameo.get("appearances", 0) + 1
+        return cameo
 
     # Check each cameo's frequency
     for cameo in cameos:

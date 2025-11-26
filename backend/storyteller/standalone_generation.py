@@ -167,27 +167,92 @@ async def generate_story_audio_openai(
         print(f"  Using OpenAI TTS voice: {voice}")
         print(f"  Narrative length: {len(narrative_text)} characters")
 
-        # OpenAI TTS has a 4096 character limit per request
-        # For longer texts, truncate at a sentence boundary
-        if len(narrative_text) > MAX_CHUNK_CHARS:
-            print(f"  ⚠️  Text exceeds {MAX_CHUNK_CHARS} chars, truncating...")
+        if len(narrative_text) <= MAX_CHUNK_CHARS:
+            # Single chunk - simple case
+            response = client.audio.speech.create(
+                model="tts-1",
+                voice=voice,
+                input=narrative_text
+            )
+            response.stream_to_file(filepath)
+        else:
+            # Multiple chunks - need to concatenate
+            print(f"  Text exceeds {MAX_CHUNK_CHARS} chars, chunking...")
 
-            # Truncate at sentence boundary
-            truncated = narrative_text[:MAX_CHUNK_CHARS]
-            last_period = truncated.rfind('. ')
-            if last_period > MAX_CHUNK_CHARS - 500:
-                truncated = truncated[:last_period + 1]
+            # Split into chunks at sentence boundaries
+            chunks = []
+            remaining = narrative_text
+            while len(remaining) > MAX_CHUNK_CHARS:
+                # Find a good break point (end of sentence)
+                chunk = remaining[:MAX_CHUNK_CHARS]
+                last_period = chunk.rfind('. ')
+                if last_period > MAX_CHUNK_CHARS - 500:
+                    chunk = remaining[:last_period + 1]
+                    remaining = remaining[last_period + 2:]
+                else:
+                    remaining = remaining[MAX_CHUNK_CHARS:]
+                chunks.append(chunk)
+            if remaining:
+                chunks.append(remaining)
 
-            narrative_text = truncated
-            print(f"  ⚠️  Audio truncated to {len(narrative_text)} chars")
+            print(f"  Split into {len(chunks)} chunks")
 
-        # Generate audio
-        response = client.audio.speech.create(
-            model="tts-1",
-            voice=voice,
-            input=narrative_text
-        )
-        response.stream_to_file(filepath)
+            # Generate audio for each chunk
+            audio_chunks = []
+            for i, chunk in enumerate(chunks):
+                print(f"  Generating chunk {i + 1}/{len(chunks)}...")
+                response = client.audio.speech.create(
+                    model="tts-1",
+                    voice=voice,
+                    input=chunk
+                )
+                chunk_filepath = f"./generated_audio/temp_chunk_{timestamp}_{i}.mp3"
+                response.stream_to_file(chunk_filepath)
+                audio_chunks.append(chunk_filepath)
+
+            # Concatenate using ffmpeg
+            print(f"  Concatenating {len(audio_chunks)} audio chunks...")
+            import subprocess
+
+            # Create a file list for ffmpeg
+            list_file = f"./generated_audio/concat_list_{timestamp}.txt"
+            with open(list_file, 'w') as f:
+                for chunk_file in audio_chunks:
+                    f.write(f"file '{os.path.basename(chunk_file)}'\n")
+
+            # Run ffmpeg concat - use basenames since we run from generated_audio dir
+            list_basename = os.path.basename(list_file)
+            output_basename = os.path.basename(filepath)
+
+            ffmpeg_cmd = [
+                'ffmpeg',
+                '-f', 'concat',
+                '-safe', '0',
+                '-i', list_basename,
+                '-c', 'copy',
+                '-y',
+                output_basename
+            ]
+
+            print(f"  Running ffmpeg: {' '.join(ffmpeg_cmd)}")
+
+            result = subprocess.run(
+                ffmpeg_cmd,
+                capture_output=True,
+                text=True,
+                cwd="./generated_audio"
+            )
+
+            # Clean up temp files
+            os.remove(list_file)
+            for chunk_file in audio_chunks:
+                os.remove(chunk_file)
+
+            if result.returncode != 0:
+                print(f"  ⚠️  ffmpeg concat error: {result.stderr}")
+                return None
+
+            print(f"  ✓ Successfully concatenated {len(audio_chunks)} chunks")
 
         # Upload to storage backend (Supabase in prod, local in dev)
         from backend.storage import upload_audio
@@ -479,8 +544,8 @@ async def generate_standalone_story(
         if is_cliffhanger:
             print(f"  📌 Will use cliffhanger ending (free tier)")
 
-        # Step 3: Determine cameo
-        cameo = should_include_cameo(story_bible)
+        # Step 3: Determine cameo (always include in dev mode)
+        cameo = should_include_cameo(story_bible, dev_mode=dev_mode)
         if cameo:
             print(f"  ✨ Including cameo: {cameo.get('name', 'N/A')}")
 
