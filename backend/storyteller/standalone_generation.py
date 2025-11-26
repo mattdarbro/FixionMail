@@ -651,8 +651,8 @@ async def generate_standalone_story(
         if is_cliffhanger:
             print(f"  📌 Will use cliffhanger ending (free tier)")
 
-        # Step 3: Determine cameo
-        cameo = should_include_cameo(story_bible)
+        # Step 3: Determine cameo (always include in dev mode)
+        cameo = should_include_cameo(story_bible, dev_mode=dev_mode)
         if cameo:
             print(f"  ✨ Including cameo: {cameo.get('name', 'N/A')}")
 
