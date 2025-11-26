@@ -175,19 +175,25 @@ async def generate_story_audio_openai(
             # Truncate at sentence boundary
             truncated = narrative_text[:MAX_CHUNK_CHARS]
             last_period = truncated.rfind('. ')
-            if last_period > MAX_CHUNK_CHARS - 500:
-                truncated = truncated[:last_period + 1]
 
-            narrative_text = truncated
+            # If we found a period in a reasonable position, truncate there
+            if last_period > 1000:  # At least 1000 chars of content
+                narrative_text = truncated[:last_period + 1]
+            else:
+                # No good sentence boundary found, just use the truncated text
+                narrative_text = truncated
+
             print(f"  ⚠️  Audio truncated to {len(narrative_text)} chars")
 
         # Generate audio
+        print(f"  Calling OpenAI TTS API...")
         response = client.audio.speech.create(
             model="tts-1",
             voice=voice,
             input=narrative_text
         )
         response.stream_to_file(filepath)
+        print(f"  ✓ Audio file written to {filepath}")
 
         # Upload to storage backend (Supabase in prod, local in dev)
         from backend.storage import upload_audio
