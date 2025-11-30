@@ -218,6 +218,7 @@ class WriterAgent:
         excluded_context = self._build_excluded_names_context(excluded_names)
         cameo_context = self._build_cameo_context(cameo)
         ending_context = self._build_ending_context(is_cliffhanger)
+        intensity_context = self._build_intensity_context(story_settings)
         beats_context = self._build_beats_context(beats)
         feedback_context = self._build_feedback_context(judge_feedback)
 
@@ -232,14 +233,13 @@ Write a complete, polished {total_words}-word story. This should be publication-
 
 **Genre**: {genre_config.get('label', genre)}
 **Tone**: {tone}
-**Intensity**: {story_settings.get('intensity_label', 'Moderate')}
 **Themes**: {', '.join(themes) if themes else 'To be discovered'}
 
 **Setting**: {setting.get('name', 'N/A')}
 {setting.get('description', '')}
 
 **Atmosphere**: {setting.get('atmosphere', '')}
-
+{intensity_context}
 ## {"PROTAGONIST (recurring)" if has_recurring_chars else "CHARACTER (create fresh)"}
 
 {"**Name**: " + protagonist.get('name', 'N/A') if has_recurring_chars else "**Archetype**: " + protagonist.get('archetype', 'To be determined')}
@@ -266,8 +266,19 @@ These recurring characters MUST appear in this story:
 
 ## STORY STRUCTURE ({len(beats)} beats, {total_words} words total)
 
-Follow this beat structure:
+Follow this beat structure carefully. Each beat has a PURPOSE (what happens) and CRAFT GUIDANCE (how to write it):
 {beats_context}
+
+## THINK FIRST
+
+Before writing, mentally plan:
+1. **Core Conflict**: What does the protagonist want? What stands in their way?
+2. **Emotional Arc**: How does the protagonist feel at start vs end? What changes them?
+3. **Central Image/Symbol**: What recurring image or motif ties the story together?
+4. **The Hook**: What specific moment or question will grab the reader immediately?
+5. **Genre Promise**: What does this genre owe the reader? (Mystery = puzzle solved, Romance = relationship, etc.)
+
+Let these guide every scene. A story without clear conflict and change is just events happening.
 
 ## OUTPUT FORMAT
 
@@ -282,31 +293,37 @@ Return your response as JSON with this structure:
 }}
 ```
 
-## WRITING GUIDELINES
+## CRAFT GUIDELINES
 
-**Quality**:
-- Vivid, sensory prose - show don't tell
-- Strong opening hook that grabs attention
-- Natural, character-revealing dialogue
-- Third person limited POV on protagonist
-- Vary sentence structure and length
+**Opening (First 100 words)**:
+- Drop readers into action or a compelling moment—no "waking up" or weather descriptions
+- Establish voice immediately—how does this narrator sound?
+- Plant the story question: what does the reader want answered?
+- Ground us: who, where, and what's at stake
 
-**Pacing**:
-- Each beat flows naturally to the next
-- Build tension through the middle beats
-- Give emotional moments room to breathe
-- Honor the word targets for each beat
+**Prose Craft**:
+- **Specific beats general**: "She clutched the frayed photograph" not "She held something important"
+- **Active voice**: "The door slammed" not "The door was slammed"
+- **Sensory layering**: Each scene needs sight + at least one other sense (sound, smell, touch, taste)
+- **Dialogue tags**: "said" is invisible. Use action beats instead of adverbs: "She slammed the cup down. 'I said no.'"
+- **White space**: Break up long paragraphs. One idea per paragraph in tense scenes.
 
-**Character**:
-- Protagonist's voice is consistent throughout
-- Actions match established personality
-- Respect any defined limitations
-- Show growth or realization
+**Tension & Pacing**:
+- Every scene needs conflict—even quiet scenes have undercurrent of tension
+- Vary sentence length: short punchy sentences for action, longer flowing ones for reflection
+- End scenes on a question, revelation, or decision—never on resolution mid-story
+- Cut the throat-clearing: start scenes late, leave early
 
-**World**:
-- Setting details ground the reader
-- World feels lived-in and real
-- Environment affects the action
+**Character Depth**:
+- Characters want something concrete AND something deeper (surface goal + emotional need)
+- Show contradiction: brave people have fears, kind people have limits
+- Dialogue reveals character: how they deflect, what they avoid saying
+- Internal thought should conflict with external action at least once
+
+**Ending**:
+- Return to the opening image or question with new meaning
+- The final line should resonate—last impression matters most
+- Earn the emotion: if it's triumph, we need to have felt the struggle
 
 Write the complete story now. Target exactly {total_words} words.
 """
@@ -386,6 +403,52 @@ Include a brief cameo if it fits naturally:
 Brief appearance only - don't force it.
 """
 
+    def _build_intensity_context(self, story_settings: Dict[str, Any]) -> str:
+        """Build intensity guidance context."""
+        intensity = story_settings.get("intensity", 5)
+        intensity_label = story_settings.get("intensity_label", "Moderate")
+
+        # Map intensity to specific craft guidance
+        if intensity <= 3:
+            return """
+## INTENSITY: Cozy/Light
+
+This reader wants a **gentle, comforting** experience:
+- **Pacing**: Leisurely. Let scenes breathe. Savor small moments.
+- **Stakes**: Personal rather than life-threatening. Emotional rather than physical danger.
+- **Tone**: Warm, hopeful. Humor welcome. Avoid graphic violence or heavy darkness.
+- **Conflict**: Misunderstandings, personal growth challenges, gentle mysteries.
+- **Resolution**: Satisfying, heartwarming. Reader should feel comforted.
+
+Think: cozy mystery, gentle romance, feel-good fiction.
+"""
+        elif intensity <= 6:
+            return """
+## INTENSITY: Moderate
+
+Balanced approach with **meaningful stakes**:
+- **Pacing**: Varied. Build tension but allow breathing room.
+- **Stakes**: Real consequences but not overwhelming darkness.
+- **Tone**: Engaging with emotional range. Can include tension and lighter moments.
+- **Conflict**: Genuine obstacles requiring effort to overcome.
+- **Resolution**: Earned victory or meaningful change.
+
+Think: mainstream thriller, adventure, contemporary drama.
+"""
+        else:
+            return """
+## INTENSITY: High/Intense
+
+Reader wants **gripping, high-stakes** storytelling:
+- **Pacing**: Propulsive. Keep tension high. Short, punchy scenes in action sequences.
+- **Stakes**: Life, death, devastating consequences feel possible.
+- **Tone**: Dark, suspenseful, urgent. Danger feels real.
+- **Conflict**: Formidable obstacles. Antagonist is genuinely threatening.
+- **Resolution**: Hard-won. Scars remain. Victory costs something.
+
+Think: thriller, dark fantasy, intense drama with real peril.
+"""
+
     def _build_ending_context(self, is_cliffhanger: bool) -> str:
         """Build ending style context."""
         if is_cliffhanger:
@@ -421,8 +484,12 @@ Give a satisfying conclusion:
             beat_name = beat.get("beat_name", "")
             word_target = beat.get("word_target", 0)
             description = beat.get("description", "")
+            guidance = beat.get("guidance", "")
 
-            beats_text += f"\n**Beat {beat_num}: {beat_name.upper()}** ({word_target} words)\n{description}\n"
+            beats_text += f"\n**Beat {beat_num}: {beat_name.upper()}** ({word_target} words)\n"
+            beats_text += f"*Purpose*: {description}\n"
+            if guidance:
+                beats_text += f"*Craft guidance*: {guidance}\n"
 
         return beats_text
 
