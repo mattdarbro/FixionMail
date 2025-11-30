@@ -1,7 +1,9 @@
 """
 Main story generation workflow for FixionMail standalone stories.
 
-This orchestrates the multi-agent system for daily story generation.
+This orchestrates the 2-agent system for daily story generation:
+- WriterAgent (Sonnet): Generates complete stories
+- JudgeAgent (Haiku): Validates quality, triggers rewrites if needed
 """
 
 import time
@@ -21,10 +23,7 @@ from backend.storyteller.name_registry import (
     add_used_names,
     cleanup_expired_names
 )
-from backend.storyteller.prompts_standalone import (
-    create_standalone_story_beat_prompt,
-    create_prose_generation_prompt
-)
+from backend.agents import WriterAgent, JudgeAgent
 
 
 async def generate_story_audio_openai(
@@ -377,15 +376,16 @@ async def generate_standalone_story(
     tts_voice: Optional[str] = None
 ) -> Dict[str, Any]:
     """
-    Generate a complete standalone story using the multi-agent system.
+    Generate a complete standalone story using the 2-agent system.
 
     Flow:
     1. Select beat template based on genre and tier
     2. Determine if cliffhanger/cameo
-    3. CBA: Generate beat plan
-    4. CEA: Check consistency (simplified for standalone)
-    5. PA: Generate prose
-    6. Post-process: Extract summary, update bible
+    3. WRITER: Generate complete story (Sonnet)
+    4. JUDGE: Validate quality (Haiku)
+    5. If fail: Writer rewrites with feedback (max 1 retry)
+    6. Generate media (image, audio)
+    7. Post-process: Extract summary, update bible
 
     Args:
         story_bible: Enhanced story bible
@@ -402,7 +402,7 @@ async def generate_standalone_story(
     start_time = time.time()
 
     print(f"\n{'='*70}")
-    print(f"GENERATING STANDALONE STORY")
+    print(f"GENERATING STANDALONE STORY (2-Agent System)")
     print(f"Genre: {story_bible.get('genre', 'N/A')}")
     print(f"Tier: {user_tier}")
     print(f"{'='*70}")
@@ -457,55 +457,88 @@ async def generate_standalone_story(
         if excluded_names.get("characters") or excluded_names.get("places"):
             print(f"  🚫 Excluding {len(excluded_names.get('characters', []))} character names, {len(excluded_names.get('places', []))} place names")
 
-        # Step 4: CBA - Generate beat plan
+        # Step 4: WRITER - Generate complete story
         print(f"\n{'─'*70}")
-        print(f"CBA: PLANNING STORY BEATS")
+        print(f"WRITER: GENERATING STORY (Sonnet)")
         print(f"{'─'*70}")
 
-        beat_plan = await generate_beat_plan(
+        writer = WriterAgent()
+        judge = JudgeAgent()
+
+        # First attempt
+        writer_result = await writer.generate(
             story_bible=story_bible,
-            template=template,
+            beat_template=template.to_dict(),
             is_cliffhanger=is_cliffhanger,
             cameo=cameo,
+            user_preferences=story_bible.get("user_preferences"),
             excluded_names=excluded_names
         )
 
-        story_title = beat_plan.get("story_title", "Untitled")
-        print(f"\n✓ Beat plan generated")
-        print(f"  Title: {story_title}")
-        print(f"  Plot type: {beat_plan.get('plot_type', 'N/A')}")
-        print(f"  Story question: {beat_plan.get('story_question', 'N/A')[:60]}...")
+        if not writer_result.success:
+            raise Exception(f"Writer failed: {writer_result.error}")
 
-        # Step 5: CEA - Simplified consistency check
+        print(f"\n✓ Story generated")
+        print(f"  Title: {writer_result.title}")
+        print(f"  Word count: {writer_result.word_count}")
+        print(f"  Time: {writer_result.generation_time:.2f}s")
+
+        # Step 5: JUDGE - Validate story
         print(f"\n{'─'*70}")
-        print(f"CEA: CONSISTENCY CHECK")
+        print(f"JUDGE: VALIDATING STORY (Haiku)")
         print(f"{'─'*70}")
 
-        consistency_report = await check_consistency_simplified(
-            beat_plan=beat_plan,
-            story_bible=story_bible
-        )
-
-        print(f"\n✓ Consistency check complete")
-        print(f"  Status: {consistency_report.get('status', 'unknown')}")
-
-        # Step 6: PA - Generate prose
-        print(f"\n{'─'*70}")
-        print(f"PA: GENERATING PROSE")
-        print(f"{'─'*70}")
-
-        narrative = await generate_prose(
-            beat_plan=beat_plan,
+        judge_result = await judge.validate(
+            narrative=writer_result.narrative,
+            title=writer_result.title,
             story_bible=story_bible,
-            template=template,
-            consistency_guidance=consistency_report.get("guidance_for_pa", {}),
-            cameo=cameo
+            beat_template=template.to_dict(),
+            is_cliffhanger=is_cliffhanger
         )
 
-        word_count = len(narrative.split())
-        print(f"\n✓ Prose generated")
+        print(f"\n✓ Validation complete")
+        print(f"  Passed: {judge_result.passed}")
+        print(f"  Overall score: {judge_result.overall_score}/10")
+        if judge_result.scores:
+            for criterion, score in judge_result.scores.items():
+                print(f"    {criterion}: {score}/10")
+
+        # Step 6: Rewrite if needed (max 1 retry)
+        story_title = writer_result.title
+        narrative = writer_result.narrative
+        word_count = writer_result.word_count
+
+        if not judge_result.passed and judge_result.feedback:
+            print(f"\n{'─'*70}")
+            print(f"WRITER: REWRITING WITH FEEDBACK")
+            print(f"{'─'*70}")
+            print(f"  Feedback: {judge_result.feedback[:100]}...")
+
+            # Rewrite with Judge's feedback
+            rewrite_result = await writer.generate(
+                story_bible=story_bible,
+                beat_template=template.to_dict(),
+                is_cliffhanger=is_cliffhanger,
+                cameo=cameo,
+                user_preferences=story_bible.get("user_preferences"),
+                excluded_names=excluded_names,
+                judge_feedback=judge_result.feedback
+            )
+
+            if rewrite_result.success:
+                print(f"\n✓ Rewrite complete")
+                print(f"  Word count: {rewrite_result.word_count}")
+                print(f"  Time: {rewrite_result.generation_time:.2f}s")
+
+                story_title = rewrite_result.title
+                narrative = rewrite_result.narrative
+                word_count = rewrite_result.word_count
+            else:
+                print(f"\n⚠️  Rewrite failed, using original story")
+
+        print(f"\n✓ Final story ready")
         print(f"  Word count: {word_count}")
-        print(f"  Target: {template.total_words} (±200)")
+        print(f"  Target: {template.total_words} (±15%)")
 
         # Step 7: Generate cover image
         # In dev mode, ALWAYS generate for both free and premium (for testing)
@@ -546,10 +579,16 @@ async def generate_standalone_story(
             )
 
         # Step 9: Create summary
-        summary = f"{story_title}: {beat_plan.get('story_premise', 'A story in this world')}"
+        summary = f"{story_title}: {writer_result.story_premise or 'A story in this world'}"
 
         # Step 10: Extract and save used names (to avoid repetition in future stories)
-        extracted = extract_names_from_story(beat_plan, narrative, story_bible)
+        # Create a minimal beat_plan dict for name extraction compatibility
+        beat_plan_compat = {
+            "story_title": story_title,
+            "story_premise": writer_result.story_premise,
+            "plot_type": writer_result.plot_type
+        }
+        extracted = extract_names_from_story(beat_plan_compat, narrative, story_bible)
         if extracted.get("characters") or extracted.get("places"):
             story_bible = add_used_names(
                 story_bible,
@@ -564,7 +603,7 @@ async def generate_standalone_story(
         total_time = time.time() - start_time
 
         print(f"\n{'='*70}")
-        print(f"STORY GENERATION COMPLETE")
+        print(f"STORY GENERATION COMPLETE (2-Agent System)")
         print(f"Total time: {total_time:.2f}s")
         print(f"{'='*70}")
 
@@ -582,11 +621,13 @@ async def generate_standalone_story(
                 "audio_duration_seconds": None  # TODO: calculate from audio
             },
             "metadata": {
-                "beat_plan": beat_plan,
-                "plot_type": beat_plan.get("plot_type", "unknown"),
+                "plot_type": writer_result.plot_type,
                 "summary": summary,
-                "consistency_report": consistency_report,
+                "judge_scores": judge_result.scores,
+                "judge_passed": judge_result.passed,
                 "generation_time_seconds": total_time,
+                "writer_time_seconds": writer_result.generation_time,
+                "judge_time_seconds": judge_result.validation_time,
                 "template_used": template.name,
                 "tts_provider": tts_provider
             },
@@ -606,153 +647,6 @@ async def generate_standalone_story(
         }
 
 
-async def generate_beat_plan(
-    story_bible: Dict[str, Any],
-    template: Any,
-    is_cliffhanger: bool = False,
-    cameo: Dict[str, Any] = None,
-    excluded_names: Dict[str, Any] = None
-) -> Dict[str, Any]:
-    """
-    CBA: Generate beat plan for the story.
-    """
-    from backend.storyteller.prompts_standalone import create_standalone_story_beat_prompt
-
-    # Get user preferences
-    user_preferences = story_bible.get("user_preferences", {})
-
-    # Create prompt
-    prompt = create_standalone_story_beat_prompt(
-        story_bible=story_bible,
-        beat_template=template.to_dict(),
-        is_cliffhanger=is_cliffhanger,
-        cameo=cameo,
-        user_preferences=user_preferences,
-        excluded_names=excluded_names
-    )
-
-    # Initialize LLM
-    llm = ChatAnthropic(
-        model=config.MODEL_NAME,
-        temperature=0.7,  # Creative but coherent
-        max_tokens=2500,
-        anthropic_api_key=config.ANTHROPIC_API_KEY,
-        timeout=90.0,  # Increased for complex beat plans
-    )
-
-    # Generate beat plan
-    cba_start = time.time()
-    response = await llm.ainvoke([HumanMessage(content=prompt)])
-    cba_duration = time.time() - cba_start
-
-    print(f"  LLM call: {cba_duration:.2f}s")
-
-    # Parse response
-    response_text = response.content.strip()
-
-    if "```json" in response_text:
-        response_text = response_text.split("```json")[1].split("```")[0].strip()
-    elif "```" in response_text:
-        response_text = response_text.split("```")[1].split("```")[0].strip()
-
-    try:
-        beat_plan = json.loads(response_text)
-        return beat_plan
-    except json.JSONDecodeError as e:
-        print(f"  ⚠️  Failed to parse beat plan JSON: {e}")
-        # Return minimal fallback
-        return {
-            "story_title": "A Story",
-            "story_premise": "A story in this world",
-            "plot_type": "adventure",
-            "beats": template.beats,
-            "story_question": "What happens?",
-            "emotional_arc": "Discovery and resolution",
-            "thematic_focus": story_bible.get("themes", ["adventure"])[0],
-            "character_growth": "Protagonist learns something new",
-            "unique_element": "To be discovered in the telling"
-        }
-
-
-async def check_consistency_simplified(
-    beat_plan: Dict[str, Any],
-    story_bible: Dict[str, Any]
-) -> Dict[str, Any]:
-    """
-    CEA: Simplified consistency check for standalone stories.
-
-    For MVP, we do a lightweight check. Can enhance later.
-    """
-    # For now, just check protagonist traits are in beat plan
-    protagonist = story_bible.get("protagonist", {})
-    defining_char = protagonist.get("defining_characteristic", "")
-
-    # Create simple guidance
-    guidance = {
-        "general_guidance": f"Ensure {protagonist.get('name', 'protagonist')} is portrayed consistently. CRITICAL: {defining_char}",
-        "emphasis_points": [
-            defining_char,
-            "Character voice and personality",
-            "Setting consistency"
-        ],
-        "avoid": [
-            "Contradicting established character traits",
-            "Breaking world rules"
-        ]
-    }
-
-    return {
-        "status": "clear",
-        "guidance_for_pa": guidance
-    }
-
-
-async def generate_prose(
-    beat_plan: Dict[str, Any],
-    story_bible: Dict[str, Any],
-    template: Any,
-    consistency_guidance: Dict[str, Any] = None,
-    cameo: Dict[str, Any] = None
-) -> str:
-    """
-    PA: Generate prose from beat plan.
-    """
-    from backend.storyteller.prompts_standalone import create_prose_generation_prompt
-
-    # Create prompt
-    prompt = create_prose_generation_prompt(
-        beat_plan=beat_plan,
-        story_bible=story_bible,
-        beat_template=template.to_dict(),
-        consistency_guidance=consistency_guidance,
-        cameo=cameo
-    )
-
-    # Initialize LLM with extended output
-    llm = ChatAnthropic(
-        model=config.MODEL_NAME,
-        temperature=0.8,  # Creative prose
-        max_tokens=8000,  # Enough for full story
-        anthropic_api_key=config.ANTHROPIC_API_KEY,
-        timeout=300.0,  # 5 minutes for long premium stories (sitcom, etc.)
-    )
-
-    # Generate prose
-    pa_start = time.time()
-    response = await llm.ainvoke([HumanMessage(content=prompt)])
-    pa_duration = time.time() - pa_start
-
-    print(f"  LLM call: {pa_duration:.2f}s")
-
-    narrative = response.content.strip()
-
-    # Clean up any markdown or metadata that leaked in
-    if "```" in narrative:
-        # Try to extract just the story
-        parts = narrative.split("```")
-        # Find the largest text block that's not JSON
-        text_blocks = [p.strip() for p in parts if p.strip() and not p.strip().startswith("json")]
-        if text_blocks:
-            narrative = max(text_blocks, key=len)
-
-    return narrative
+# Old 3-agent functions (generate_beat_plan, check_consistency_simplified, generate_prose)
+# have been replaced by the 2-agent system (WriterAgent + JudgeAgent)
+# See backend/agents/ for the new implementation
