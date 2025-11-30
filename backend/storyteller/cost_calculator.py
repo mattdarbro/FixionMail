@@ -2,27 +2,32 @@
 Cost calculation for story generation (2-Agent System).
 
 Calculates estimated costs for:
-- Claude Sonnet (Writer agent - story generation)
+- Claude Sonnet/Opus (Writer agent - story generation)
 - Claude Haiku (Judge agent - validation)
 - Replicate Imagen-3-Fast (cover images)
 - OpenAI TTS (audio narration)
 
-Pricing as of 2024:
-- Claude Sonnet 4: $3/1M input tokens, $15/1M output tokens
-- Claude Haiku 3.5: $1/1M input tokens, $5/1M output tokens
+Pricing as of November 2025:
+- Claude Sonnet 4.5: $3/1M input tokens, $15/1M output tokens
+- Claude Opus 4.5: $5/1M input tokens, $25/1M output tokens
+- Claude Haiku 4.5: $1/1M input tokens, $5/1M output tokens
 - Replicate Imagen-3-Fast: $0.025 per image
 - OpenAI TTS: $0.015 per 1000 characters
 """
 
-from typing import Dict, Any, Optional
-from dataclasses import dataclass
+from typing import Dict, Any, Optional, Literal
+from dataclasses import dataclass, field
+
+# Writer model type
+WriterModelType = Literal["sonnet", "opus"]
 
 
 @dataclass
 class CostBreakdown:
     """Detailed cost breakdown for story generation (2-Agent System)."""
 
-    # Writer Agent (Sonnet) costs
+    # Writer Agent costs
+    writer_model: str = "sonnet"  # "sonnet" or "opus"
     writer_input_tokens: int = 0
     writer_output_tokens: int = 0
     writer_input_cost: float = 0.0
@@ -57,9 +62,16 @@ class CostBreakdown:
         # Variable costs = Claude + Image (per story)
         variable_cost = self.claude_total_cost + self.image_total_cost
 
+        # Get model display name
+        model_names = {
+            "sonnet": "claude-sonnet-4.5",
+            "opus": "claude-opus-4.5"
+        }
+
         return {
             "writer": {
-                "model": "claude-sonnet-4",
+                "model": model_names.get(self.writer_model, "claude-sonnet-4.5"),
+                "model_key": self.writer_model,
                 "input_tokens": self.writer_input_tokens,
                 "output_tokens": self.writer_output_tokens,
                 "input_cost": round(self.writer_input_cost, 4),
@@ -67,7 +79,7 @@ class CostBreakdown:
                 "total_cost": round(self.writer_total_cost, 4)
             },
             "judge": {
-                "model": "claude-haiku-3.5",
+                "model": "claude-haiku-4.5",
                 "input_tokens": self.judge_input_tokens,
                 "output_tokens": self.judge_output_tokens,
                 "input_cost": round(self.judge_input_cost, 4),
@@ -98,17 +110,39 @@ class CostBreakdown:
         }
 
 
-# Pricing constants (as of 2024)
+# Pricing constants (as of November 2025)
 class Pricing:
     """API pricing constants."""
 
-    # Claude Sonnet 4 pricing per 1M tokens (Writer agent)
+    # Claude Sonnet 4.5 pricing per 1M tokens (Writer agent - default)
     SONNET_INPUT_PER_1M = 3.00
     SONNET_OUTPUT_PER_1M = 15.00
 
-    # Claude Haiku 3.5 pricing per 1M tokens (Judge agent)
+    # Claude Opus 4.5 pricing per 1M tokens (Writer agent - premium)
+    OPUS_INPUT_PER_1M = 5.00
+    OPUS_OUTPUT_PER_1M = 25.00
+
+    # Claude Haiku 4.5 pricing per 1M tokens (Judge agent)
     HAIKU_INPUT_PER_1M = 1.00
     HAIKU_OUTPUT_PER_1M = 5.00
+
+    # Writer model configurations
+    WRITER_MODELS = {
+        "sonnet": {
+            "name": "Claude Sonnet 4.5",
+            "input_per_1m": SONNET_INPUT_PER_1M,
+            "output_per_1m": SONNET_OUTPUT_PER_1M,
+            "description": "Fast, high-quality writing (default)",
+            "cost_tier": "standard"
+        },
+        "opus": {
+            "name": "Claude Opus 4.5",
+            "input_per_1m": OPUS_INPUT_PER_1M,
+            "output_per_1m": OPUS_OUTPUT_PER_1M,
+            "description": "Premium quality, deeper creativity",
+            "cost_tier": "premium"
+        }
+    }
 
     # Legacy aliases for backwards compatibility
     CLAUDE_INPUT_PER_1M = SONNET_INPUT_PER_1M
@@ -180,7 +214,8 @@ def calculate_story_cost(
     word_target: int,
     include_audio: bool = True,
     include_image: bool = True,
-    tts_provider: str = "openai"
+    tts_provider: str = "openai",
+    writer_model: WriterModelType = "sonnet"
 ) -> CostBreakdown:
     """
     Calculate estimated cost for generating a single story using 2-agent system.
@@ -190,13 +225,19 @@ def calculate_story_cost(
         include_audio: Whether to generate audio narration
         include_image: Whether to generate cover image
         tts_provider: TTS provider (currently only "openai" is supported)
+        writer_model: Writer model - "sonnet" (default) or "opus" (premium)
 
     Returns:
         CostBreakdown with detailed cost information
     """
-    breakdown = CostBreakdown()
+    breakdown = CostBreakdown(writer_model=writer_model)
 
-    # === Writer Agent (Sonnet) Costs ===
+    # Get writer model pricing
+    model_config = Pricing.WRITER_MODELS.get(writer_model, Pricing.WRITER_MODELS["sonnet"])
+    writer_input_price = model_config["input_per_1m"]
+    writer_output_price = model_config["output_per_1m"]
+
+    # === Writer Agent Costs ===
     # Input: System prompt + bible + beat template + history (~2000 words)
     writer_input_words = 2000
     breakdown.writer_input_tokens = estimate_claude_tokens(writer_input_words, is_input=True)
@@ -205,12 +246,12 @@ def calculate_story_cost(
     writer_output_words = word_target + 200
     breakdown.writer_output_tokens = estimate_claude_tokens(writer_output_words, is_input=False)
 
-    # Calculate Writer costs (Sonnet pricing)
+    # Calculate Writer costs (using selected model pricing)
     breakdown.writer_input_cost = (
-        breakdown.writer_input_tokens / 1_000_000 * Pricing.SONNET_INPUT_PER_1M
+        breakdown.writer_input_tokens / 1_000_000 * writer_input_price
     )
     breakdown.writer_output_cost = (
-        breakdown.writer_output_tokens / 1_000_000 * Pricing.SONNET_OUTPUT_PER_1M
+        breakdown.writer_output_tokens / 1_000_000 * writer_output_price
     )
     breakdown.writer_total_cost = (
         breakdown.writer_input_cost + breakdown.writer_output_cost
@@ -297,7 +338,8 @@ def estimate_generation_cost(
     story_length: str = "short",
     include_audio: bool = True,
     include_image: bool = True,
-    tts_provider: str = "openai"
+    tts_provider: str = "openai",
+    writer_model: WriterModelType = "sonnet"
 ) -> Dict[str, Any]:
     """
     High-level function to estimate story generation cost.
@@ -308,6 +350,7 @@ def estimate_generation_cost(
         include_audio: Whether to include audio narration
         include_image: Whether to include cover image
         tts_provider: TTS provider (currently only "openai" is supported)
+        writer_model: Writer model - "sonnet" (default) or "opus" (premium)
 
     Returns:
         Dictionary with cost breakdown and formatted output
@@ -317,11 +360,13 @@ def estimate_generation_cost(
         word_target=word_target,
         include_audio=include_audio,
         include_image=include_image,
-        tts_provider=tts_provider
+        tts_provider=tts_provider,
+        writer_model=writer_model
     )
 
     # Get provider info
     provider_info = Pricing.TTS_PROVIDERS.get(tts_provider, Pricing.TTS_PROVIDERS["openai"])
+    model_info = Pricing.WRITER_MODELS.get(writer_model, Pricing.WRITER_MODELS["sonnet"])
 
     result = breakdown.to_dict()
     result["settings"] = {
@@ -330,9 +375,11 @@ def estimate_generation_cost(
         "word_target": word_target,
         "include_audio": include_audio,
         "include_image": include_image,
-        "tts_provider": tts_provider
+        "tts_provider": tts_provider,
+        "writer_model": writer_model
     }
     result["tts_provider_info"] = provider_info
+    result["writer_model_info"] = model_info
 
     return result
 
@@ -389,6 +436,82 @@ def compare_tts_providers(word_target: int = 1500) -> Dict[str, Any]:
     }
 
 
+def get_writer_models() -> Dict[str, Any]:
+    """
+    Get information about available writer models.
+
+    Returns:
+        Dictionary with writer model configurations
+    """
+    return Pricing.WRITER_MODELS.copy()
+
+
+def compare_writer_models(
+    word_target: int = 1500,
+    include_audio: bool = True,
+    include_image: bool = True
+) -> Dict[str, Any]:
+    """
+    Compare costs between Sonnet and Opus writer models.
+
+    Args:
+        word_target: Target word count for comparison
+        include_audio: Include audio generation costs
+        include_image: Include image generation costs
+
+    Returns:
+        Dictionary with cost comparisons for each model
+    """
+    comparisons = {}
+
+    for model_key in ["sonnet", "opus"]:
+        breakdown = calculate_story_cost(
+            word_target=word_target,
+            include_audio=include_audio,
+            include_image=include_image,
+            writer_model=model_key
+        )
+
+        model_info = Pricing.WRITER_MODELS[model_key]
+
+        comparisons[model_key] = {
+            "name": model_info["name"],
+            "description": model_info["description"],
+            "cost_tier": model_info["cost_tier"],
+            "writer_cost": round(breakdown.writer_total_cost, 4),
+            "total_cost": round(breakdown.total_cost, 4),
+            "monthly_30_stories": round(breakdown.monthly_cost_30_stories, 2),
+            "formatted": {
+                "writer_cost": f"${breakdown.writer_total_cost:.4f}",
+                "total_cost": f"${breakdown.total_cost:.4f}",
+                "monthly": f"${breakdown.monthly_cost_30_stories:.2f}"
+            }
+        }
+
+    # Calculate difference
+    sonnet_total = comparisons["sonnet"]["total_cost"]
+    opus_total = comparisons["opus"]["total_cost"]
+    diff = opus_total - sonnet_total
+    diff_pct = (diff / sonnet_total * 100) if sonnet_total > 0 else 0
+
+    return {
+        "word_target": word_target,
+        "include_audio": include_audio,
+        "include_image": include_image,
+        "models": comparisons,
+        "comparison": {
+            "opus_vs_sonnet_diff": round(diff, 4),
+            "opus_vs_sonnet_pct": round(diff_pct, 1),
+            "monthly_diff_30_stories": round(diff * 30, 2),
+            "formatted": {
+                "per_story_diff": f"+${diff:.4f}",
+                "monthly_diff": f"+${diff * 30:.2f}",
+                "percentage": f"+{diff_pct:.1f}%"
+            }
+        }
+    }
+
+
 # === Quick reference costs ===
 def get_quick_cost_summary() -> Dict[str, Any]:
     """
@@ -434,18 +557,36 @@ if __name__ == "__main__":
         print(f"  Per story: {costs['formatted_per_story']}")
         print(f"  Monthly (30 stories): {costs['formatted_monthly']}")
 
+    # Model comparison
     print("\n" + "="*60)
-    print("\nDetailed breakdown for premium medium story:")
-    detailed = estimate_generation_cost("premium", "medium", True, True)
+    print("WRITER MODEL COMPARISON: Sonnet 4.5 vs Opus 4.5")
+    print("="*60)
 
-    print(f"\nWriter Agent (Sonnet):")
+    for word_target in [1500, 3000]:
+        comparison = compare_writer_models(word_target=word_target)
+        print(f"\n{word_target}-word story:")
+        for model_key, model_data in comparison["models"].items():
+            print(f"  {model_data['name']}:")
+            print(f"    Writer cost: {model_data['formatted']['writer_cost']}")
+            print(f"    Total cost: {model_data['formatted']['total_cost']}")
+            print(f"    Monthly: {model_data['formatted']['monthly']}")
+
+        print(f"\n  Opus vs Sonnet difference:")
+        print(f"    Per story: {comparison['comparison']['formatted']['per_story_diff']} ({comparison['comparison']['formatted']['percentage']})")
+        print(f"    Monthly: {comparison['comparison']['formatted']['monthly_diff']}")
+
+    print("\n" + "="*60)
+    print("\nDetailed breakdown for premium medium story (Sonnet):")
+    detailed = estimate_generation_cost("premium", "medium", True, True, writer_model="sonnet")
+
+    print(f"\nWriter Agent ({detailed['writer']['model']}):")
     print(f"  Input tokens: {detailed['writer']['input_tokens']:,}")
     print(f"  Output tokens: {detailed['writer']['output_tokens']:,}")
     print(f"  Input cost: ${detailed['writer']['input_cost']:.4f}")
     print(f"  Output cost: ${detailed['writer']['output_cost']:.4f}")
     print(f"  Total: ${detailed['writer']['total_cost']:.4f}")
 
-    print(f"\nJudge Agent (Haiku):")
+    print(f"\nJudge Agent ({detailed['judge']['model']}):")
     print(f"  Input tokens: {detailed['judge']['input_tokens']:,}")
     print(f"  Output tokens: {detailed['judge']['output_tokens']:,}")
     print(f"  Input cost: ${detailed['judge']['input_cost']:.4f}")

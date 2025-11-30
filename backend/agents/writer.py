@@ -2,18 +2,43 @@
 WriterAgent: Generates complete stories in a single LLM call.
 
 Replaces the 3-agent flow (CBA → CEA → PA) with a single, focused writer.
-Uses Claude Sonnet for high-quality prose generation.
+Supports model selection: Sonnet 4.5 (default) or Opus 4.5 (premium quality).
 """
 
 import json
 import time
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Literal
 from dataclasses import dataclass
 
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage
 
 from backend.config import config
+
+
+# Model configurations
+WRITER_MODELS = {
+    "sonnet": {
+        "model_id": "claude-sonnet-4-5-20250929",
+        "name": "Claude Sonnet 4.5",
+        "description": "Fast, high-quality writing (default)",
+        "cost_tier": "standard"
+    },
+    "opus": {
+        "model_id": "claude-opus-4-5-20251101",
+        "name": "Claude Opus 4.5",
+        "description": "Premium quality, deeper creativity",
+        "cost_tier": "premium"
+    }
+}
+
+# Type alias for model selection
+WriterModel = Literal["sonnet", "opus"]
+
+
+def get_available_writer_models() -> Dict[str, Any]:
+    """Get available writer models with their configurations."""
+    return WRITER_MODELS.copy()
 
 
 @dataclass
@@ -26,6 +51,7 @@ class WriterResult:
     plot_type: str
     story_premise: str
     generation_time: float
+    model_used: str = "sonnet"
     error: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
@@ -37,6 +63,7 @@ class WriterResult:
             "plot_type": self.plot_type,
             "story_premise": self.story_premise,
             "generation_time": self.generation_time,
+            "model_used": self.model_used,
             "error": self.error
         }
 
@@ -47,17 +74,40 @@ class WriterAgent:
 
     Combines beat planning and prose generation into one prompt,
     reducing API calls from 3 to 1 and improving coherence.
+
+    Supports two models:
+    - sonnet (default): Claude Sonnet 4.5 - fast, high-quality
+    - opus: Claude Opus 4.5 - premium quality, deeper creativity
     """
 
-    def __init__(self, model_name: str = None, temperature: float = 0.8):
+    # Default model
+    DEFAULT_MODEL = "sonnet"
+
+    def __init__(
+        self,
+        model: WriterModel = None,
+        model_name: str = None,  # Legacy parameter
+        temperature: float = 0.8
+    ):
         """
         Initialize WriterAgent.
 
         Args:
-            model_name: Claude model to use (defaults to config.MODEL_NAME)
+            model: Model to use - "sonnet" (default) or "opus" (premium)
+            model_name: Legacy parameter (deprecated, use `model` instead)
             temperature: Creativity level (0.7-0.9 recommended for prose)
         """
-        self.model_name = model_name or config.MODEL_NAME
+        # Determine which model to use
+        if model and model in WRITER_MODELS:
+            self.model_key = model
+        elif model_name:
+            # Legacy: if model_name contains "opus", use opus
+            self.model_key = "opus" if "opus" in model_name.lower() else "sonnet"
+        else:
+            self.model_key = self.DEFAULT_MODEL
+
+        self.model_config = WRITER_MODELS[self.model_key]
+        self.model_name = self.model_config["model_id"]
         self.temperature = temperature
 
         self.llm = ChatAnthropic(
@@ -127,6 +177,7 @@ class WriterAgent:
                 plot_type="",
                 story_premise="",
                 generation_time=generation_time,
+                model_used=self.model_key,
                 error=str(e)
             )
 
@@ -416,7 +467,8 @@ Make sure to fix ALL issues mentioned above.
                 word_count=word_count,
                 plot_type=data.get("plot_type", "unknown"),
                 story_premise=data.get("premise", ""),
-                generation_time=generation_time
+                generation_time=generation_time,
+                model_used=self.model_key
             )
 
         except json.JSONDecodeError:
@@ -440,5 +492,6 @@ Make sure to fix ALL issues mentioned above.
                 word_count=word_count,
                 plot_type="unknown",
                 story_premise="",
-                generation_time=generation_time
+                generation_time=generation_time,
+                model_used=self.model_key
             )
