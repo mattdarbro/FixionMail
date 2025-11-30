@@ -42,11 +42,6 @@ class AppConfig(BaseSettings):
         description="Replicate API token for image generation (optional for MVP)"
     )
 
-    ELEVENLABS_API_KEY: str | None = Field(
-        default=None,
-        description="ElevenLabs API key for voice generation (optional for MVP)"
-    )
-
     # ===== LangSmith Tracing (Optional but recommended) =====
     LANGCHAIN_TRACING_V2: bool = Field(
         default=False,
@@ -244,11 +239,6 @@ class AppConfig(BaseSettings):
         description="Generated image height"
     )
 
-    ELEVENLABS_VOICE_ID: str = Field(
-        default="21m00Tcm4TlvDq8ikWAM",  # Rachel voice
-        description="Default ElevenLabs voice ID"
-    )
-
     # ===== Application Settings =====
     ENVIRONMENT: str = Field(
         default="development",
@@ -294,10 +284,10 @@ class AppConfig(BaseSettings):
 
     @property
     def can_generate_audio(self) -> bool:
-        """Check if audio generation is available."""
+        """Check if audio generation is available (using OpenAI TTS)."""
         return (
             self.ENABLE_MEDIA_GENERATION
-            and self.ELEVENLABS_API_KEY is not None
+            and self.OPENAI_API_KEY is not None
         )
 
     @property

@@ -16,7 +16,6 @@ langgraph-checkpoint-sqlite==2.0.4
 # AI APIs
 anthropic==0.39.0
 openai==1.54.4
-elevenlabs==1.10.0
 replicate==1.0.4
 
 # Database & Storage
