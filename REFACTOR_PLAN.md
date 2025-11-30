@@ -292,18 +292,21 @@ backend/
 8. [ ] Update cost_calculator.py for 2-agent costs
 9. [ ] Test generation still works
 
-### Week 3: Database
+### Week 3: Database + Onboarding + Stripe
 10. [ ] Create db/database.py with async SQLite
 11. [ ] Create db/models.py (Subscriber, Story, Job)
 12. [ ] Add subscriber management endpoints
 13. [ ] Log stories to database
+14. [ ] Add onboarding flow (web form → bible creation → subscriber record)
+15. [ ] Integrate Stripe Checkout for paid subscriptions
+16. [ ] Add Stripe webhook handlers
 
 ### Week 4: Scheduler
-14. [ ] Create scheduler/scheduler.py
-15. [ ] Create scheduler/jobs.py
-16. [ ] Add background job processing
-17. [ ] Test scheduled generation
-18. [ ] Update admin dashboard
+17. [ ] Create scheduler/scheduler.py
+18. [ ] Create scheduler/jobs.py
+19. [ ] Add background job processing
+20. [ ] Test scheduled generation
+21. [ ] Update admin dashboard
 
 ---
 
@@ -328,6 +331,11 @@ SCHEDULER_ENABLED=true
 SCHEDULER_HOUR=6
 SCHEDULER_MINUTE=0
 SCHEDULER_TIMEZONE=America/New_York
+
+# Stripe (Week 3)
+STRIPE_SECRET_KEY=sk_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_PRICE_ID=price_...
 ```
 
 **Removed:**
@@ -473,7 +481,32 @@ Onboarding will be built in **Week 3** alongside the subscriber database.
 - Flows directly into subscriber table
 - Core generation should be solid first
 
-### 5. Rate Limits (TBD)
+### 5. Stripe Integration - Phase 3 (with Onboarding)
+
+Payment processing added alongside onboarding:
+- Stripe Checkout for subscription signup
+- Free tier vs paid tier (TBD pricing)
+- Webhook handling for subscription events (created, canceled, failed payment)
+
+```python
+# New env vars
+STRIPE_SECRET_KEY=sk_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_PRICE_ID=price_...  # Monthly subscription price
+```
+
+**New files:**
+- `backend/services/payments.py` - Stripe integration
+- `backend/routes/webhooks.py` - Stripe webhook handlers
+
+**Subscriber table addition:**
+```sql
+ALTER TABLE subscribers ADD COLUMN stripe_customer_id TEXT;
+ALTER TABLE subscribers ADD COLUMN subscription_status TEXT DEFAULT 'free';  -- free, active, canceled, past_due
+ALTER TABLE subscribers ADD COLUMN subscription_ends_at TIMESTAMP;
+```
+
+### 6. Rate Limits (TBD)
 
 To be decided based on cost analysis after 2-agent system is running.
 Likely: Max 1 story per user per day (configurable for premium tiers later).
