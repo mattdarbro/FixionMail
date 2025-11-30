@@ -159,6 +159,14 @@
                             </select>
                         </div>
                         <div class="form-group">
+                            <label>Writer Model</label>
+                            <select id="writerModel" onchange="updateCostEstimate()">
+                                <option value="sonnet" selected>Claude Sonnet 4.5 (Fast, High Quality)</option>
+                                <option value="opus">Claude Opus 4.5 (Premium, Deeper Creativity)</option>
+                            </select>
+                            <small id="writer-model-hint" style="color: #888; font-size: 12px;">Sonnet is the default. Try Opus for richer prose.</small>
+                        </div>
+                        <div class="form-group">
                             <label>Story Structure</label>
                             <select id="beatStructure" onchange="updateStructureInfo()">
                                 <option value="classic">Classic Genre Structure (default)</option>
@@ -350,12 +358,13 @@
             const storyLength = document.getElementById('storyLength').value;
             const tier = storyLength === 'short' ? 'free' : 'premium';
             const ttsProvider = document.getElementById('ttsProvider').value;
+            const writerModel = document.getElementById('writerModel').value;
 
             // Update provider label in cost panel
             document.getElementById('audio-provider-label').textContent = TTS_PROVIDER_NAMES[ttsProvider] || ttsProvider;
 
             try {
-                const res = await fetch(`${API_URL}/api/dev/estimate-cost?tier=${tier}&story_length=${storyLength}&include_audio=true&include_image=true&tts_provider=${ttsProvider}`);
+                const res = await fetch(`${API_URL}/api/dev/estimate-cost?tier=${tier}&story_length=${storyLength}&include_audio=true&include_image=true&tts_provider=${ttsProvider}&writer_model=${writerModel}`);
                 const data = await res.json();
 
                 if (data.success) {
@@ -589,8 +598,10 @@
                 const email = document.getElementById('userEmail').value;
                 const voiceId = document.getElementById('voiceId').value;
                 const ttsProvider = document.getElementById('ttsProvider').value;
+                const writerModel = document.getElementById('writerModel').value;
 
                 generationLog('Sending request to server...');
+                generationLog(`Writer Model: Claude ${writerModel === 'opus' ? 'Opus' : 'Sonnet'} 4.5`);
                 generationLog(`TTS Provider: ${TTS_PROVIDER_NAMES[ttsProvider]}`);
 
                 const res = await fetch(`${API_URL}/api/dev/generate-story`, {
@@ -601,7 +612,8 @@
                         email: email || null,
                         voice_id: voiceId,
                         tts_provider: ttsProvider,
-                        tts_voice: voiceId
+                        tts_voice: voiceId,
+                        writer_model: writerModel
                     })
                 });
 
@@ -628,6 +640,7 @@
                         <strong>Words:</strong> ${data.story.word_count}<br>
                         <strong>Time:</strong> ${data.debug.generation_time.toFixed(1)}s<br>
                         <strong>Plot:</strong> ${data.debug.plot_type}<br>
+                        <strong>Writer Model:</strong> ${data.debug.writer_model === 'opus' ? 'Claude Opus 4.5' : 'Claude Sonnet 4.5'}<br>
                         <strong>TTS Provider:</strong> ${TTS_PROVIDER_NAMES[data.story.tts_provider] || data.story.tts_provider}<br>
                         <strong>Email Sent:</strong> ${data.email_sent ? 'Yes ✓' : 'No'}<br>
                         <details><summary>Beat Plan</summary><pre>${JSON.stringify(data.debug.beat_plan, null, 2)}</pre></details>
