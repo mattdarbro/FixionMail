@@ -74,6 +74,7 @@ class GenerateStoryInput(BaseModel):
     force_cliffhanger: Optional[bool] = None
     tts_provider: str = "openai"
     tts_voice: Optional[str] = None
+    writer_model: str = "sonnet"  # sonnet or opus
 
 
 class CostEstimateInput(BaseModel):
@@ -93,7 +94,8 @@ async def dev_estimate_cost(
     story_length: str = "short",
     include_audio: bool = True,
     include_image: bool = True,
-    tts_provider: str = "openai"
+    tts_provider: str = "openai",
+    writer_model: str = "sonnet"
 ):
     """
     Estimate cost for story generation before actually generating.
@@ -107,7 +109,8 @@ async def dev_estimate_cost(
             story_length=story_length,
             include_audio=include_audio,
             include_image=include_image,
-            tts_provider=tts_provider
+            tts_provider=tts_provider,
+            writer_model=writer_model
         )
         return {
             "success": True,
@@ -287,6 +290,7 @@ async def dev_generate_story(data: Optional[GenerateStoryInput] = Body(default=N
     voice_id = None
     tts_provider = "openai"
     tts_voice = None
+    writer_model = "sonnet"
 
     if data:
         bible = data.bible if data.bible else dev_storage["current_bible"]
@@ -295,6 +299,7 @@ async def dev_generate_story(data: Optional[GenerateStoryInput] = Body(default=N
         voice_id = data.voice_id
         tts_provider = data.tts_provider
         tts_voice = data.tts_voice
+        writer_model = data.writer_model
     else:
         bible = dev_storage["current_bible"]
 
@@ -306,6 +311,7 @@ async def dev_generate_story(data: Optional[GenerateStoryInput] = Body(default=N
         tier = bible.get("user_tier", "free")
 
         log(f"Generating {tier} tier story...")
+        log(f"Writer Model: Claude {writer_model.title()} 4.5")
         log(f"TTS Provider: {tts_provider}")
         if email:
             log(f"Will email story to: {email}")
@@ -319,7 +325,8 @@ async def dev_generate_story(data: Optional[GenerateStoryInput] = Body(default=N
             dev_mode=True,
             voice_id=voice_id,
             tts_provider=tts_provider,
-            tts_voice=tts_voice
+            tts_voice=tts_voice,
+            writer_model=writer_model
         )
 
         if result["success"]:
@@ -400,7 +407,8 @@ async def dev_generate_story(data: Optional[GenerateStoryInput] = Body(default=N
                     "plot_type": metadata.get("plot_type", "unknown"),
                     "generation_time": metadata.get("generation_time_seconds", 0),
                     "template_used": metadata.get("template_used", "unknown"),
-                    "consistency_status": metadata.get("consistency_report", {}).get("status", "unknown")
+                    "consistency_status": metadata.get("consistency_report", {}).get("status", "unknown"),
+                    "writer_model": writer_model
                 }
             }
         else:
