@@ -1,131 +1,76 @@
-# Storyteller - AI-Powered Interactive Narratives
+# FixionMail
 
-A LangGraph-based interactive storytelling platform that generates dynamic narratives with images and audio using RAG (Retrieval-Augmented Generation).
+Personalized daily stories delivered to your inbox.
 
-## Architecture Overview
+## Overview
 
-### Tech Stack
-- **Backend**: Python 3.11+, FastAPI, LangChain 0.1+, LangGraph
-- **Vector DB**: ChromaDB for story bible embeddings
-- **LLM**: OpenAI GPT-4 Turbo
-- **Media Generation**:
-  - Images: Replicate (Stable Diffusion XL)
-  - Audio: ElevenLabs (voice narration)
-- **State Management**: LangGraph with SQLite checkpointing
-- **Frontend**: React 18+ with TypeScript (to be implemented in Phase 2)
+FixionMail generates unique short stories based on user preferences - genre, setting, characters, and intensity. Stories are delivered with cover art and audio narration.
 
-### Project Structure
+## Architecture
 
 ```
-storyteller-app/
-├── backend/                    # Core application logic
-│   ├── storyteller/           # LangGraph state machine
-│   │   ├── graph.py          # Main workflow definition
-│   │   ├── nodes.py          # Individual processing nodes
-│   │   └── prompts.py        # Dynamic prompt templates
-│   ├── story_bible/          # RAG system
-│   │   ├── rag.py           # RAG implementation
-│   │   └── loader.py        # Story bible loader
-│   ├── api/                 # FastAPI endpoints
-│   │   ├── routes.py        # HTTP routes
-│   │   └── streaming.py     # SSE implementation
-│   ├── models/              # Data models
-│   │   └── state.py        # Pydantic & TypedDict models
-│   ├── config.py           # Application configuration
-│   └── tests/              # Pytest tests
-├── frontend/               # React UI (Phase 2)
-├── bibles/                # Story content files
-└── scripts/               # Utility scripts
+┌─────────────────────────────────────────────────────────┐
+│                    2-Agent System                        │
+├─────────────────────────────────────────────────────────┤
+│  WriterAgent (Claude Sonnet/Opus)                       │
+│  → Generates complete story from beat template          │
+│                                                         │
+│  JudgeAgent (Claude Haiku)                              │
+│  → Validates quality, consistency, word count           │
+│  → Provides feedback for rewrites if needed             │
+└─────────────────────────────────────────────────────────┘
+                          │
+                          ▼
+┌─────────────────────────────────────────────────────────┐
+│                    Media Generation                      │
+├─────────────────────────────────────────────────────────┤
+│  Image: Replicate (Imagen-3 Fast)                       │
+│  Audio: OpenAI TTS                                      │
+│  Email: Resend                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+## Tech Stack
+
+- **Backend**: Python 3.11+, FastAPI
+- **Story AI**: Anthropic Claude (Sonnet 4.5 / Opus 4.5 / Haiku)
+- **Images**: Replicate (Google Imagen-3)
+- **Audio**: OpenAI TTS
+- **Email**: Resend
+
+## Quick Start
+
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Set environment variables
+export ANTHROPIC_API_KEY=sk-ant-...
+export OPENAI_API_KEY=sk-...
+export REPLICATE_API_TOKEN=r8_...
+export RESEND_API_KEY=re_...
+
+# Run dev server
+uvicorn backend.api.main:app --reload
+
+# Open dev dashboard
+open http://localhost:8000/dev
 ```
 
 ## Key Features
 
-1. **RAG-Powered Consistency**: Story bibles are embedded and retrieved to maintain narrative coherence
-2. **LangGraph State Machine**: Proper state management for complex narrative flows
-3. **Beat-Based Progression**: Stories advance through structured story beats
-4. **Multi-Modal Output**: Text, images, and audio generated in parallel
-5. **Session Persistence**: Save/load story progress automatically
-6. **Streaming Responses**: Real-time narrative generation via SSE
+- **Genre Selection**: Romance, Mystery, Fantasy, Cozy, Sci-Fi, Western, etc.
+- **Beat Templates**: Save the Cat, Hero's Journey, Truby, Classic structures
+- **Intensity Slider**: Cozy → Moderate → Intense
+- **Model Selection**: Sonnet (fast) or Opus (premium)
+- **Name Deduplication**: Tracks used names to avoid repetition
 
-## Development Phases
+## Documentation
 
-### Phase 0-1: Foundation (Current) - Weeks 1-2
-- [x] Project structure
-- [ ] RAG pipeline with ChromaDB
-- [ ] LangGraph state machine (7 nodes)
-- [ ] FastAPI basic endpoints
-- [ ] Story bible for TFOGWF world
+- `Refactor_Plan.md` - Current roadmap and phase status
+- `RAILWAY.md` - Deployment guide
+- `MODELS_VOICES.md` - Available AI models and voices
 
-### Phase 2: Frontend & Streaming - Weeks 3-4
-- [ ] React frontend with TypeScript
-- [ ] SSE streaming implementation
-- [ ] Real-time UI updates
-- [ ] Media player components
+## Project Status
 
-### Phase 3: Advanced Features - Week 5+
-- [ ] Credit system & authentication
-- [ ] Multi-world support
-- [ ] Parallel media generation
-- [ ] Production deployment
-
-## Getting Started
-
-### Prerequisites
-- Python 3.11+
-- OpenAI API key
-- (Optional) Replicate and ElevenLabs API keys for media generation
-
-### Installation
-
-```bash
-# Create virtual environment
-python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Set up environment variables
-cp .env.example .env
-# Edit .env with your API keys
-```
-
-### Running the App
-
-```bash
-# Start the backend
-cd backend
-uvicorn api.main:app --reload
-
-# API will be available at http://localhost:8000
-# Docs at http://localhost:8000/docs
-```
-
-## Architecture Decisions
-
-### Why LangGraph?
-- Built-in state persistence and checkpointing
-- Conditional edges perfect for choice-based branching
-- Human-in-the-loop support for user choices
-- Graph visualization for debugging
-
-### Why RAG?
-- Maintains consistency with established lore
-- Enables dynamic story worlds without hardcoding
-- Scales to multiple story worlds easily
-
-### Why Streaming?
-- Perceived performance is actual performance
-- Better user experience with real-time generation
-- Natural fit for token-by-token LLM output
-
-## Development Tools
-- **Primary**: Claude Code (architecture, complex logic)
-- **Secondary**: Cursor (frontend, iterative refinement)
-- **Tertiary**: GitHub Copilot (boilerplate, autocomplete)
-
-## Contributing
-This is currently a solo development project. See HANDOFF.md for tool transition notes.
-
-## License
-MIT (or your preferred license)
+See `Refactor_Plan.md` for current phase and roadmap.
