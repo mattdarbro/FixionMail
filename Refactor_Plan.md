@@ -71,25 +71,45 @@ Remove ~3,200 lines of unused code:
 
 ---
 
-## Phase 3: SIMPLIFY TTS to OpenAI Only
-
-### Current State:
-- ElevenLabs: Primary, expensive (~$0.30/1000 chars)
-- OpenAI: Fallback option, cheaper (~$0.015/1000 chars)
+## Phase 3: SIMPLIFY TTS to OpenAI Only ✅ COMPLETE
 
 ### New State:
 - OpenAI TTS only
-- Remove all ElevenLabs code paths
-- Update voice selection UI to OpenAI voices
+- ElevenLabs code paths removed from UI
+- Voice selection updated to OpenAI voices (alloy, echo, fable, onyx, nova, shimmer)
 
-**Files to modify:**
-- `backend/storyteller/standalone_generation.py` - remove ElevenLabs, keep OpenAI
-- `backend/routes/fictionmail_dev.py` - update TTS provider selection
-- `backend/config.py` - remove ELEVENLABS_* config
-- `requirements.txt` - remove elevenlabs package
+**Files modified:**
+- ✅ `backend/routes/fictionmail_dev.py` - OpenAI defaults
+- ✅ `frontend/dev-dashboard.html` - OpenAI voices only
 
-**OpenAI TTS Voices to offer:**
-- alloy, echo, fable, onyx, nova, shimmer
+---
+
+## Phase 3.5: TESTING & TUNING (Current - 1 Week)
+
+### Goal:
+Validate story quality before building infrastructure. The 2-agent system with enhanced prompts must produce compelling stories.
+
+### Testing Checklist:
+- [ ] Generate stories with different genres (romance, mystery, fantasy, cozy, etc.)
+- [ ] Test intensity slider effect (cozy vs moderate vs intense)
+- [ ] Compare beat structures (Save the Cat, Hero's Journey, Truby, Classic)
+- [ ] Compare Sonnet vs Opus quality
+- [ ] Evaluate: engaging opening, consistent voice, natural pacing, satisfying ending
+- [ ] Tweak WriterAgent prompt as needed
+- [ ] Adjust beat guidance if mechanical
+
+### Recent Improvements Made:
+- ✅ Added beat `guidance` field to prompts (was missing)
+- ✅ Added intensity-based craft guidance (cozy/moderate/intense)
+- ✅ Added "Think First" planning section to prompt
+- ✅ Enhanced craft guidelines (opening, prose, tension, character, ending)
+- ✅ Added Sonnet/Opus model selection in dashboard
+
+### Success Criteria:
+- Stories feel engaging from first paragraph
+- Intensity setting noticeably affects tone/stakes
+- Beat transitions feel natural, not mechanical
+- Would a reader want to finish the story?
 
 ---
 
@@ -279,11 +299,11 @@ backend/
 
 ## Implementation Order
 
-### Week 1: Clean + Simplify
+### Week 1: Clean + Simplify ✅
 1. [x] Delete dead code (nodes.py, graph.py, routes.py, email_choice.py)
-2. [ ] Remove ElevenLabs, keep OpenAI TTS only
-3. [ ] Update config.py (remove unused settings)
-4. [ ] Clean up main.py (remove commented code)
+2. [x] Simplify TTS to OpenAI only (UI updated)
+3. [ ] Update config.py (remove unused settings) - optional cleanup
+4. [ ] Clean up main.py (remove commented code) - optional cleanup
 
 ### Week 2: 2-Agent System ✅
 5. [x] Create agents/writer.py
@@ -291,22 +311,32 @@ backend/
 7. [x] Update standalone_generation.py to use new agents
 8. [x] Update cost_calculator.py for 2-agent costs
 9. [x] Test generation still works (syntax verified)
+10. [x] Add Sonnet/Opus model selection
+11. [x] Enhance WriterAgent prompt (beats, intensity, craft guidelines)
 
-### Week 3: Database + Onboarding + Stripe
-10. [ ] Create db/database.py with async SQLite
-11. [ ] Create db/models.py (Subscriber, Story, Job)
-12. [ ] Add subscriber management endpoints
-13. [ ] Log stories to database
-14. [ ] Add onboarding flow (web form → bible creation → subscriber record)
-15. [ ] Integrate Stripe Checkout for paid subscriptions
-16. [ ] Add Stripe webhook handlers
+### Week 3: Testing & Tuning (Current)
+12. [ ] Generate test stories across genres
+13. [ ] Test intensity slider effect
+14. [ ] Compare beat structures
+15. [ ] Compare Sonnet vs Opus
+16. [ ] Iterate on prompts as needed
+17. [ ] Validate story quality meets bar
 
-### Week 4: Scheduler
-17. [ ] Create scheduler/scheduler.py
-18. [ ] Create scheduler/jobs.py
-19. [ ] Add background job processing
-20. [ ] Test scheduled generation
-21. [ ] Update admin dashboard
+### Week 4: Database + Onboarding + Stripe
+18. [ ] Create db/database.py with async SQLite
+19. [ ] Create db/models.py (Subscriber, Story, Job)
+20. [ ] Add subscriber management endpoints
+21. [ ] Log stories to database
+22. [ ] Add onboarding flow (web form → bible creation → subscriber record)
+23. [ ] Integrate Stripe Checkout for paid subscriptions
+24. [ ] Add Stripe webhook handlers
+
+### Week 5: Scheduler
+25. [ ] Create scheduler/scheduler.py
+26. [ ] Create scheduler/jobs.py
+27. [ ] Add background job processing
+28. [ ] Test scheduled generation
+29. [ ] Update admin dashboard
 
 ---
 
@@ -510,3 +540,87 @@ ALTER TABLE subscribers ADD COLUMN subscription_ends_at TIMESTAMP;
 
 To be decided based on cost analysis after 2-agent system is running.
 Likely: Max 1 story per user per day (configurable for premium tiers later).
+
+---
+
+## Future Phases (Post-MVP)
+
+### Phase 7: Interactive Multi-Chapter Stories
+
+**Goal:** Allow stories that span 2-3 chapters with reader choices between chapters.
+
+**Architecture:**
+- Story state persistence between chapters
+- Choice generation at chapter end
+- RAG-based consistency checking (leverage existing `docs/multi-agent-architecture.md`)
+- Email delivery with embedded choice buttons
+- Chapter continuity from previous choices
+
+**New components needed:**
+- Story session tracking (multi-chapter state)
+- Choice handling endpoints
+- Chapter continuation logic
+- Email templates with choice buttons
+
+**Considerations:**
+- Reuse existing beat templates (scale word counts per chapter)
+- May need Story Structure Beat Agent (SSBA) for arc planning
+- Cost: ~3x per complete story (3 chapters)
+
+---
+
+### Phase 8: User-Defined Beat Systems
+
+**Goal:** Allow users to create and save custom beat structures for their stories.
+
+**Features:**
+- Beat template builder UI
+- Save custom structures to user profile
+- Share beat templates (community library?)
+- Import/export beat structures (JSON)
+
+**Schema addition:**
+```sql
+CREATE TABLE beat_templates (
+    id TEXT PRIMARY KEY,
+    user_id TEXT REFERENCES subscribers(id),
+    name TEXT NOT NULL,
+    description TEXT,
+    beats JSON NOT NULL,  -- Array of beat definitions
+    genre_tags JSON,      -- ["romance", "mystery", ...]
+    is_public BOOLEAN DEFAULT false,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+**Beat definition structure:**
+```json
+{
+  "beat_number": 1,
+  "beat_name": "Opening Hook",
+  "word_target": 200,
+  "description": "Grab reader attention",
+  "guidance": "Start in media res, establish voice"
+}
+```
+
+**UI considerations:**
+- Drag-and-drop beat ordering
+- Word count allocation visualizer
+- Preview with sample generation
+
+---
+
+## Roadmap Summary
+
+| Phase | Description | Status |
+|-------|-------------|--------|
+| 1 | Delete Dead Code | ✅ Complete |
+| 2 | 2-Agent System | ✅ Complete |
+| 3 | TTS Simplification | ✅ Complete |
+| 3.5 | Testing & Tuning | 🔄 Current (1 week) |
+| 4 | Subscriber Database | Pending |
+| 5 | Scheduler + Jobs | Pending |
+| 6 | Admin Dashboard | Pending |
+| 7 | Interactive Multi-Chapter | Future |
+| 8 | User-Defined Beats | Future |
