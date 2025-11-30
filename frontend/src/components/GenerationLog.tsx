@@ -65,7 +65,7 @@ export function GenerationLog({
     timers.push(setTimeout(() => addLog('SUMMARY', '✅ Summary complete', 'success'), 115000));
 
     // Audio generation
-    timers.push(setTimeout(() => addLog('AUDIO', '🎵 Generating audio with ElevenLabs Flash v2.5...', 'info'), 116000));
+    timers.push(setTimeout(() => addLog('AUDIO', '🎵 Generating audio with OpenAI TTS...', 'info'), 116000));
     timers.push(setTimeout(() => addLog('AUDIO', '📊 Narrative: ~15,000 chars (within 40K limit)', 'info'), 117000));
     timers.push(setTimeout(() => addLog('AUDIO', '⏳ Audio generation in progress... (takes ~30s)', 'info'), 118000));
     timers.push(setTimeout(() => addLog('AUDIO', '✅ Audio saved to: /audio/west_haven_*.mp3', 'success'), 145000));

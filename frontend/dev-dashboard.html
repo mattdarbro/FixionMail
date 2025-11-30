@@ -186,30 +186,19 @@
                         <div class="form-group">
                             <label>TTS Provider</label>
                             <select id="ttsProvider" onchange="updateTtsVoiceOptions(); updateCostEstimate();">
-                                <option value="elevenlabs">ElevenLabs (Premium Quality, $99/mo subscription)</option>
-                                <option value="openai">OpenAI TTS (Good Quality, Pay-per-use ~10x cheaper)</option>
+                                <option value="openai" selected>OpenAI TTS (Good Quality, Pay-per-use)</option>
                             </select>
-                            <small id="tts-provider-hint" style="color: #888; font-size: 12px;">Best quality, subscription-based ($99/mo for 500k chars)</small>
+                            <small id="tts-provider-hint" style="color: #888; font-size: 12px;">Pay-per-use: ~$0.015 per 1000 characters</small>
                         </div>
                         <div class="form-group">
                             <label>Narrator Voice</label>
                             <select id="voiceId">
-                                <optgroup label="ElevenLabs Voices" id="elevenlabs-voices">
-                                    <option value="EXAVITQu4vr4xnSDxMaL">Default (Sarah - Female)</option>
-                                    <option value="21m00Tcm4TlvDq8ikWAM">Rachel (Female - Calm)</option>
-                                    <option value="AZnzlk1XvdvUeBnXmlld">Domi (Female - Strong)</option>
-                                    <option value="ErXwobaYiN019PkySvjV">Antoni (Male - Well-rounded)</option>
-                                    <option value="VR6AewLTigWG4xSOukaG">Arnold (Male - Crisp)</option>
-                                    <option value="pNInz6obpgDQGcFmaJgB">Adam (Male - Deep)</option>
-                                    <option value="yoZ06aMxZJJ28mfd3POQ">Sam (Male - Raspy)</option>
-                                    <option value="CwhRBWXzGAHq8TQ4Fs17">Roger (Male - Confident)</option>
-                                </optgroup>
-                                <optgroup label="OpenAI Voices" id="openai-voices" class="hidden">
+                                <optgroup label="OpenAI Voices" id="openai-voices">
                                     <option value="alloy">Alloy (Neutral)</option>
                                     <option value="echo">Echo (Male)</option>
                                     <option value="fable">Fable (Expressive)</option>
                                     <option value="onyx">Onyx (Male Deep)</option>
-                                    <option value="nova">Nova (Female)</option>
+                                    <option value="nova" selected>Nova (Female)</option>
                                     <option value="shimmer">Shimmer (Female Light)</option>
                                 </optgroup>
                             </select>
@@ -245,7 +234,7 @@
                                     <div id="cost-image" style="color: #fff; font-weight: 600;">$0.0250</div>
                                 </div>
                                 <div>
-                                    <div style="color: #9ca3af;"><span id="audio-provider-label">ElevenLabs</span> (Audio)</div>
+                                    <div style="color: #9ca3af;"><span id="audio-provider-label">OpenAI TTS</span> (Audio)</div>
                                     <div id="cost-audio" style="color: #fff; font-weight: 600;">$0.0000</div>
                                 </div>
                                 <div>
@@ -339,12 +328,10 @@
         };
 
         const TTS_PROVIDER_HINTS = {
-            elevenlabs: 'Best quality, subscription-based ($99/mo for 500k chars)',
-            openai: 'Good quality, pay-per-use ($0.015/1k chars) - ~10x cheaper at scale'
+            openai: 'Pay-per-use: ~$0.015 per 1000 characters'
         };
 
         const TTS_PROVIDER_NAMES = {
-            elevenlabs: 'ElevenLabs',
             openai: 'OpenAI TTS'
         };
 
@@ -354,36 +341,9 @@
         }
 
         function updateTtsVoiceOptions() {
+            // OpenAI is the only provider - no switching needed
             const provider = document.getElementById('ttsProvider').value;
-            const voiceSelect = document.getElementById('voiceId');
-
-            // Update hint
             document.getElementById('tts-provider-hint').textContent = TTS_PROVIDER_HINTS[provider] || '';
-
-            // Show/hide voice groups
-            const groups = {
-                elevenlabs: document.getElementById('elevenlabs-voices'),
-                openai: document.getElementById('openai-voices')
-            };
-
-            // Hide all groups
-            Object.values(groups).forEach(g => {
-                if (g) g.classList.add('hidden');
-            });
-
-            // Show selected group
-            if (groups[provider]) {
-                groups[provider].classList.remove('hidden');
-            }
-
-            // Reset to first option in selected group
-            const selectedGroup = groups[provider];
-            if (selectedGroup) {
-                const firstOption = selectedGroup.querySelector('option');
-                if (firstOption) {
-                    voiceSelect.value = firstOption.value;
-                }
-            }
         }
 
         async function updateCostEstimate() {
@@ -406,11 +366,9 @@
                     document.getElementById('cost-total').textContent = `$${est.total_cost.toFixed(4)}`;
                     document.getElementById('cost-monthly').textContent = `$${est.monthly_cost_30_stories.toFixed(2)}`;
 
-                    // Show subscription note for ElevenLabs
+                    // Show TTS note (OpenAI only now)
                     const subNote = document.getElementById('tts-subscription-note');
-                    if (ttsProvider === 'elevenlabs') {
-                        subNote.textContent = '+ $99/mo ElevenLabs Pro subscription';
-                    } else {
+                    if (subNote) {
                         subNote.textContent = 'Pay-per-use, no subscription required';
                     }
                 }

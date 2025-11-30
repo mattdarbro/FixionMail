@@ -72,7 +72,7 @@ class GenerateStoryInput(BaseModel):
     voice_id: Optional[str] = None
     bible: Optional[Dict[str, Any]] = None
     force_cliffhanger: Optional[bool] = None
-    tts_provider: str = "elevenlabs"  # elevenlabs or openai
+    tts_provider: str = "openai"
     tts_voice: Optional[str] = None
 
 
@@ -81,7 +81,7 @@ class CostEstimateInput(BaseModel):
     story_length: str = "short"
     include_audio: bool = True
     include_image: bool = True
-    tts_provider: str = "elevenlabs"  # elevenlabs or openai
+    tts_provider: str = "openai"
 
 
 # === API Routes ===
@@ -93,13 +93,13 @@ async def dev_estimate_cost(
     story_length: str = "short",
     include_audio: bool = True,
     include_image: bool = True,
-    tts_provider: str = "elevenlabs"
+    tts_provider: str = "openai"
 ):
     """
     Estimate cost for story generation before actually generating.
 
     Returns detailed cost breakdown for Claude API, image generation, and audio.
-    Supports different TTS providers: elevenlabs, openai
+    Uses OpenAI TTS for audio generation.
     """
     try:
         cost_estimate = estimate_generation_cost(
@@ -285,7 +285,7 @@ async def dev_generate_story(data: Optional[GenerateStoryInput] = Body(default=N
     force_cliffhanger = None
     email = None
     voice_id = None
-    tts_provider = "elevenlabs"
+    tts_provider = "openai"
     tts_voice = None
 
     if data:

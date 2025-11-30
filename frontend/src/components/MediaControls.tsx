@@ -15,17 +15,14 @@ export function MediaControls({
   imageEnabled,
   selectedVoice
 }: MediaControlsProps) {
-  // ElevenLabs voice options
+  // OpenAI TTS voice options
   const voices = [
-    { id: '21m00Tcm4TlvDq8ikWAM', name: 'Rachel (Default)' },
-    { id: 'AZnzlk1XvdvUeBnXmlld', name: 'Domi' },
-    { id: 'EXAVITQu4vr4xnSDxMaL', name: 'Bella' },
-    { id: 'ErXwobaYiN019PkySvjV', name: 'Antoni' },
-    { id: 'MF3mGyEYCl7XYWbV9V6O', name: 'Elli' },
-    { id: 'TxGEqnHWrfWFTfGW9XjX', name: 'Josh' },
-    { id: 'VR6AewLTigWG4xSOukaG', name: 'Arnold' },
-    { id: 'pNInz6obpgDQGcFmaJgB', name: 'Adam' },
-    { id: 'yoZ06aMxZJJ28mfd3POQ', name: 'Sam' },
+    { id: 'nova', name: 'Nova (Female - Default)' },
+    { id: 'alloy', name: 'Alloy (Neutral)' },
+    { id: 'echo', name: 'Echo (Male)' },
+    { id: 'fable', name: 'Fable (Expressive)' },
+    { id: 'onyx', name: 'Onyx (Male Deep)' },
+    { id: 'shimmer', name: 'Shimmer (Female Light)' },
   ];
 
   return (
@@ -42,7 +39,7 @@ export function MediaControls({
         />
         <span className="text-dark-200 group-hover:text-dark-100 transition-colors">
           Generate Audio
-          <span className="text-sm text-dark-400 ml-2">(saves ElevenLabs credits when off)</span>
+          <span className="text-sm text-dark-400 ml-2">(saves API costs when off)</span>
         </span>
       </label>
 
