@@ -266,7 +266,7 @@ async def generate_story_audio_with_provider(
 
 async def generate_story_image(
     story_title: str,
-    beat_plan: Dict[str, Any],
+    story_premise: str,
     genre: str
 ) -> str | None:
     """
@@ -274,7 +274,7 @@ async def generate_story_image(
 
     Args:
         story_title: Title of the story
-        beat_plan: The beat plan with story details
+        story_premise: One-sentence story hook/premise
         genre: Story genre
 
     Returns:
@@ -287,10 +287,6 @@ async def generate_story_image(
         if not config.REPLICATE_API_TOKEN:
             print("  ⏭️  REPLICATE_API_TOKEN not set, skipping image generation")
             return None
-
-        # Create image prompt from story details
-        story_premise = beat_plan.get("story_premise", "")
-        thematic_focus = beat_plan.get("thematic_focus", "")
 
         # Build a descriptive prompt WITHOUT text (to avoid gibberish letters)
         base_prompt = f"{genre} story cover art, {story_premise}, atmospheric scene"
@@ -564,7 +560,7 @@ async def generate_standalone_story(
 
             cover_image_url = await generate_story_image(
                 story_title=story_title,
-                beat_plan=beat_plan,
+                story_premise=writer_result.story_premise or story_title,
                 genre=genre
             )
 
