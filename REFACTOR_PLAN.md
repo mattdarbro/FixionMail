@@ -376,10 +376,104 @@ If something breaks:
 
 ---
 
-## Questions to Decide
+## Decisions Made
 
-1. **Voice selection**: Which OpenAI voices to offer? (alloy, echo, fable, onyx, nova, shimmer)
-2. **Default schedule**: Daily at 6 AM? Configurable per user?
-3. **Retry policy**: How many times to retry failed jobs?
-4. **Rate limits**: Max stories per day? (cost protection)
-5. **Subscriber onboarding**: Web form? Email signup? Manual add only?
+### 1. Voice Selection - All 6 OpenAI Voices with Descriptions
+
+```python
+OPENAI_VOICES = {
+    "alloy": {
+        "name": "Alloy",
+        "feel": "Neutral & Balanced",
+        "best_for": "Any genre"
+    },
+    "echo": {
+        "name": "Echo",
+        "feel": "Warm & Thoughtful",
+        "best_for": "Drama, Noir"
+    },
+    "fable": {
+        "name": "Fable",
+        "feel": "British & Expressive",
+        "best_for": "Fantasy, Literary"
+    },
+    "onyx": {
+        "name": "Onyx",
+        "feel": "Deep & Authoritative",
+        "best_for": "Thriller, Mystery"
+    },
+    "nova": {
+        "name": "Nova",
+        "feel": "Friendly & Bright",
+        "best_for": "Romance, Light Fiction"
+    },
+    "shimmer": {
+        "name": "Shimmer",
+        "feel": "Soft & Gentle",
+        "best_for": "Emotional, Intimate"
+    }
+}
+```
+
+### 2. Scheduling - Dev vs User
+
+**Dev Dashboard Options:**
+```python
+DEV_SCHEDULER_OPTIONS = {
+    "immediate": "Run now (for testing)",
+    "1_minute": "1 minute from now",
+    "5_minutes": "5 minutes from now",
+    "15_minutes": "15 minutes from now",
+    "1_hour": "1 hour from now",
+    "custom": "Custom datetime"
+}
+```
+
+**User Delivery Options:**
+```python
+USER_DELIVERY_TIMES = [
+    "06:00",  # Early morning
+    "08:00",  # Morning commute
+    "12:00",  # Lunch
+    "18:00",  # Evening commute
+    "21:00",  # Before bed
+]
+# Plus timezone selection (stored per user)
+```
+
+### 3. Retry Policy
+
+```python
+RETRY_POLICY = {
+    "max_retries": 3,
+    "backoff_seconds": [30, 120, 600],  # 30s, 2min, 10min
+    "retry_on": [
+        "api_timeout",      # Claude/OpenAI/Replicate timeout
+        "rate_limit",       # 429 errors
+        "network_error",    # Connection issues
+    ],
+    "fail_permanently_on": [
+        "invalid_bible",    # Bad input data
+        "content_policy",   # Content blocked
+        "auth_error",       # API key issues
+    ]
+}
+```
+
+**Logic:**
+1. First failure → wait 30s, retry
+2. Second failure → wait 2min, retry
+3. Third failure → wait 10min, retry
+4. Fourth failure → mark job as `failed`, alert admin
+
+### 4. Onboarding - Phase 3 (with Database)
+
+Onboarding will be built in **Week 3** alongside the subscriber database.
+- Requires persistence to be meaningful
+- Flows directly into subscriber table
+- Core generation should be solid first
+
+### 5. Rate Limits (TBD)
+
+To be decided based on cost analysis after 2-agent system is running.
+Likely: Max 1 story per user per day (configurable for premium tiers later).
