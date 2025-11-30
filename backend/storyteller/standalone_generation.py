@@ -27,180 +27,6 @@ from backend.storyteller.prompts_standalone import (
 )
 
 
-async def generate_story_audio(
-    narrative: str,
-    story_title: str,
-    genre: str,
-    voice_id: Optional[str] = None
-) -> str | None:
-    """
-    Generate TTS audio for a standalone story using ElevenLabs.
-
-    Args:
-        narrative: The story text to narrate
-        story_title: Title of the story (for filename)
-        genre: Story genre
-
-    Returns:
-        Local URL path to audio file, or None if generation fails
-    """
-    try:
-        from elevenlabs.client import ElevenLabs
-
-        if not config.ELEVENLABS_API_KEY:
-            print("  ⏭️  ELEVENLABS_API_KEY not set, skipping audio generation")
-            return None
-
-        # Clean and prepare text for narration
-        narrative_text = narrative.strip()
-
-        # ElevenLabs Flash v2.5 supports up to 40,000 characters per request
-        # We'll chunk at 20,000 for safety and concatenate
-        MAX_CHUNK_CHARS = 20000
-
-        # Create ElevenLabs client
-        client = ElevenLabs(api_key=config.ELEVENLABS_API_KEY)
-
-        # Use provided voice_id or fall back to config default
-        selected_voice_id = voice_id or config.ELEVENLABS_VOICE_ID
-        print(f"  Using voice ID: {selected_voice_id}")
-
-        # Create audio directory if it doesn't exist
-        os.makedirs("./generated_audio", exist_ok=True)
-
-        # Generate filename
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        clean_title = "".join(c for c in story_title if c.isalnum() or c in (' ', '-', '_')).strip()
-        clean_title = clean_title.replace(' ', '_')[:50]
-        filename = f"{genre}_{clean_title}_{timestamp}.mp3"
-        filepath = f"./generated_audio/{filename}"
-
-        print(f"  Narrative length: {len(narrative_text)} characters")
-
-        if len(narrative_text) <= MAX_CHUNK_CHARS:
-            # Single chunk - simple case
-            print(f"  ✓ Narrative within single chunk limit")
-            audio_generator = client.text_to_speech.convert(
-                voice_id=selected_voice_id,
-                text=narrative_text,
-                model_id="eleven_flash_v2_5",
-                voice_settings={
-                    "stability": 0.5,
-                    "similarity_boost": 0.75
-                }
-            )
-
-            with open(filepath, "wb") as f:
-                for chunk in audio_generator:
-                    f.write(chunk)
-        else:
-            # Multiple chunks - need to generate and concatenate
-            print(f"  Text exceeds {MAX_CHUNK_CHARS} chars, chunking...")
-
-            # Split into chunks at sentence boundaries
-            chunks = []
-            remaining = narrative_text
-            while len(remaining) > MAX_CHUNK_CHARS:
-                chunk = remaining[:MAX_CHUNK_CHARS]
-                last_period = chunk.rfind('. ')
-                if last_period > MAX_CHUNK_CHARS - 1000:
-                    chunk = remaining[:last_period + 1]
-                    remaining = remaining[last_period + 2:]
-                else:
-                    remaining = remaining[MAX_CHUNK_CHARS:]
-                chunks.append(chunk)
-            if remaining:
-                chunks.append(remaining)
-
-            print(f"  Split into {len(chunks)} chunks")
-
-            # Generate audio for each chunk
-            audio_chunks = []
-            for i, chunk_text in enumerate(chunks):
-                print(f"  Generating chunk {i + 1}/{len(chunks)} ({len(chunk_text)} chars)...")
-                audio_generator = client.text_to_speech.convert(
-                    voice_id=selected_voice_id,
-                    text=chunk_text,
-                    model_id="eleven_flash_v2_5",
-                    voice_settings={
-                        "stability": 0.5,
-                        "similarity_boost": 0.75
-                    }
-                )
-
-                chunk_filepath = f"./generated_audio/temp_chunk_{timestamp}_{i}.mp3"
-                with open(chunk_filepath, "wb") as f:
-                    for audio_chunk in audio_generator:
-                        f.write(audio_chunk)
-                audio_chunks.append(chunk_filepath)
-
-            # Concatenate audio chunks
-            print(f"  Concatenating {len(audio_chunks)} audio chunks...")
-            import subprocess
-            import shutil
-
-            ffmpeg_available = shutil.which('ffmpeg') is not None
-
-            if ffmpeg_available:
-                print(f"  Using ffmpeg for concatenation...")
-                list_file = f"./generated_audio/concat_list_{timestamp}.txt"
-                with open(list_file, 'w') as f:
-                    for chunk_file in audio_chunks:
-                        f.write(f"file '{os.path.basename(chunk_file)}'\n")
-
-                ffmpeg_cmd = [
-                    'ffmpeg', '-f', 'concat', '-safe', '0',
-                    '-i', os.path.basename(list_file),
-                    '-c', 'copy', '-y', os.path.basename(filepath)
-                ]
-
-                result = subprocess.run(
-                    ffmpeg_cmd, capture_output=True, text=True,
-                    cwd="./generated_audio"
-                )
-
-                os.remove(list_file)
-
-                if result.returncode != 0:
-                    print(f"  ⚠️  ffmpeg error: {result.stderr}")
-                    ffmpeg_available = False
-                else:
-                    print(f"  ✓ Concatenated with ffmpeg")
-
-            if not ffmpeg_available:
-                print(f"  Using binary concatenation...")
-                with open(filepath, 'wb') as outfile:
-                    for chunk_file in audio_chunks:
-                        with open(chunk_file, 'rb') as infile:
-                            outfile.write(infile.read())
-                print(f"  ✓ Concatenated (binary)")
-
-            # Clean up temp files
-            for chunk_file in audio_chunks:
-                if os.path.exists(chunk_file):
-                    os.remove(chunk_file)
-
-        # Upload to storage backend (Supabase in prod, local in dev)
-        from backend.storage import upload_audio
-        public_url = upload_audio(filepath, filename)
-
-        print(f"  ✓ Audio generated successfully")
-        print(f"    Saved to: {filepath}")
-        print(f"    Public URL: {public_url}")
-        return public_url
-
-    except Exception as e:
-        error_msg = str(e)
-        print(f"  ⚠️  Audio generation failed: {error_msg}")
-
-        if "401" in error_msg or "unauthorized" in error_msg.lower():
-            print("  ⚠️  ElevenLabs API authentication failed. Check ELEVENLABS_API_KEY.")
-        elif "429" in error_msg or "quota" in error_msg.lower():
-            print("  ⚠️  ElevenLabs API quota/rate limit exceeded.")
-
-        return None
-
-
 async def generate_story_audio_openai(
     narrative: str,
     story_title: str,
@@ -382,18 +208,6 @@ async def generate_story_audio_openai(
 
 # TTS Provider routing
 TTS_PROVIDERS = {
-    "elevenlabs": {
-        "name": "ElevenLabs",
-        "function": "generate_story_audio",  # Original function
-        "voices": {
-            "rachel": "21m00Tcm4TlvDq8ikWAM",
-            "domi": "AZnzlk1XvdvUeBnXmlld",
-            "bella": "EXAVITQu4vr4xnSDxMaL",
-            "antoni": "ErXwobaYiN019PkySvjV",
-            "josh": "TxGEqnHWrfWFTfGW9XjX",
-        },
-        "default_voice": "rachel"
-    },
     "openai": {
         "name": "OpenAI TTS",
         "function": "generate_story_audio_openai",
@@ -414,7 +228,7 @@ async def generate_story_audio_with_provider(
     narrative: str,
     story_title: str,
     genre: str,
-    provider: str = "elevenlabs",
+    provider: str = "openai",
     voice: str = None
 ) -> str | None:
     """
@@ -424,13 +238,13 @@ async def generate_story_audio_with_provider(
         narrative: The story text to narrate
         story_title: Title of the story (for filename)
         genre: Story genre
-        provider: TTS provider ("elevenlabs" or "openai")
+        provider: TTS provider (currently only "openai" is supported)
         voice: Voice name/ID (optional, uses default for provider)
 
     Returns:
         Local URL path to audio file, or None if generation fails
     """
-    provider_info = TTS_PROVIDERS.get(provider, TTS_PROVIDERS["elevenlabs"])
+    provider_info = TTS_PROVIDERS.get(provider, TTS_PROVIDERS["openai"])
     print(f"  Using TTS provider: {provider_info['name']}")
 
     # Get voice ID
@@ -440,28 +254,12 @@ async def generate_story_audio_with_provider(
         default_voice_key = provider_info["default_voice"]
         voice_id = provider_info["voices"].get(default_voice_key, default_voice_key)
 
-    if provider == "elevenlabs":
-        return await generate_story_audio(
-            narrative=narrative,
-            story_title=story_title,
-            genre=genre,
-            voice_id=voice_id
-        )
-    elif provider == "openai":
-        return await generate_story_audio_openai(
-            narrative=narrative,
-            story_title=story_title,
-            genre=genre,
-            voice=voice_id
-        )
-    else:
-        print(f"  ⚠️  Unknown TTS provider: {provider}, falling back to ElevenLabs")
-        return await generate_story_audio(
-            narrative=narrative,
-            story_title=story_title,
-            genre=genre,
-            voice_id=None
-        )
+    return await generate_story_audio_openai(
+        narrative=narrative,
+        story_title=story_title,
+        genre=genre,
+        voice=voice_id
+    )
 
 
 async def generate_story_image(
@@ -575,7 +373,7 @@ async def generate_standalone_story(
     force_cliffhanger: bool = None,
     dev_mode: bool = False,
     voice_id: Optional[str] = None,
-    tts_provider: str = "elevenlabs",
+    tts_provider: str = "openai",
     tts_voice: Optional[str] = None
 ) -> Dict[str, Any]:
     """
@@ -594,8 +392,8 @@ async def generate_standalone_story(
         user_tier: User's tier (free, premium)
         force_cliffhanger: Override cliffhanger logic (for dev mode)
         dev_mode: Enable dev mode features
-        voice_id: Legacy voice_id for ElevenLabs (deprecated, use tts_voice)
-        tts_provider: TTS provider ("elevenlabs" or "openai")
+        voice_id: Legacy parameter (deprecated, ignored)
+        tts_provider: TTS provider (currently only "openai" is supported)
         tts_voice: Voice name for selected provider
 
     Returns:
@@ -739,15 +537,12 @@ async def generate_standalone_story(
                 print(f"(Dev mode: generating for {user_tier} tier)")
             print(f"{'─'*70}")
 
-            # Use legacy voice_id for ElevenLabs if tts_voice not specified
-            effective_voice = tts_voice or voice_id
-
             audio_url = await generate_story_audio_with_provider(
                 narrative=narrative,
                 story_title=story_title,
                 genre=genre,
                 provider=tts_provider,
-                voice=effective_voice
+                voice=tts_voice
             )
 
         # Step 9: Create summary

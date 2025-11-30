@@ -54,7 +54,7 @@ class StoryState(TypedDict):
     # ===== Media Generation Settings (Optional Overrides) =====
     generate_audio: Annotated[bool | None, "Override audio generation (None = use config)"]
     generate_image: Annotated[bool | None, "Override image generation (None = use config)"]
-    voice_id: Annotated[str | None, "ElevenLabs voice ID override (None = use config default)"]
+    voice_id: Annotated[str | None, "TTS voice ID override (None = use config default)"]
 
     # ===== RAG & Multi-Agent System =====
     story_structure: Annotated[dict | None, "SSBA-generated story arc (Save the Cat beats)"]
@@ -96,7 +96,7 @@ class StartStoryRequest(BaseModel):
     email: str | None = Field(default=None, description="User email for chapter delivery")
     generate_audio: bool | None = Field(default=None, description="Override audio generation (None = use config default)")
     generate_image: bool | None = Field(default=None, description="Override image generation (None = use config default)")
-    voice_id: str | None = Field(default=None, description="ElevenLabs voice ID (None = use config default)")
+    voice_id: str | None = Field(default=None, description="TTS voice ID (None = use config default)")
 
 
 class StartStoryResponse(BaseModel):
@@ -120,7 +120,7 @@ class ContinueStoryRequest(BaseModel):
     choice_id: int = Field(..., ge=1, description="Selected choice ID")
     generate_audio: bool | None = Field(default=None, description="Override audio generation (None = use config default)")
     generate_image: bool | None = Field(default=None, description="Override image generation (None = use config default)")
-    voice_id: str | None = Field(default=None, description="ElevenLabs voice ID (None = use config default)")
+    voice_id: str | None = Field(default=None, description="TTS voice ID (None = use config default)")
 
 
 class ContinueStoryResponse(BaseModel):
@@ -189,7 +189,7 @@ class CharacterProfile(BaseModel):
     role: Literal["protagonist", "antagonist", "ally", "mentor", "neutral"] = Field(..., description="Story role")
     traits: list[str] = Field(..., description="Key personality traits")
     relationships: dict[str, str] = Field(default_factory=dict, description="Relationships with other characters")
-    voice_profile: str | None = Field(None, description="ElevenLabs voice ID if available")
+    voice_profile: str | None = Field(None, description="TTS voice ID if available")
 
 
 class LocationProfile(BaseModel):
@@ -222,7 +222,7 @@ def create_initial_state(
         total_chapters: Total chapters in story arc (default: 30)
         generate_audio: Override audio generation (None = use config)
         generate_image: Override image generation (None = use config)
-        voice_id: ElevenLabs voice ID override (None = use config default)
+        voice_id: TTS voice ID override (None = use config default)
 
     Returns:
         Initialized StoryState ready for LangGraph

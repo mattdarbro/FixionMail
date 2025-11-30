@@ -4,12 +4,12 @@ Cost calculation for story generation.
 Calculates estimated costs for:
 - Claude API (prose generation)
 - Replicate Imagen-3-Fast (cover images)
-- ElevenLabs TTS (audio narration)
+- OpenAI TTS (audio narration)
 
 Pricing as of 2024:
 - Claude Sonnet 4: $3/1M input tokens, $15/1M output tokens
 - Replicate Imagen-3-Fast: $0.025 per image
-- ElevenLabs: ~$0.30 per 1000 characters (varies by plan)
+- OpenAI TTS: $0.015 per 1000 characters
 """
 
 from typing import Dict, Any, Optional
@@ -87,16 +87,6 @@ class Pricing:
     # Replicate Imagen-3-Fast pricing
     IMAGEN_3_FAST_PER_IMAGE = 0.025
 
-    # ElevenLabs pricing by plan (monthly cost / characters included)
-    # Pro plan: $99/month for 500,000 characters = $0.198/1k chars
-    ELEVENLABS_PLANS = {
-        "pay_as_you_go": {"monthly": 0, "chars": 0, "per_1k": 0.30},
-        "starter": {"monthly": 5, "chars": 30_000, "per_1k": 0.167},
-        "creator": {"monthly": 22, "chars": 100_000, "per_1k": 0.22},
-        "pro": {"monthly": 99, "chars": 500_000, "per_1k": 0.198},
-    }
-    ELEVENLABS_DEFAULT_PLAN = "pro"
-
     # OpenAI TTS pricing (pay-as-you-go)
     # TTS-1 (standard): $0.015 per 1,000 characters
     # TTS-1-HD (high quality): $0.030 per 1,000 characters
@@ -105,21 +95,13 @@ class Pricing:
 
     # TTS Provider configurations
     TTS_PROVIDERS = {
-        "elevenlabs": {
-            "name": "ElevenLabs",
-            "per_1k_chars": 0.198,  # Pro plan effective rate
-            "monthly_subscription": 99,
-            "is_subscription": True,
-            "quality": "premium",
-            "notes": "Best quality, subscription-based ($99/mo for 500k chars)"
-        },
         "openai": {
             "name": "OpenAI TTS",
             "per_1k_chars": 0.015,
             "monthly_subscription": 0,
             "is_subscription": False,
             "quality": "good",
-            "notes": "Pay-per-use, good quality, ~10x cheaper than ElevenLabs"
+            "notes": "Pay-per-use, good quality"
         }
     }
 
@@ -168,8 +150,7 @@ def calculate_story_cost(
     word_target: int,
     include_audio: bool = True,
     include_image: bool = True,
-    elevenlabs_plan: str = "pro",
-    tts_provider: str = "elevenlabs"
+    tts_provider: str = "openai"
 ) -> CostBreakdown:
     """
     Calculate estimated cost for generating a single story.
@@ -178,8 +159,7 @@ def calculate_story_cost(
         word_target: Target word count (1500 or 3000)
         include_audio: Whether to generate audio narration
         include_image: Whether to generate cover image
-        elevenlabs_plan: ElevenLabs plan for pricing (starter, creator, pro, pay_as_you_go)
-        tts_provider: TTS provider ("elevenlabs" or "openai")
+        tts_provider: TTS provider (currently only "openai" is supported)
 
     Returns:
         CostBreakdown with detailed cost information
@@ -219,15 +199,8 @@ def calculate_story_cost(
         # Estimate characters from word count
         breakdown.audio_characters = int(word_target * Pricing.CHARS_PER_WORD)
 
-        # Get pricing based on TTS provider
-        if tts_provider == "elevenlabs":
-            plan_info = Pricing.ELEVENLABS_PLANS.get(elevenlabs_plan, Pricing.ELEVENLABS_PLANS["pro"])
-            breakdown.audio_cost_per_1k_chars = plan_info["per_1k"]
-        elif tts_provider == "openai":
-            breakdown.audio_cost_per_1k_chars = Pricing.OPENAI_TTS_PER_1K_CHARS
-        else:
-            # Default to OpenAI pricing for unknown providers
-            breakdown.audio_cost_per_1k_chars = Pricing.OPENAI_TTS_PER_1K_CHARS
+        # Get pricing based on TTS provider (default to OpenAI)
+        breakdown.audio_cost_per_1k_chars = Pricing.OPENAI_TTS_PER_1K_CHARS
 
         breakdown.audio_total_cost = (
             breakdown.audio_characters / 1000 * breakdown.audio_cost_per_1k_chars
@@ -273,7 +246,7 @@ def estimate_generation_cost(
     story_length: str = "short",
     include_audio: bool = True,
     include_image: bool = True,
-    tts_provider: str = "elevenlabs"
+    tts_provider: str = "openai"
 ) -> Dict[str, Any]:
     """
     High-level function to estimate story generation cost.
@@ -283,7 +256,7 @@ def estimate_generation_cost(
         story_length: Story length ("short" or "medium")
         include_audio: Whether to include audio narration
         include_image: Whether to include cover image
-        tts_provider: TTS provider ("elevenlabs" or "openai")
+        tts_provider: TTS provider (currently only "openai" is supported)
 
     Returns:
         Dictionary with cost breakdown and formatted output
@@ -297,7 +270,7 @@ def estimate_generation_cost(
     )
 
     # Get provider info
-    provider_info = Pricing.TTS_PROVIDERS.get(tts_provider, Pricing.TTS_PROVIDERS["elevenlabs"])
+    provider_info = Pricing.TTS_PROVIDERS.get(tts_provider, Pricing.TTS_PROVIDERS["openai"])
 
     result = breakdown.to_dict()
     result["settings"] = {
