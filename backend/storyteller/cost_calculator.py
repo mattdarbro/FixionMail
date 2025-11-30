@@ -1,13 +1,15 @@
 """
-Cost calculation for story generation.
+Cost calculation for story generation (2-Agent System).
 
 Calculates estimated costs for:
-- Claude API (prose generation)
+- Claude Sonnet (Writer agent - story generation)
+- Claude Haiku (Judge agent - validation)
 - Replicate Imagen-3-Fast (cover images)
 - OpenAI TTS (audio narration)
 
 Pricing as of 2024:
 - Claude Sonnet 4: $3/1M input tokens, $15/1M output tokens
+- Claude Haiku 3.5: $1/1M input tokens, $5/1M output tokens
 - Replicate Imagen-3-Fast: $0.025 per image
 - OpenAI TTS: $0.015 per 1000 characters
 """
@@ -18,13 +20,23 @@ from dataclasses import dataclass
 
 @dataclass
 class CostBreakdown:
-    """Detailed cost breakdown for story generation."""
+    """Detailed cost breakdown for story generation (2-Agent System)."""
 
-    # Claude API costs
-    claude_input_tokens: int = 0
-    claude_output_tokens: int = 0
-    claude_input_cost: float = 0.0
-    claude_output_cost: float = 0.0
+    # Writer Agent (Sonnet) costs
+    writer_input_tokens: int = 0
+    writer_output_tokens: int = 0
+    writer_input_cost: float = 0.0
+    writer_output_cost: float = 0.0
+    writer_total_cost: float = 0.0
+
+    # Judge Agent (Haiku) costs
+    judge_input_tokens: int = 0
+    judge_output_tokens: int = 0
+    judge_input_cost: float = 0.0
+    judge_output_cost: float = 0.0
+    judge_total_cost: float = 0.0
+
+    # Combined Claude costs
     claude_total_cost: float = 0.0
 
     # Image generation costs
@@ -34,7 +46,7 @@ class CostBreakdown:
 
     # Audio generation costs
     audio_characters: int = 0
-    audio_cost_per_1k_chars: float = 0.30
+    audio_cost_per_1k_chars: float = 0.015  # OpenAI TTS
     audio_total_cost: float = 0.0
 
     # Totals
@@ -46,13 +58,23 @@ class CostBreakdown:
         variable_cost = self.claude_total_cost + self.image_total_cost
 
         return {
-            "claude": {
-                "input_tokens": self.claude_input_tokens,
-                "output_tokens": self.claude_output_tokens,
-                "input_cost": round(self.claude_input_cost, 4),
-                "output_cost": round(self.claude_output_cost, 4),
-                "total_cost": round(self.claude_total_cost, 4)
+            "writer": {
+                "model": "claude-sonnet-4",
+                "input_tokens": self.writer_input_tokens,
+                "output_tokens": self.writer_output_tokens,
+                "input_cost": round(self.writer_input_cost, 4),
+                "output_cost": round(self.writer_output_cost, 4),
+                "total_cost": round(self.writer_total_cost, 4)
             },
+            "judge": {
+                "model": "claude-haiku-3.5",
+                "input_tokens": self.judge_input_tokens,
+                "output_tokens": self.judge_output_tokens,
+                "input_cost": round(self.judge_input_cost, 4),
+                "output_cost": round(self.judge_output_cost, 4),
+                "total_cost": round(self.judge_total_cost, 4)
+            },
+            "claude_total": round(self.claude_total_cost, 4),
             "image": {
                 "count": self.image_count,
                 "cost_per_image": self.image_cost_per_unit,
@@ -80,9 +102,17 @@ class CostBreakdown:
 class Pricing:
     """API pricing constants."""
 
-    # Claude Sonnet 4 pricing per 1M tokens
-    CLAUDE_INPUT_PER_1M = 3.00
-    CLAUDE_OUTPUT_PER_1M = 15.00
+    # Claude Sonnet 4 pricing per 1M tokens (Writer agent)
+    SONNET_INPUT_PER_1M = 3.00
+    SONNET_OUTPUT_PER_1M = 15.00
+
+    # Claude Haiku 3.5 pricing per 1M tokens (Judge agent)
+    HAIKU_INPUT_PER_1M = 1.00
+    HAIKU_OUTPUT_PER_1M = 5.00
+
+    # Legacy aliases for backwards compatibility
+    CLAUDE_INPUT_PER_1M = SONNET_INPUT_PER_1M
+    CLAUDE_OUTPUT_PER_1M = SONNET_OUTPUT_PER_1M
 
     # Replicate Imagen-3-Fast pricing
     IMAGEN_3_FAST_PER_IMAGE = 0.025
@@ -153,7 +183,7 @@ def calculate_story_cost(
     tts_provider: str = "openai"
 ) -> CostBreakdown:
     """
-    Calculate estimated cost for generating a single story.
+    Calculate estimated cost for generating a single story using 2-agent system.
 
     Args:
         word_target: Target word count (1500 or 3000)
@@ -166,27 +196,48 @@ def calculate_story_cost(
     """
     breakdown = CostBreakdown()
 
-    # === Claude API Costs ===
-    # Input: System prompt + bible + beat template + history
-    # We estimate ~2000 words of input context
-    input_words = 2000
-    breakdown.claude_input_tokens = estimate_claude_tokens(input_words, is_input=True)
+    # === Writer Agent (Sonnet) Costs ===
+    # Input: System prompt + bible + beat template + history (~2000 words)
+    writer_input_words = 2000
+    breakdown.writer_input_tokens = estimate_claude_tokens(writer_input_words, is_input=True)
 
-    # Output: Story prose + JSON structure
-    # Story is the word_target, plus ~200 words of JSON metadata
-    output_words = word_target + 200
-    breakdown.claude_output_tokens = estimate_claude_tokens(output_words, is_input=False)
+    # Output: Story prose + JSON structure (word_target + ~200 words JSON)
+    writer_output_words = word_target + 200
+    breakdown.writer_output_tokens = estimate_claude_tokens(writer_output_words, is_input=False)
 
-    # Calculate costs
-    breakdown.claude_input_cost = (
-        breakdown.claude_input_tokens / 1_000_000 * Pricing.CLAUDE_INPUT_PER_1M
+    # Calculate Writer costs (Sonnet pricing)
+    breakdown.writer_input_cost = (
+        breakdown.writer_input_tokens / 1_000_000 * Pricing.SONNET_INPUT_PER_1M
     )
-    breakdown.claude_output_cost = (
-        breakdown.claude_output_tokens / 1_000_000 * Pricing.CLAUDE_OUTPUT_PER_1M
+    breakdown.writer_output_cost = (
+        breakdown.writer_output_tokens / 1_000_000 * Pricing.SONNET_OUTPUT_PER_1M
     )
-    breakdown.claude_total_cost = (
-        breakdown.claude_input_cost + breakdown.claude_output_cost
+    breakdown.writer_total_cost = (
+        breakdown.writer_input_cost + breakdown.writer_output_cost
     )
+
+    # === Judge Agent (Haiku) Costs ===
+    # Input: Story text + requirements (~word_target + 500 words context)
+    judge_input_words = word_target + 500
+    breakdown.judge_input_tokens = estimate_claude_tokens(judge_input_words, is_input=True, include_system_prompt=False)
+
+    # Output: Validation JSON (~200 words)
+    judge_output_words = 200
+    breakdown.judge_output_tokens = estimate_claude_tokens(judge_output_words, is_input=False)
+
+    # Calculate Judge costs (Haiku pricing)
+    breakdown.judge_input_cost = (
+        breakdown.judge_input_tokens / 1_000_000 * Pricing.HAIKU_INPUT_PER_1M
+    )
+    breakdown.judge_output_cost = (
+        breakdown.judge_output_tokens / 1_000_000 * Pricing.HAIKU_OUTPUT_PER_1M
+    )
+    breakdown.judge_total_cost = (
+        breakdown.judge_input_cost + breakdown.judge_output_cost
+    )
+
+    # Combined Claude costs
+    breakdown.claude_total_cost = breakdown.writer_total_cost + breakdown.judge_total_cost
 
     # === Image Generation Costs ===
     if include_image:
@@ -373,7 +424,7 @@ def get_quick_cost_summary() -> Dict[str, Any]:
 if __name__ == "__main__":
     # Print cost summary
     print("\n" + "="*60)
-    print("Story Generation Cost Estimates")
+    print("Story Generation Cost Estimates (2-Agent System)")
     print("="*60)
 
     summary = get_quick_cost_summary()
@@ -384,20 +435,30 @@ if __name__ == "__main__":
         print(f"  Monthly (30 stories): {costs['formatted_monthly']}")
 
     print("\n" + "="*60)
-    print("\nDetailed breakdown for premium long story:")
-    detailed = estimate_generation_cost("premium", "long", True, True)
+    print("\nDetailed breakdown for premium medium story:")
+    detailed = estimate_generation_cost("premium", "medium", True, True)
 
-    print(f"\nClaude API:")
-    print(f"  Input tokens: {detailed['claude']['input_tokens']:,}")
-    print(f"  Output tokens: {detailed['claude']['output_tokens']:,}")
-    print(f"  Input cost: ${detailed['claude']['input_cost']:.4f}")
-    print(f"  Output cost: ${detailed['claude']['output_cost']:.4f}")
+    print(f"\nWriter Agent (Sonnet):")
+    print(f"  Input tokens: {detailed['writer']['input_tokens']:,}")
+    print(f"  Output tokens: {detailed['writer']['output_tokens']:,}")
+    print(f"  Input cost: ${detailed['writer']['input_cost']:.4f}")
+    print(f"  Output cost: ${detailed['writer']['output_cost']:.4f}")
+    print(f"  Total: ${detailed['writer']['total_cost']:.4f}")
+
+    print(f"\nJudge Agent (Haiku):")
+    print(f"  Input tokens: {detailed['judge']['input_tokens']:,}")
+    print(f"  Output tokens: {detailed['judge']['output_tokens']:,}")
+    print(f"  Input cost: ${detailed['judge']['input_cost']:.4f}")
+    print(f"  Output cost: ${detailed['judge']['output_cost']:.4f}")
+    print(f"  Total: ${detailed['judge']['total_cost']:.4f}")
+
+    print(f"\nClaude Total: ${detailed['claude_total']:.4f}")
 
     print(f"\nImage (Replicate Imagen-3-Fast):")
     print(f"  Count: {detailed['image']['count']}")
     print(f"  Cost: ${detailed['image']['total_cost']:.4f}")
 
-    print(f"\nAudio (ElevenLabs):")
+    print(f"\nAudio (OpenAI TTS):")
     print(f"  Characters: {detailed['audio']['characters']:,}")
     print(f"  Cost: ${detailed['audio']['total_cost']:.4f}")
 

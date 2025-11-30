@@ -1,0 +1,444 @@
+"""
+WriterAgent: Generates complete stories in a single LLM call.
+
+Replaces the 3-agent flow (CBA → CEA → PA) with a single, focused writer.
+Uses Claude Sonnet for high-quality prose generation.
+"""
+
+import json
+import time
+from typing import Dict, Any, Optional
+from dataclasses import dataclass
+
+from langchain_anthropic import ChatAnthropic
+from langchain_core.messages import HumanMessage
+
+from backend.config import config
+
+
+@dataclass
+class WriterResult:
+    """Result from WriterAgent."""
+    success: bool
+    title: str
+    narrative: str
+    word_count: int
+    plot_type: str
+    story_premise: str
+    generation_time: float
+    error: Optional[str] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "success": self.success,
+            "title": self.title,
+            "narrative": self.narrative,
+            "word_count": self.word_count,
+            "plot_type": self.plot_type,
+            "story_premise": self.story_premise,
+            "generation_time": self.generation_time,
+            "error": self.error
+        }
+
+
+class WriterAgent:
+    """
+    Generates complete stories in a single LLM call.
+
+    Combines beat planning and prose generation into one prompt,
+    reducing API calls from 3 to 1 and improving coherence.
+    """
+
+    def __init__(self, model_name: str = None, temperature: float = 0.8):
+        """
+        Initialize WriterAgent.
+
+        Args:
+            model_name: Claude model to use (defaults to config.MODEL_NAME)
+            temperature: Creativity level (0.7-0.9 recommended for prose)
+        """
+        self.model_name = model_name or config.MODEL_NAME
+        self.temperature = temperature
+
+        self.llm = ChatAnthropic(
+            model=self.model_name,
+            temperature=self.temperature,
+            max_tokens=8000,  # Enough for ~5000 word stories
+            anthropic_api_key=config.ANTHROPIC_API_KEY,
+            timeout=180.0,  # 3 minutes for long stories
+        )
+
+    async def generate(
+        self,
+        story_bible: Dict[str, Any],
+        beat_template: Dict[str, Any],
+        is_cliffhanger: bool = False,
+        cameo: Optional[Dict[str, Any]] = None,
+        user_preferences: Optional[Dict[str, Any]] = None,
+        excluded_names: Optional[Dict[str, Any]] = None,
+        judge_feedback: Optional[str] = None
+    ) -> WriterResult:
+        """
+        Generate a complete story.
+
+        Args:
+            story_bible: Enhanced story bible with world, characters, settings
+            beat_template: Beat structure template
+            is_cliffhanger: Whether to end on a cliffhanger (free tier)
+            cameo: Optional cameo character
+            user_preferences: User preferences from ratings
+            excluded_names: Names to avoid (recently used)
+            judge_feedback: Feedback from Judge for rewrite attempts
+
+        Returns:
+            WriterResult with complete story
+        """
+        start_time = time.time()
+
+        try:
+            # Build the prompt
+            prompt = self._build_prompt(
+                story_bible=story_bible,
+                beat_template=beat_template,
+                is_cliffhanger=is_cliffhanger,
+                cameo=cameo,
+                user_preferences=user_preferences,
+                excluded_names=excluded_names,
+                judge_feedback=judge_feedback
+            )
+
+            # Generate story
+            response = await self.llm.ainvoke([HumanMessage(content=prompt)])
+
+            generation_time = time.time() - start_time
+
+            # Parse response
+            result = self._parse_response(response.content, generation_time)
+
+            return result
+
+        except Exception as e:
+            generation_time = time.time() - start_time
+            return WriterResult(
+                success=False,
+                title="",
+                narrative="",
+                word_count=0,
+                plot_type="",
+                story_premise="",
+                generation_time=generation_time,
+                error=str(e)
+            )
+
+    def _build_prompt(
+        self,
+        story_bible: Dict[str, Any],
+        beat_template: Dict[str, Any],
+        is_cliffhanger: bool,
+        cameo: Optional[Dict[str, Any]],
+        user_preferences: Optional[Dict[str, Any]],
+        excluded_names: Optional[Dict[str, Any]],
+        judge_feedback: Optional[str]
+    ) -> str:
+        """Build the writer prompt."""
+
+        # Extract story bible components
+        genre = story_bible.get("genre", "fiction")
+        setting = story_bible.get("setting", {})
+        tone = story_bible.get("tone", "")
+        themes = story_bible.get("themes", [])
+        story_history = story_bible.get("story_history", {})
+        genre_config = story_bible.get("genre_config", {})
+        story_settings = story_bible.get("story_settings", {})
+
+        # Handle characters
+        has_recurring_chars = genre_config.get("characters") == "user" or "protagonist" in story_bible
+        protagonist = story_bible.get("protagonist", story_bible.get("character_template", {}))
+        supporting = story_bible.get("supporting_characters", story_bible.get("supporting_cast_template", []))
+        main_characters = story_bible.get("main_characters", [])
+
+        # Template details
+        total_words = beat_template.get("total_words", 1500)
+        beats = beat_template.get("beats", [])
+
+        # Build context sections
+        history_context = self._build_history_context(story_history)
+        prefs_context = self._build_preferences_context(user_preferences)
+        excluded_context = self._build_excluded_names_context(excluded_names)
+        cameo_context = self._build_cameo_context(cameo)
+        ending_context = self._build_ending_context(is_cliffhanger)
+        beats_context = self._build_beats_context(beats)
+        feedback_context = self._build_feedback_context(judge_feedback)
+
+        prompt = f"""You are an expert fiction writer creating a complete standalone story.
+
+## YOUR TASK
+
+Write a complete, polished {total_words}-word story. This should be publication-ready prose.
+{feedback_context}
+
+## STORY WORLD
+
+**Genre**: {genre_config.get('label', genre)}
+**Tone**: {tone}
+**Intensity**: {story_settings.get('intensity_label', 'Moderate')}
+**Themes**: {', '.join(themes) if themes else 'To be discovered'}
+
+**Setting**: {setting.get('name', 'N/A')}
+{setting.get('description', '')}
+
+**Atmosphere**: {setting.get('atmosphere', '')}
+
+## {"PROTAGONIST (recurring)" if has_recurring_chars else "CHARACTER (create fresh)"}
+
+{"**Name**: " + protagonist.get('name', 'N/A') if has_recurring_chars else "**Archetype**: " + protagonist.get('archetype', 'To be determined')}
+**Role**: {protagonist.get('role', 'N/A')}
+**Traits**: {', '.join(protagonist.get('key_traits', []))}
+**Defining Characteristic**: {protagonist.get('defining_characteristic', 'N/A')}
+**Voice**: {protagonist.get('voice', 'thoughtful')}
+
+{"" if has_recurring_chars else "**Create a NEW protagonist** with a unique name based on this template."}
+
+{f'''## MAIN CHARACTERS (MUST appear)
+
+These recurring characters MUST appear in this story:
+{json.dumps(main_characters, indent=2)}
+''' if main_characters else ''}
+{f'''## SUPPORTING CAST
+{json.dumps(supporting, indent=2)}
+''' if supporting else ''}
+{history_context}
+{prefs_context}
+{excluded_context}
+{cameo_context}
+{ending_context}
+
+## STORY STRUCTURE ({len(beats)} beats, {total_words} words total)
+
+Follow this beat structure:
+{beats_context}
+
+## OUTPUT FORMAT
+
+Return your response as JSON with this structure:
+
+```json
+{{
+  "title": "Your story title",
+  "premise": "One-sentence story hook",
+  "plot_type": "mystery/action/romance/character study/etc",
+  "narrative": "YOUR COMPLETE STORY HERE - all {total_words} words of polished prose"
+}}
+```
+
+## WRITING GUIDELINES
+
+**Quality**:
+- Vivid, sensory prose - show don't tell
+- Strong opening hook that grabs attention
+- Natural, character-revealing dialogue
+- Third person limited POV on protagonist
+- Vary sentence structure and length
+
+**Pacing**:
+- Each beat flows naturally to the next
+- Build tension through the middle beats
+- Give emotional moments room to breathe
+- Honor the word targets for each beat
+
+**Character**:
+- Protagonist's voice is consistent throughout
+- Actions match established personality
+- Respect any defined limitations
+- Show growth or realization
+
+**World**:
+- Setting details ground the reader
+- World feels lived-in and real
+- Environment affects the action
+
+Write the complete story now. Target exactly {total_words} words.
+"""
+        return prompt
+
+    def _build_history_context(self, story_history: Dict[str, Any]) -> str:
+        """Build recent story history context."""
+        recent_summaries = story_history.get("recent_summaries", [])
+        recent_plots = story_history.get("recent_plot_types", [])
+
+        if not recent_summaries:
+            return ""
+
+        history_text = "\n".join([f"  - {s}" for s in recent_summaries[-5:]])
+        context = f"\n\n## RECENT STORIES (avoid repeating)\n\n{history_text}"
+
+        if recent_plots:
+            plots_text = ", ".join(recent_plots[-5:])
+            context += f"\n\nRecent plot types: {plots_text}"
+
+        return context
+
+    def _build_preferences_context(self, user_preferences: Optional[Dict[str, Any]]) -> str:
+        """Build user preferences context."""
+        if not user_preferences:
+            return ""
+
+        pacing = user_preferences.get("pacing_preference", "medium")
+        action = user_preferences.get("action_level", "medium")
+        emotion = user_preferences.get("emotional_depth", "medium")
+
+        return f"""
+
+## USER PREFERENCES
+
+Based on their ratings, this user prefers:
+- Pacing: {pacing}
+- Action level: {action}
+- Emotional depth: {emotion}
+
+Adjust the story to match these preferences.
+"""
+
+    def _build_excluded_names_context(self, excluded_names: Optional[Dict[str, Any]]) -> str:
+        """Build excluded names context."""
+        if not excluded_names:
+            return ""
+
+        char_names = excluded_names.get("characters", [])
+        place_names = excluded_names.get("places", [])
+
+        if not char_names and not place_names:
+            return ""
+
+        context = "\n\n## AVOID THESE NAMES (recently used)\n\n"
+        if char_names:
+            context += f"**Characters to AVOID**: {', '.join(char_names[:20])}\n"
+        if place_names:
+            context += f"**Places to AVOID**: {', '.join(place_names[:20])}\n"
+        context += "\nCreate FRESH, unique names with diverse cultural backgrounds."
+
+        return context
+
+    def _build_cameo_context(self, cameo: Optional[Dict[str, Any]]) -> str:
+        """Build cameo character context."""
+        if not cameo:
+            return ""
+
+        return f"""
+
+## CAMEO CHARACTER (optional)
+
+Include a brief cameo if it fits naturally:
+- **Name**: {cameo.get('name', 'N/A')}
+- **Description**: {cameo.get('description', 'N/A')}
+
+Brief appearance only - don't force it.
+"""
+
+    def _build_ending_context(self, is_cliffhanger: bool) -> str:
+        """Build ending style context."""
+        if is_cliffhanger:
+            return """
+
+## ENDING STYLE: Curiosity Hook
+
+End on an intriguing note:
+- **DO**: Resolve the immediate story question
+- **DO**: End with a new discovery, revelation, or question
+- **DON'T**: End on life-or-death peril
+- **DON'T**: Leave the core plot unresolved
+
+Example: "She found the answer. But it raised a bigger question—one she wasn't sure she wanted answered."
+"""
+        else:
+            return """
+
+## ENDING STYLE: Complete Resolution
+
+Give a satisfying conclusion:
+- Resolve the central story question
+- Emotional or thematic landing
+- Character growth or realization
+- Sense of completion
+"""
+
+    def _build_beats_context(self, beats: list) -> str:
+        """Build beat structure context."""
+        beats_text = ""
+        for beat in beats:
+            beat_num = beat.get("beat_number", "?")
+            beat_name = beat.get("beat_name", "")
+            word_target = beat.get("word_target", 0)
+            description = beat.get("description", "")
+
+            beats_text += f"\n**Beat {beat_num}: {beat_name.upper()}** ({word_target} words)\n{description}\n"
+
+        return beats_text
+
+    def _build_feedback_context(self, judge_feedback: Optional[str]) -> str:
+        """Build Judge feedback context for rewrites."""
+        if not judge_feedback:
+            return ""
+
+        return f"""
+
+## REWRITE REQUIRED
+
+The previous version had issues. Address this feedback:
+
+{judge_feedback}
+
+Make sure to fix ALL issues mentioned above.
+"""
+
+    def _parse_response(self, response_text: str, generation_time: float) -> WriterResult:
+        """Parse LLM response into WriterResult."""
+
+        # Try to extract JSON
+        text = response_text.strip()
+
+        # Handle markdown code blocks
+        if "```json" in text:
+            text = text.split("```json")[1].split("```")[0].strip()
+        elif "```" in text:
+            text = text.split("```")[1].split("```")[0].strip()
+
+        try:
+            data = json.loads(text)
+
+            narrative = data.get("narrative", "")
+            word_count = len(narrative.split())
+
+            return WriterResult(
+                success=True,
+                title=data.get("title", "Untitled"),
+                narrative=narrative,
+                word_count=word_count,
+                plot_type=data.get("plot_type", "unknown"),
+                story_premise=data.get("premise", ""),
+                generation_time=generation_time
+            )
+
+        except json.JSONDecodeError:
+            # If JSON parsing fails, treat entire response as narrative
+            # Try to extract a title from the first line
+            lines = response_text.strip().split("\n")
+            title = "Untitled"
+            narrative = response_text.strip()
+
+            # Check if first line looks like a title
+            if lines and len(lines[0]) < 100 and not lines[0].startswith(("The ", "A ", "I ", "She ", "He ")):
+                title = lines[0].strip().strip("#").strip()
+                narrative = "\n".join(lines[1:]).strip()
+
+            word_count = len(narrative.split())
+
+            return WriterResult(
+                success=True,
+                title=title,
+                narrative=narrative,
+                word_count=word_count,
+                plot_type="unknown",
+                story_premise="",
+                generation_time=generation_time
+            )
