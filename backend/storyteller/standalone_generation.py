@@ -2,7 +2,7 @@
 Main story generation workflow for FixionMail standalone stories.
 
 This orchestrates the 2-agent system for daily story generation:
-- WriterAgent (Sonnet): Generates complete stories
+- WriterAgent (Sonnet/Opus): Generates complete stories
 - JudgeAgent (Haiku): Validates quality, triggers rewrites if needed
 """
 
@@ -10,7 +10,7 @@ import time
 import json
 import asyncio
 import os
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Literal
 from datetime import datetime
 from langchain_core.messages import HumanMessage
 from langchain_anthropic import ChatAnthropic
@@ -23,7 +23,10 @@ from backend.storyteller.name_registry import (
     add_used_names,
     cleanup_expired_names
 )
-from backend.agents import WriterAgent, JudgeAgent
+from backend.agents import WriterAgent, JudgeAgent, WRITER_MODELS
+
+# Type alias for writer model selection
+WriterModelType = Literal["sonnet", "opus"]
 
 
 async def generate_story_audio_openai(
@@ -373,7 +376,8 @@ async def generate_standalone_story(
     dev_mode: bool = False,
     voice_id: Optional[str] = None,
     tts_provider: str = "openai",
-    tts_voice: Optional[str] = None
+    tts_voice: Optional[str] = None,
+    writer_model: WriterModelType = "sonnet"
 ) -> Dict[str, Any]:
     """
     Generate a complete standalone story using the 2-agent system.
@@ -381,7 +385,7 @@ async def generate_standalone_story(
     Flow:
     1. Select beat template based on genre and tier
     2. Determine if cliffhanger/cameo
-    3. WRITER: Generate complete story (Sonnet)
+    3. WRITER: Generate complete story (Sonnet or Opus)
     4. JUDGE: Validate quality (Haiku)
     5. If fail: Writer rewrites with feedback (max 1 retry)
     6. Generate media (image, audio)
@@ -395,16 +399,21 @@ async def generate_standalone_story(
         voice_id: Legacy parameter (deprecated, ignored)
         tts_provider: TTS provider (currently only "openai" is supported)
         tts_voice: Voice name for selected provider
+        writer_model: Writer model - "sonnet" (default) or "opus" (premium)
 
     Returns:
         Dict with generated story and metadata
     """
     start_time = time.time()
 
+    # Get writer model info
+    model_info = WRITER_MODELS.get(writer_model, WRITER_MODELS["sonnet"])
+
     print(f"\n{'='*70}")
     print(f"GENERATING STANDALONE STORY (2-Agent System)")
     print(f"Genre: {story_bible.get('genre', 'N/A')}")
     print(f"Tier: {user_tier}")
+    print(f"Writer Model: {model_info['name']} ({model_info['cost_tier']})")
     print(f"{'='*70}")
 
     try:
@@ -459,10 +468,10 @@ async def generate_standalone_story(
 
         # Step 4: WRITER - Generate complete story
         print(f"\n{'─'*70}")
-        print(f"WRITER: GENERATING STORY (Sonnet)")
+        print(f"WRITER: GENERATING STORY ({model_info['name']})")
         print(f"{'─'*70}")
 
-        writer = WriterAgent()
+        writer = WriterAgent(model=writer_model)
         judge = JudgeAgent()
 
         # First attempt
@@ -627,6 +636,8 @@ async def generate_standalone_story(
                 "judge_passed": judge_result.passed,
                 "generation_time_seconds": total_time,
                 "writer_time_seconds": writer_result.generation_time,
+                "writer_model": writer_result.model_used,
+                "writer_model_name": model_info["name"],
                 "judge_time_seconds": judge_result.validation_time,
                 "template_used": template.name,
                 "tts_provider": tts_provider
