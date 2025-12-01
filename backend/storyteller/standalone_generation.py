@@ -1,9 +1,10 @@
 """
 Main story generation workflow for FixionMail standalone stories.
 
-This orchestrates the 2-agent system for daily story generation:
-- WriterAgent (Sonnet/Opus): Generates complete stories
-- JudgeAgent (Haiku): Validates quality, triggers rewrites if needed
+This orchestrates the 3-agent system for daily story generation:
+- StructureAgent (SSBA, Sonnet): Creates story-specific beat structures
+- WriterAgent (Sonnet): Generates first draft from beat plan
+- EditorAgent (Opus): Rewrites/polishes AND validates quality
 """
 
 import time
@@ -23,11 +24,15 @@ from backend.storyteller.name_registry import (
     add_used_names,
     cleanup_expired_names
 )
-from backend.agents import WriterAgent, JudgeAgent, StructureAgent, WRITER_MODELS, STRUCTURE_MODELS
+from backend.agents import (
+    WriterAgent, StructureAgent, EditorAgent,
+    WRITER_MODELS, STRUCTURE_MODELS, EDITOR_MODELS
+)
 
 # Type alias for model selection
 WriterModelType = Literal["sonnet", "opus"]
 StructureModelType = Literal["haiku", "sonnet"]
+EditorModelType = Literal["opus", "sonnet"]
 
 
 async def generate_story_audio_openai(
@@ -376,6 +381,7 @@ async def generate_standalone_story(
     tts_voice: Optional[str] = None,
     writer_model: WriterModelType = "sonnet",
     structure_model: StructureModelType = "sonnet",
+    editor_model: EditorModelType = "opus",
     use_structure_agent: bool = True
 ) -> Dict[str, Any]:
     """
@@ -384,12 +390,11 @@ async def generate_standalone_story(
     Flow:
     1. Select beat template based on genre and tier
     2. Determine if cliffhanger/cameo
-    3. STRUCTURE (SSBA): Create story-specific beat plan (if enabled)
-    4. WRITER: Generate complete story (Sonnet or Opus)
-    5. JUDGE: Validate quality (Haiku)
-    6. If fail: Writer rewrites with feedback (max 1 retry)
-    7. Generate media (image, audio)
-    8. Post-process: Extract summary, update bible
+    3. STRUCTURE (SSBA): Create story-specific beat plan (Sonnet)
+    4. WRITER: Generate first draft (Sonnet)
+    5. EDITOR: Rewrite/polish AND validate quality (Opus)
+    6. Generate media (image, audio)
+    7. Post-process: Extract summary, update bible
 
     Args:
         story_bible: Enhanced story bible
@@ -399,8 +404,9 @@ async def generate_standalone_story(
         voice_id: Legacy parameter (deprecated, ignored)
         tts_provider: TTS provider (currently only "openai" is supported)
         tts_voice: Voice name for selected provider
-        writer_model: Writer model - "sonnet" (default) or "opus" (premium)
-        structure_model: Structure agent model - "haiku" (fast) or "sonnet" (quality, default)
+        writer_model: Writer model - "sonnet" (default) for first draft
+        structure_model: Structure agent model - "sonnet" (default) for planning
+        editor_model: Editor model - "opus" (default) for polish and validation
         use_structure_agent: Enable SSBA for story-specific beat planning (default True)
 
     Returns:
@@ -411,6 +417,7 @@ async def generate_standalone_story(
     # Get model info
     writer_model_info = WRITER_MODELS.get(writer_model, WRITER_MODELS["sonnet"])
     structure_model_info = STRUCTURE_MODELS.get(structure_model, STRUCTURE_MODELS["sonnet"])
+    editor_model_info = EDITOR_MODELS.get(editor_model, EDITOR_MODELS["opus"])
 
     agent_system = "3-Agent" if use_structure_agent else "2-Agent"
     print(f"\n{'='*70}")
@@ -418,8 +425,9 @@ async def generate_standalone_story(
     print(f"Genre: {story_bible.get('genre', 'N/A')}")
     print(f"Tier: {user_tier}")
     if use_structure_agent:
-        print(f"Structure Model: {structure_model_info['name']} ({structure_model_info['cost_tier']})")
-    print(f"Writer Model: {writer_model_info['name']} ({writer_model_info['cost_tier']})")
+        print(f"Structure: {structure_model_info['name']} ({structure_model_info['cost_tier']})")
+    print(f"Writer: {writer_model_info['name']} ({writer_model_info['cost_tier']})")
+    print(f"Editor: {editor_model_info['name']} ({editor_model_info['cost_tier']})")
     print(f"{'='*70}")
 
     try:
@@ -503,15 +511,13 @@ async def generate_standalone_story(
             beat_plan = template.to_dict()
             print(f"\n  (SSBA disabled - using generic template)")
 
-        # Step 5: WRITER - Generate complete story
+        # Step 5: WRITER - Generate first draft
         print(f"\n{'─'*70}")
-        print(f"WRITER: GENERATING STORY ({writer_model_info['name']})")
+        print(f"WRITER: GENERATING FIRST DRAFT ({writer_model_info['name']})")
         print(f"{'─'*70}")
 
         writer = WriterAgent(model=writer_model)
-        judge = JudgeAgent()
 
-        # First attempt
         writer_result = await writer.generate(
             story_bible=story_bible,
             beat_template=beat_plan,
@@ -524,69 +530,64 @@ async def generate_standalone_story(
         if not writer_result.success:
             raise Exception(f"Writer failed: {writer_result.error}")
 
-        print(f"\n✓ Story generated")
+        print(f"\n✓ First draft generated")
         print(f"  Title: {writer_result.title}")
         print(f"  Word count: {writer_result.word_count}")
         print(f"  Time: {writer_result.generation_time:.2f}s")
 
-        # Step 6: JUDGE - Validate story
+        # Step 6: EDITOR - Rewrite/polish AND validate (Opus)
         print(f"\n{'─'*70}")
-        print(f"JUDGE: VALIDATING STORY (Haiku)")
+        print(f"EDITOR: POLISHING STORY ({editor_model_info['name']})")
         print(f"{'─'*70}")
 
-        judge_result = await judge.validate(
-            narrative=writer_result.narrative,
+        editor = EditorAgent(model=editor_model)
+
+        editor_result = await editor.edit(
+            first_draft=writer_result.narrative,
             title=writer_result.title,
+            beat_plan=beat_plan,
             story_bible=story_bible,
-            beat_template=beat_plan,
             is_cliffhanger=is_cliffhanger
         )
 
-        print(f"\n✓ Validation complete")
-        print(f"  Passed: {judge_result.passed}")
-        print(f"  Overall score: {judge_result.overall_score}/10")
-        if judge_result.scores:
-            for criterion, score in judge_result.scores.items():
-                print(f"    {criterion}: {score}/10")
+        if not editor_result.success:
+            print(f"\n⚠️  Editor failed: {editor_result.error}")
+            print(f"    Using first draft as final story...")
+            story_title = writer_result.title
+            narrative = writer_result.narrative
+            word_count = writer_result.word_count
+            quality_scores = {}
+            overall_score = 0.0
+            passed = False
+            edit_notes = ""
+            editor_time = 0.0
+        else:
+            story_title = editor_result.title
+            narrative = editor_result.narrative
+            word_count = editor_result.word_count
+            quality_scores = editor_result.quality_scores
+            overall_score = editor_result.overall_score
+            passed = editor_result.passed
+            edit_notes = editor_result.edit_notes
+            editor_time = editor_result.generation_time
 
-        # Step 7: Rewrite if needed (max 1 retry)
-        story_title = writer_result.title
-        narrative = writer_result.narrative
-        word_count = writer_result.word_count
-
-        if not judge_result.passed and judge_result.feedback:
-            print(f"\n{'─'*70}")
-            print(f"WRITER: REWRITING WITH FEEDBACK")
-            print(f"{'─'*70}")
-            print(f"  Feedback: {judge_result.feedback[:100]}...")
-
-            # Rewrite with Judge's feedback
-            rewrite_result = await writer.generate(
-                story_bible=story_bible,
-                beat_template=beat_plan,
-                is_cliffhanger=is_cliffhanger,
-                cameo=cameo,
-                user_preferences=story_bible.get("user_preferences"),
-                excluded_names=excluded_names,
-                judge_feedback=judge_result.feedback
-            )
-
-            if rewrite_result.success:
-                print(f"\n✓ Rewrite complete")
-                print(f"  Word count: {rewrite_result.word_count}")
-                print(f"  Time: {rewrite_result.generation_time:.2f}s")
-
-                story_title = rewrite_result.title
-                narrative = rewrite_result.narrative
-                word_count = rewrite_result.word_count
-            else:
-                print(f"\n⚠️  Rewrite failed, using original story")
+            print(f"\n✓ Story polished")
+            print(f"  Title: {story_title}")
+            print(f"  Word count: {word_count}")
+            print(f"  Overall score: {overall_score}/10")
+            if quality_scores:
+                for criterion, score in quality_scores.items():
+                    print(f"    {criterion}: {score}/10")
+            if edit_notes:
+                print(f"  Edit notes: {edit_notes[:80]}...")
+            print(f"  Time: {editor_time:.2f}s")
 
         print(f"\n✓ Final story ready")
         print(f"  Word count: {word_count}")
         print(f"  Target: {template.total_words} (±15%)")
+        print(f"  Quality: {'PASSED' if passed else 'NEEDS REVIEW'}")
 
-        # Step 8: Generate cover image
+        # Step 7: Generate cover image
         # In dev mode, ALWAYS generate for both free and premium (for testing)
         # In production, only generate for premium
         should_generate_media = dev_mode or user_tier == "premium"
@@ -605,7 +606,7 @@ async def generate_standalone_story(
                 genre=genre
             )
 
-        # Step 9: Generate audio (TTS)
+        # Step 8: Generate audio (TTS)
         # In dev mode, ALWAYS generate for both free and premium (for testing)
         # In production, only generate for premium
         audio_url = None
@@ -624,10 +625,10 @@ async def generate_standalone_story(
                 voice=tts_voice
             )
 
-        # Step 10: Create summary
+        # Step 9: Create summary
         summary = f"{story_title}: {writer_result.story_premise or 'A story in this world'}"
 
-        # Step 11: Extract and save used names (to avoid repetition in future stories)
+        # Step 10: Extract and save used names (to avoid repetition in future stories)
         # Create a minimal beat_plan dict for name extraction compatibility
         beat_plan_compat = {
             "story_title": story_title,
@@ -669,8 +670,10 @@ async def generate_standalone_story(
             "metadata": {
                 "plot_type": writer_result.plot_type,
                 "summary": summary,
-                "judge_scores": judge_result.scores,
-                "judge_passed": judge_result.passed,
+                "quality_scores": quality_scores,
+                "quality_passed": passed,
+                "overall_score": overall_score,
+                "edit_notes": edit_notes,
                 "generation_time_seconds": total_time,
                 "structure_time_seconds": structure_time,
                 "structure_model": structure_model if use_structure_agent else None,
@@ -678,7 +681,9 @@ async def generate_standalone_story(
                 "writer_time_seconds": writer_result.generation_time,
                 "writer_model": writer_result.model_used,
                 "writer_model_name": writer_model_info["name"],
-                "judge_time_seconds": judge_result.validation_time,
+                "editor_time_seconds": editor_time,
+                "editor_model": editor_model,
+                "editor_model_name": editor_model_info["name"],
                 "template_used": template.name,
                 "used_structure_agent": use_structure_agent,
                 "tts_provider": tts_provider
@@ -702,11 +707,12 @@ async def generate_standalone_story(
 # Story Generation Architecture:
 #
 # 3-Agent System (default, use_structure_agent=True):
-#   StructureAgent (SSBA) → WriterAgent (PA) → JudgeAgent
+#   StructureAgent (SSBA, Sonnet) → WriterAgent (Sonnet) → EditorAgent (Opus)
 #
 # 2-Agent System (use_structure_agent=False):
-#   WriterAgent (PA) → JudgeAgent
+#   WriterAgent (Sonnet) → EditorAgent (Opus)
 #
 # Future: Multi-Chapter Stories (Phase 7):
-#   StructureAgent (full arc) → ChapterBeatAgent (per chapter) → WriterAgent → JudgeAgent
-# See backend/agents/ for the new implementation
+#   StructureAgent (full arc) → ChapterBeatAgent (per chapter) → WriterAgent → EditorAgent
+#
+# See backend/agents/ for agent implementations
