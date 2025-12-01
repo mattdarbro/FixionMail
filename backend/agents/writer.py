@@ -208,6 +208,9 @@ class WriterAgent:
         supporting = story_bible.get("supporting_characters", story_bible.get("supporting_cast_template", []))
         main_characters = story_bible.get("main_characters", [])
 
+        # Check if we have SSBA-structured beats or generic template
+        is_structured = self._is_structured_beat_plan(beat_template)
+
         # Template details
         total_words = beat_template.get("total_words", 1500)
         beats = beat_template.get("beats", [])
@@ -219,8 +222,43 @@ class WriterAgent:
         cameo_context = self._build_cameo_context(cameo)
         ending_context = self._build_ending_context(is_cliffhanger)
         intensity_context = self._build_intensity_context(story_settings)
-        beats_context = self._build_beats_context(beats)
+        beats_context = self._build_beats_context(beats, is_structured=is_structured)
         feedback_context = self._build_feedback_context(judge_feedback)
+
+        # Build SSBA planning section if structured, otherwise use THINK FIRST
+        if is_structured:
+            story_premise = beat_template.get("story_premise", "")
+            central_conflict = beat_template.get("central_conflict", "")
+            emotional_journey = beat_template.get("emotional_journey", "")
+            thematic_core = beat_template.get("thematic_core", "")
+
+            planning_section = f"""
+## STORY DESIGN (from Structure Agent)
+
+The story architecture has been designed for you. Your job is to bring it to life with vivid prose.
+
+**Story Premise**: {story_premise}
+**Central Conflict**: {central_conflict}
+**Emotional Journey**: {emotional_journey}
+**Thematic Core**: {thematic_core}
+
+Execute this vision with excellent prose craft. The structure is set—focus on bringing each beat to life.
+"""
+            beat_instruction = "Follow this beat structure precisely. Each beat has specific SCENE details, EMOTIONAL ARC, and KEY MOMENTS to hit:"
+        else:
+            planning_section = """
+## THINK FIRST
+
+Before writing, mentally plan:
+1. **Core Conflict**: What does the protagonist want? What stands in their way?
+2. **Emotional Arc**: How does the protagonist feel at start vs end? What changes them?
+3. **Central Image/Symbol**: What recurring image or motif ties the story together?
+4. **The Hook**: What specific moment or question will grab the reader immediately?
+5. **Genre Promise**: What does this genre owe the reader? (Mystery = puzzle solved, Romance = relationship, etc.)
+
+Let these guide every scene. A story without clear conflict and change is just events happening.
+"""
+            beat_instruction = "Follow this beat structure carefully. Each beat has a PURPOSE (what happens) and CRAFT GUIDANCE (how to write it):"
 
         prompt = f"""You are an expert fiction writer creating a complete standalone story.
 
@@ -263,22 +301,11 @@ These recurring characters MUST appear in this story:
 {excluded_context}
 {cameo_context}
 {ending_context}
-
+{planning_section}
 ## STORY STRUCTURE ({len(beats)} beats, {total_words} words total)
 
-Follow this beat structure carefully. Each beat has a PURPOSE (what happens) and CRAFT GUIDANCE (how to write it):
+{beat_instruction}
 {beats_context}
-
-## THINK FIRST
-
-Before writing, mentally plan:
-1. **Core Conflict**: What does the protagonist want? What stands in their way?
-2. **Emotional Arc**: How does the protagonist feel at start vs end? What changes them?
-3. **Central Image/Symbol**: What recurring image or motif ties the story together?
-4. **The Hook**: What specific moment or question will grab the reader immediately?
-5. **Genre Promise**: What does this genre owe the reader? (Mystery = puzzle solved, Romance = relationship, etc.)
-
-Let these guide every scene. A story without clear conflict and change is just events happening.
 
 ## OUTPUT FORMAT
 
@@ -476,22 +503,66 @@ Give a satisfying conclusion:
 - Sense of completion
 """
 
-    def _build_beats_context(self, beats: list) -> str:
-        """Build beat structure context."""
+    def _build_beats_context(self, beats: list, is_structured: bool = False) -> str:
+        """
+        Build beat structure context.
+
+        Args:
+            beats: List of beat dictionaries
+            is_structured: True if beats are from SSBA (story-specific),
+                          False if from generic templates
+
+        Returns:
+            Formatted beats context for prompt
+        """
         beats_text = ""
+
         for beat in beats:
             beat_num = beat.get("beat_number", "?")
             beat_name = beat.get("beat_name", "")
             word_target = beat.get("word_target", 0)
-            description = beat.get("description", "")
-            guidance = beat.get("guidance", "")
 
             beats_text += f"\n**Beat {beat_num}: {beat_name.upper()}** ({word_target} words)\n"
-            beats_text += f"*Purpose*: {description}\n"
-            if guidance:
-                beats_text += f"*Craft guidance*: {guidance}\n"
+
+            if is_structured:
+                # SSBA-structured beats have rich story-specific details
+                scene = beat.get("scene_description", "")
+                emotional_arc = beat.get("emotional_arc", "")
+                tension = beat.get("tension_level", "")
+                character = beat.get("character_focus", "")
+                key_moment = beat.get("key_moment", "")
+                purpose = beat.get("purpose", "")
+                theme_connection = beat.get("connects_to_theme", "")
+
+                beats_text += f"*Scene*: {scene}\n"
+                beats_text += f"*Emotional Arc*: {emotional_arc}\n"
+                beats_text += f"*Tension*: {tension}\n"
+                beats_text += f"*Character Focus*: {character}\n"
+                beats_text += f"*Key Moment*: {key_moment}\n"
+                beats_text += f"*Purpose*: {purpose}\n"
+                if theme_connection:
+                    beats_text += f"*Theme Connection*: {theme_connection}\n"
+            else:
+                # Generic template beats have description and guidance
+                description = beat.get("description", "")
+                guidance = beat.get("guidance", "")
+
+                beats_text += f"*Purpose*: {description}\n"
+                if guidance:
+                    beats_text += f"*Craft guidance*: {guidance}\n"
 
         return beats_text
+
+    def _is_structured_beat_plan(self, beat_template: Dict[str, Any]) -> bool:
+        """
+        Detect if beat_template is from SSBA (structured) or generic template.
+
+        SSBA structures have: story_premise, central_conflict, emotional_journey
+        Generic templates have: name, genre, description
+        """
+        # Check for SSBA-specific fields
+        ssba_fields = ["story_premise", "central_conflict", "emotional_journey", "thematic_core"]
+        return any(field in beat_template for field in ssba_fields)
 
     def _build_feedback_context(self, judge_feedback: Optional[str]) -> str:
         """Build Judge feedback context for rewrites."""
