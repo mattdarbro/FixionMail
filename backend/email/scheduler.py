@@ -515,7 +515,7 @@ class EmailScheduler:
               </p>
               <div style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 12px 32px; border-radius: 25px; margin-top: 10px;">
                 <p style="margin: 0; font-size: 13px; color: white; font-weight: 600; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; letter-spacing: 0.5px;">
-                  📬 FICTION MAIL
+                  📬 FIXION MAIL
                 </p>
               </div>
             </div>
