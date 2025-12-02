@@ -322,15 +322,17 @@ def get_tier_word_target(tier: str, story_length: str = "short") -> int:
     Returns:
         Target word count
     """
+    # Note: Internal targets are higher than advertised to ensure minimum word counts
+    # Advertised: 1500/3000/4500 -> Internal: 1800/3300/4500
     if tier == "premium":
         length_map = {
-            "short": 1500,
-            "medium": 3000
+            "short": 1800,
+            "medium": 3300
         }
-        return length_map.get(story_length, 3000)
+        return length_map.get(story_length, 3300)
     else:
         # Free tier is always short
-        return 1500
+        return 1800
 
 
 def estimate_generation_cost(

@@ -39,7 +39,7 @@ class BeatTemplate:
 FREE_SCIFI_TEMPLATE = BeatTemplate(
     name="scifi_short",
     genre="sci-fi",
-    total_words=1500,
+    total_words=1800,
     description="Concise sci-fi story with discovery and resolution",
     beats=[
         {
@@ -76,7 +76,7 @@ FREE_SCIFI_TEMPLATE = BeatTemplate(
 FREE_MYSTERY_TEMPLATE = BeatTemplate(
     name="mystery_short",
     genre="mystery",
-    total_words=1500,
+    total_words=1800,
     description="Quick mystery with clue discovery and solution",
     beats=[
         {
@@ -113,7 +113,7 @@ FREE_MYSTERY_TEMPLATE = BeatTemplate(
 FREE_ROMANCE_TEMPLATE = BeatTemplate(
     name="romance_short",
     genre="romance",
-    total_words=1500,
+    total_words=1800,
     description="Sweet romantic moment or connection",
     beats=[
         {
@@ -150,7 +150,7 @@ FREE_ROMANCE_TEMPLATE = BeatTemplate(
 FREE_FANTASY_TEMPLATE = BeatTemplate(
     name="fantasy_short",
     genre="fantasy",
-    total_words=1500,
+    total_words=1800,
     description="Magical adventure with wonder and resolution",
     beats=[
         {
@@ -187,7 +187,7 @@ FREE_FANTASY_TEMPLATE = BeatTemplate(
 FREE_HORROR_TEMPLATE = BeatTemplate(
     name="horror_short",
     genre="horror",
-    total_words=1500,
+    total_words=1800,
     description="Suspenseful horror with mounting dread",
     beats=[
         {
@@ -224,7 +224,7 @@ FREE_HORROR_TEMPLATE = BeatTemplate(
 FREE_DRAMA_TEMPLATE = BeatTemplate(
     name="drama_short",
     genre="drama",
-    total_words=1500,
+    total_words=1800,
     description="Character-focused emotional journey",
     beats=[
         {
@@ -261,7 +261,7 @@ FREE_DRAMA_TEMPLATE = BeatTemplate(
 FREE_WESTERN_TEMPLATE = BeatTemplate(
     name="western_short",
     genre="western",
-    total_words=1500,
+    total_words=1800,
     description="Frontier justice and moral choices",
     beats=[
         {
@@ -298,7 +298,7 @@ FREE_WESTERN_TEMPLATE = BeatTemplate(
 FREE_HISTORICAL_TEMPLATE = BeatTemplate(
     name="historical_short",
     genre="historical",
-    total_words=1500,
+    total_words=1800,
     description="Historical moment with personal stakes",
     beats=[
         {
@@ -991,7 +991,7 @@ PREMIUM_HISTORICAL_SAGA = BeatTemplate(
 SAVE_THE_CAT_SHORT = BeatTemplate(
     name="save_the_cat_short",
     genre="universal",
-    total_words=1500,
+    total_words=1800,
     description="Blake Snyder's Save the Cat structure adapted for short fiction",
     beats=[
         {
@@ -1150,7 +1150,7 @@ SAVE_THE_CAT_PREMIUM = BeatTemplate(
 HEROS_JOURNEY_SHORT = BeatTemplate(
     name="heros_journey_short",
     genre="universal",
-    total_words=1500,
+    total_words=1800,
     description="Joseph Campbell's Hero's Journey condensed for short fiction",
     beats=[
         {
@@ -1288,7 +1288,7 @@ HEROS_JOURNEY_PREMIUM = BeatTemplate(
 TRUBY_BEATS_SHORT = BeatTemplate(
     name="truby_beats_short",
     genre="universal",
-    total_words=1500,
+    total_words=1800,
     description="John Truby's story anatomy condensed for short fiction",
     beats=[
         {
