@@ -128,7 +128,11 @@ async def api_info():
         "dashboard": "/dev",
         "endpoints": {
             "onboarding": "POST /api/dev/onboarding",
-            "generate_story": "POST /api/dev/generate-story",
+            "generate_story": "POST /api/dev/generate-story (sync, waits for completion)",
+            "queue_story": "POST /api/dev/queue-story (async, returns immediately)",
+            "job_status": "GET /api/dev/job/{job_id}",
+            "job_result": "GET /api/dev/job/{job_id}/result",
+            "list_jobs": "GET /api/dev/jobs",
             "rate_story": "POST /api/dev/rate-story",
             "get_bible": "GET /api/dev/bible",
             "reset": "DELETE /api/dev/reset"
@@ -298,17 +302,19 @@ async def startup_event():
         #         print(f"⚠️  Error initializing email system during startup: {e}")
         print("ℹ️  Email system will be initialized by FixionMail when needed")
 
-        # ARCHIVED: Background email processor (Iteration 1)
-        # Will be re-implemented for FixionMail daily stories
-        # if routes_loaded and os.getenv("ENABLE_EMAIL_SCHEDULER", "true").lower() == "true":
-        #     try:
-        #         from backend.email.background import start_background_processor
-        #         print("\n🔄 Starting background email processor...")
-        #         await start_background_processor()
-        #         print("✓ Background email processor started")
-        #     except Exception as e:
-        #         print(f"⚠️  Error starting background email processor: {e}")
-        print("ℹ️  Background email processor not loaded - will be added for FixionMail daily delivery")
+        # Start background story worker for job queue processing
+        if os.getenv("ENABLE_STORY_WORKER", "true").lower() == "true":
+            try:
+                from backend.jobs import start_story_worker
+                print("\n🔄 Starting background story worker...")
+                await start_story_worker()
+                print("✓ Background story worker started (polling for jobs)")
+            except Exception as e:
+                print(f"⚠️  Error starting story worker: {e}")
+                import traceback
+                traceback.print_exc()
+        else:
+            print("ℹ️  Story worker disabled (ENABLE_STORY_WORKER=false)")
 
         # Validate world templates exist (no longer using RAG)
         try:
@@ -347,16 +353,15 @@ async def shutdown_event():
         print("FixionMail API Shutting Down...")
         print("=" * 60)
 
-        # ARCHIVED: Background email processor (Iteration 1)
-        # try:
-        #     from backend.email.background import stop_background_processor
-        #     print("🔄 Stopping background email processor...")
-        #     stop_background_processor()
-        #     print("✓ Background email processor stopped")
-        # except Exception as e:
-        #     print(f"⚠️  Error stopping background email processor: {e}")
-
-        print("ℹ️  Clean shutdown (no background processors to stop)")
+        # Stop background story worker
+        try:
+            from backend.jobs import stop_story_worker, close_queue
+            print("🔄 Stopping background story worker...")
+            stop_story_worker()
+            await close_queue()
+            print("✓ Background story worker stopped")
+        except Exception as e:
+            print(f"⚠️  Error stopping story worker: {e}")
         print("=" * 60)
         print("Shutdown complete")
         print("=" * 60)

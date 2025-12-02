@@ -85,6 +85,18 @@ class CostEstimateInput(BaseModel):
     tts_provider: str = "openai"
 
 
+class QueueStoryInput(BaseModel):
+    """Input for queueing a background story generation job."""
+    email: str  # Required - where to send the finished story
+    bible: Optional[Dict[str, Any]] = None  # Story bible (uses current if not provided)
+    writer_model: str = "sonnet"
+    structure_model: str = "sonnet"
+    editor_model: str = "opus"
+    tts_provider: str = "openai"
+    tts_voice: Optional[str] = None
+    use_structure_agent: bool = True
+
+
 # === API Routes ===
 
 @router.get("/estimate-cost")
@@ -419,6 +431,176 @@ async def dev_generate_story(data: Optional[GenerateStoryInput] = Body(default=N
         log(f"ERROR: {str(e)}")
         import traceback
         traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# === Background Job Queue Routes ===
+
+@router.post("/queue-story")
+@app.post("/api/dev/queue-story")
+async def dev_queue_story(data: QueueStoryInput):
+    """
+    Queue a story for background generation.
+
+    Returns immediately with a job_id. The story will be generated
+    in the background and emailed when complete.
+
+    This is the "fire and forget" endpoint - you don't need to keep
+    the browser open while the story generates.
+    """
+    # Use bible from request body if provided, otherwise fall back to storage
+    bible = data.bible if data.bible else dev_storage.get("current_bible")
+
+    if not bible:
+        raise HTTPException(
+            status_code=400,
+            detail="No bible provided. Complete onboarding first or provide bible in request."
+        )
+
+    if not data.email:
+        raise HTTPException(
+            status_code=400,
+            detail="Email is required for background generation."
+        )
+
+    try:
+        from backend.jobs import get_queue
+
+        # Get the job queue
+        queue = await get_queue()
+
+        # Prepare job settings
+        settings = {
+            "writer_model": data.writer_model,
+            "structure_model": data.structure_model,
+            "editor_model": data.editor_model,
+            "tts_provider": data.tts_provider,
+            "tts_voice": data.tts_voice,
+            "use_structure_agent": data.use_structure_agent,
+            "user_tier": bible.get("user_tier", "free"),
+            "dev_mode": True
+        }
+
+        # Queue the job
+        job_id = await queue.enqueue(
+            story_bible=bible,
+            user_email=data.email,
+            settings=settings
+        )
+
+        log(f"Queued story job: {job_id}")
+        log(f"Email will be sent to: {data.email}")
+
+        # Get queue depth
+        pending_count = await queue.get_pending_count()
+
+        return {
+            "success": True,
+            "job_id": job_id,
+            "message": f"Story queued! You'll receive an email at {data.email} when it's ready.",
+            "queue_position": pending_count,
+            "estimated_time_minutes": pending_count * 5  # Rough estimate
+        }
+
+    except Exception as e:
+        log(f"ERROR queueing story: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/job/{job_id}")
+@app.get("/api/dev/job/{job_id}")
+async def dev_get_job_status(job_id: str):
+    """
+    Check the status of a queued story generation job.
+
+    Returns current status, progress, and result when complete.
+    """
+    try:
+        from backend.jobs import get_queue
+
+        queue = await get_queue()
+        status = await queue.get_status(job_id)
+
+        if not status:
+            raise HTTPException(status_code=404, detail="Job not found")
+
+        return {
+            "success": True,
+            "job": status
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/job/{job_id}/result")
+@app.get("/api/dev/job/{job_id}/result")
+async def dev_get_job_result(job_id: str):
+    """
+    Get the full result of a completed job, including the story.
+    """
+    try:
+        from backend.jobs import get_queue
+
+        queue = await get_queue()
+        job = await queue.get_result(job_id)
+
+        if not job:
+            raise HTTPException(status_code=404, detail="Job not found")
+
+        if job["status"] != "completed":
+            return {
+                "success": False,
+                "status": job["status"],
+                "message": f"Job is not complete. Current status: {job['status']}"
+            }
+
+        return {
+            "success": True,
+            "job_id": job_id,
+            "result": job["result"]
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/jobs")
+@app.get("/api/dev/jobs")
+async def dev_list_jobs(email: Optional[str] = None, limit: int = 20):
+    """
+    List recent story generation jobs.
+
+    Optionally filter by email address.
+    """
+    try:
+        from backend.jobs import get_queue, get_worker
+
+        queue = await get_queue()
+        jobs = await queue.get_recent_jobs(email=email, limit=limit)
+
+        # Get worker status
+        worker = get_worker()
+        worker_status = {
+            "running": worker is not None,
+            "processing": worker.is_processing if worker else False,
+            "current_job": worker.current_job if worker else None
+        }
+
+        return {
+            "success": True,
+            "jobs": jobs,
+            "total": len(jobs),
+            "worker_status": worker_status
+        }
+
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
