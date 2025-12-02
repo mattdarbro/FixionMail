@@ -95,9 +95,11 @@ INTENSITY_LEVELS = {
 }
 
 # Story length options (word counts)
+# Note: Internal targets are higher than advertised to ensure minimum word counts
+# Advertised: 1500/3000/4500 -> Internal: 1800/3300/4500
 STORY_LENGTHS = {
-    "short": {"words": 1500, "label": "Quick Read", "tier": "free"},
-    "medium": {"words": 3000, "label": "Standard", "tier": "premium"},
+    "short": {"words": 1800, "label": "Quick Read", "tier": "free"},
+    "medium": {"words": 3300, "label": "Standard", "tier": "premium"},
     "long": {"words": 4500, "label": "Extended", "tier": "premium"}
 }
 
