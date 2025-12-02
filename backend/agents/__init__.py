@@ -3,24 +3,27 @@ Agent System for FixionMail story generation.
 
 This package implements the multi-agent architecture:
 
-ACTIVE AGENTS (Single Stories):
-- StructureAgent (SSBA): Creates story-specific beat structures from generic templates
-- WriterAgent (PA): Generates complete stories from detailed beat plans
-- JudgeAgent: Validates stories against requirements
+ACTIVE AGENTS (Single Stories - 3-Agent Flow):
+- StructureAgent (SSBA): Creates story-specific beat structures (Sonnet)
+- WriterAgent (PA): Generates first draft from beat plan (Sonnet)
+- EditorAgent: Rewrites/polishes draft AND validates quality (Opus)
+
+LEGACY (kept for compatibility):
+- JudgeAgent: Standalone validation (Haiku) - replaced by EditorAgent
 
 READY FOR PHASE 7 (Multi-Chapter Stories):
 - ChapterBeatAgent (CBA): Creates 6-beat chapter structures from SSBA's story arc
 
 Flow for Single Stories:
-  Story Bible + Generic Template → StructureAgent → Specific Beats → WriterAgent → JudgeAgent
+  Story Bible + Template → StructureAgent (Sonnet) → WriterAgent (Sonnet) → EditorAgent (Opus)
 
 Flow for Multi-Chapter (Future):
-  Story Bible → StructureAgent (full arc) → ChapterBeatAgent (per chapter) → WriterAgent → JudgeAgent
+  Story Bible → StructureAgent → ChapterBeatAgent → WriterAgent → EditorAgent
 
 Model options:
 - StructureAgent: "haiku" (fast) or "sonnet" (quality, default)
-- WriterAgent: "sonnet" (default) or "opus" (premium)
-- JudgeAgent: Uses Haiku (fast validation)
+- WriterAgent: "sonnet" (default) - creates first draft
+- EditorAgent: "opus" (default) - polishes and validates
 """
 
 from backend.agents.writer import (
@@ -38,6 +41,12 @@ from backend.agents.structure import (
     StoryBeat,
     StructureModel,
     STRUCTURE_MODELS
+)
+from backend.agents.editor import (
+    EditorAgent,
+    EditorResult,
+    EditorModel,
+    EDITOR_MODELS
 )
 from backend.agents.chapter_beat import (
     ChapterBeatAgent,
@@ -58,13 +67,18 @@ __all__ = [
     "StoryBeat",
     "StructureModel",
     "STRUCTURE_MODELS",
-    # Writer Agent (PA)
+    # Writer Agent (PA) - First Draft
     "WriterAgent",
     "WriterResult",
     "WriterModel",
     "WRITER_MODELS",
     "get_available_writer_models",
-    # Judge Agent
+    # Editor Agent - Polish + Validate (replaces Judge)
+    "EditorAgent",
+    "EditorResult",
+    "EditorModel",
+    "EDITOR_MODELS",
+    # Judge Agent (legacy, kept for compatibility)
     "JudgeAgent",
     "JudgeResult",
     # Chapter Beat Agent (CBA) - Ready for Phase 7
