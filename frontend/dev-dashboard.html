@@ -88,6 +88,8 @@
         .checkbox-group { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
         .checkbox-item { display: flex; align-items: center; gap: 8px; }
         .checkbox-item input { width: auto; }
+        /* Fix radio/checkbox inputs inside flex containers */
+        input[type="radio"], input[type="checkbox"] { width: auto; }
     </style>
 </head>
 <body>
