@@ -103,6 +103,57 @@ STORY_LENGTHS = {
     "long": {"words": 4500, "label": "Extended", "tier": "premium"}
 }
 
+# Undercurrent (Deeper Themes) configuration
+# Categories of deeper themes the AI can weave into stories
+UNDERCURRENT_THEMES = {
+    "warnings": [
+        "The cost of unchecked ambition",
+        "The danger of isolation",
+        "The price of compromise",
+        "The trap of perfectionism",
+        "The consequences of deception",
+        "The peril of pride",
+        "The weight of secrets",
+        "The risk of avoidance"
+    ],
+    "inspirations": [
+        "The power of resilience",
+        "The strength in vulnerability",
+        "The beauty of connection",
+        "The courage to change",
+        "The gift of second chances",
+        "The value of authenticity",
+        "The triumph of compassion",
+        "The freedom in forgiveness"
+    ],
+    "explorations": [
+        "The nature of identity",
+        "The meaning of home",
+        "The complexity of truth",
+        "The passage of time",
+        "The bonds that define us",
+        "The choices that shape us",
+        "The stories we tell ourselves",
+        "The legacy we leave behind"
+    ]
+}
+
+# Undercurrent modes
+UNDERCURRENT_MODES = {
+    "off": {
+        "label": "Just Fun Fiction",
+        "description": "Pure entertainment - engaging stories without deeper themes"
+    },
+    "custom": {
+        "label": "Custom Themes",
+        "description": "You define the deeper meaning you want woven into your stories"
+    },
+    "surprise": {
+        "label": "Surprise Me",
+        "description": "AI selects resonant themes that fit each story naturally"
+    }
+}
+
 
 def get_genre_config(genre: str) -> Dict[str, Any]:
     """Get configuration for a genre, with fallback to defaults."""
@@ -127,7 +178,10 @@ async def enhance_story_bible(
     story_length: str = "short",
     premise: str = None,
     cameo_pool: list = None,
-    beat_structure: str = "classic"
+    beat_structure: str = "classic",
+    undercurrent_mode: str = "off",
+    undercurrent_custom: str = None,
+    undercurrent_match_intensity: bool = True
 ) -> Dict[str, Any]:
     """
     Take minimal user input and expand into a rich story bible.
@@ -142,6 +196,9 @@ async def enhance_story_bible(
         premise: Optional general premise for AI-generated character genres
         cameo_pool: Optional list of people to include as cameos
         beat_structure: Story structure to use (classic, save_the_cat, heros_journey, truby_beats)
+        undercurrent_mode: "off" (fun fiction), "custom" (user-defined), or "surprise" (AI-selected)
+        undercurrent_custom: User's custom theme description (when mode is "custom")
+        undercurrent_match_intensity: Whether theme depth should match story intensity
 
     Returns:
         Enhanced story bible with full details
@@ -298,13 +355,19 @@ Make this feel like a real, lived-in world that can sustain many different stori
             "world": genre_cfg["world"],  # "same" or "different"
         }
 
-        # Store intensity, length, and beat structure settings
+        # Store intensity, length, beat structure, and undercurrent settings
+        undercurrent_cfg = UNDERCURRENT_MODES.get(undercurrent_mode, UNDERCURRENT_MODES["off"])
         enhanced_bible["story_settings"] = {
             "intensity": intensity,
             "intensity_label": intensity_cfg["label"],
             "story_length": story_length,
             "word_target": length_cfg["words"],
-            "beat_structure": beat_structure
+            "beat_structure": beat_structure,
+            # Undercurrent (Deeper Themes) settings
+            "undercurrent_mode": undercurrent_mode,
+            "undercurrent_mode_label": undercurrent_cfg["label"],
+            "undercurrent_custom": undercurrent_custom,
+            "undercurrent_match_intensity": undercurrent_match_intensity
         }
 
         # Also store at top level for easy access
@@ -348,7 +411,10 @@ Make this feel like a real, lived-in world that can sustain many different stori
         print(f"Response: {response_text[:500]}")
 
         # Return minimal fallback with error info
-        fallback = create_fallback_bible(genre, user_setting, character_pool, intensity, story_length, beat_structure)
+        fallback = create_fallback_bible(
+            genre, user_setting, character_pool, intensity, story_length, beat_structure,
+            undercurrent_mode, undercurrent_custom, undercurrent_match_intensity
+        )
         fallback["_error"] = error_msg
         return fallback
 
@@ -363,7 +429,10 @@ Make this feel like a real, lived-in world that can sustain many different stori
             error_msg = "ANTHROPIC_API_KEY not set or invalid. Please add it to Railway environment variables."
 
         # Return minimal fallback with error info
-        fallback = create_fallback_bible(genre, user_setting, character_pool, intensity, story_length, beat_structure)
+        fallback = create_fallback_bible(
+            genre, user_setting, character_pool, intensity, story_length, beat_structure,
+            undercurrent_mode, undercurrent_custom, undercurrent_match_intensity
+        )
         fallback["_error"] = error_msg
         return fallback
 
@@ -374,7 +443,10 @@ def create_fallback_bible(
     character_pool: list = None,
     intensity: int = 3,
     story_length: str = "short",
-    beat_structure: str = "classic"
+    beat_structure: str = "classic",
+    undercurrent_mode: str = "off",
+    undercurrent_custom: str = None,
+    undercurrent_match_intensity: bool = True
 ) -> Dict[str, Any]:
     """
     Create a minimal fallback bible if AI enhancement fails.
@@ -382,6 +454,7 @@ def create_fallback_bible(
     genre_cfg = get_genre_config(genre)
     intensity_cfg = INTENSITY_LEVELS.get(intensity, INTENSITY_LEVELS[3])
     length_cfg = STORY_LENGTHS.get(story_length, STORY_LENGTHS["short"])
+    undercurrent_cfg = UNDERCURRENT_MODES.get(undercurrent_mode, UNDERCURRENT_MODES["off"])
 
     bible = {
         "genre": genre,
@@ -413,7 +486,12 @@ def create_fallback_bible(
             "intensity_label": intensity_cfg["label"],
             "story_length": story_length,
             "word_target": length_cfg["words"],
-            "beat_structure": beat_structure
+            "beat_structure": beat_structure,
+            # Undercurrent (Deeper Themes) settings
+            "undercurrent_mode": undercurrent_mode,
+            "undercurrent_mode_label": undercurrent_cfg["label"],
+            "undercurrent_custom": undercurrent_custom,
+            "undercurrent_match_intensity": undercurrent_match_intensity
         },
         "beat_structure": beat_structure,
         "story_history": {

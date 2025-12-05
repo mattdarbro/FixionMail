@@ -188,13 +188,126 @@ class EditorAgent:
         central_conflict = beat_plan.get("central_conflict", "")
         emotional_journey = beat_plan.get("emotional_journey", "")
 
+        # Undercurrent (Deeper Themes) info from beat plan
+        moral_premise = beat_plan.get("moral_premise", "")
+        undercurrent_theme = beat_plan.get("undercurrent_theme", "")
+        undercurrent_crystallization = beat_plan.get("undercurrent_crystallization", "")
+
         # Intensity from settings
         story_settings = story_bible.get("story_settings", {})
         intensity = story_settings.get("intensity", 5)
         intensity_label = story_settings.get("intensity_label", "Moderate")
 
+        # Undercurrent settings
+        undercurrent_mode = story_settings.get("undercurrent_mode", "off")
+        undercurrent_active = undercurrent_mode in ("custom", "surprise")
+
         # Ending style
         ending_guidance = self._get_ending_guidance(is_cliffhanger)
+
+        # Build undercurrent section if active
+        undercurrent_section = ""
+        if undercurrent_active and (moral_premise or undercurrent_theme):
+            undercurrent_section = f"""
+## UNDERCURRENT (Deeper Themes)
+
+This story has a deliberate thematic undercurrent that should resonate with readers:
+
+**Moral Premise**: {moral_premise if moral_premise else 'To be expressed through character journey'}
+**Theme**: {undercurrent_theme if undercurrent_theme else 'Embedded in the narrative'}
+**Crystallization Point**: {undercurrent_crystallization if undercurrent_crystallization else 'Climax or resolution'}
+
+**YOUR UNDERCURRENT MANDATE**:
+As you polish, ensure the deeper theme lands powerfully but subtly:
+
+1. **Enhance, Don't Add**: The theme is already seeded—bring it to the surface through craft
+2. **Show Through Action**: Ensure the crystallization moment demonstrates the theme through what characters DO
+3. **Avoid Preaching**: Cut any dialogue or narration that states the theme directly
+4. **Consequences Matter**: Make sure actions aligned with/against the theme have meaningful outcomes
+5. **The Last Line**: Consider whether the final sentence resonates with the undercurrent
+
+**CRAFT THE UNDERCURRENT**:
+- Sensory details that echo the theme
+- Dialogue subtext that reflects the moral premise
+- Internal moments where the protagonist glimpses the truth
+- A climax where the theme crystallizes through choice and consequence
+"""
+
+        # Build quality criteria based on undercurrent mode
+        if undercurrent_active:
+            quality_criteria_section = """## QUALITY CRITERIA (score each 1-10)
+
+**CRAFT CRITERIA**:
+- **prose_craft**: Sentence-level quality, vivid language, sensory detail
+- **dialogue**: Natural, distinct voices, reveals character
+- **pacing**: Tension builds appropriately, no dead spots
+- **emotional_depth**: Reader feels something, character interiority
+- **structure**: Beats accomplished, satisfying arc, strong ending
+- **genre_fit**: Delivers on genre promises, appropriate tone
+
+**UNDERCURRENT CRITERIA** (these matter for this story):
+- **thematic_resonance**: Does the deeper theme emerge naturally and powerfully?
+- **moral_clarity**: Is the undercurrent truth clear without being heavy-handed?
+- **lasting_impact**: Will this story stay with the reader? Does it mean something?
+
+A score of 7+ in each category indicates publication-ready quality.
+An undercurrent score of 8+ indicates a story that will resonate beyond entertainment."""
+
+            output_format = """## OUTPUT FORMAT
+
+Return your response as JSON:
+
+```json
+{{
+  "title": "Final title (can revise if original is weak)",
+  "narrative": "YOUR COMPLETE POLISHED STORY - the full rewritten narrative",
+  "edit_notes": "Brief summary of major improvements made (2-3 sentences)",
+  "quality_scores": {{
+    "prose_craft": 8,
+    "dialogue": 7,
+    "pacing": 8,
+    "emotional_depth": 7,
+    "structure": 8,
+    "genre_fit": 8,
+    "thematic_resonance": 8,
+    "moral_clarity": 8,
+    "lasting_impact": 8
+  }},
+  "word_count": 1500
+}}
+```"""
+        else:
+            quality_criteria_section = """## QUALITY CRITERIA (score each 1-10)
+
+- **prose_craft**: Sentence-level quality, vivid language, sensory detail
+- **dialogue**: Natural, distinct voices, reveals character
+- **pacing**: Tension builds appropriately, no dead spots
+- **emotional_depth**: Reader feels something, character interiority
+- **structure**: Beats accomplished, satisfying arc, strong ending
+- **genre_fit**: Delivers on genre promises, appropriate tone
+
+A score of 7+ in each category indicates publication-ready quality."""
+
+            output_format = """## OUTPUT FORMAT
+
+Return your response as JSON:
+
+```json
+{{
+  "title": "Final title (can revise if original is weak)",
+  "narrative": "YOUR COMPLETE POLISHED STORY - the full rewritten narrative",
+  "edit_notes": "Brief summary of major improvements made (2-3 sentences)",
+  "quality_scores": {{
+    "prose_craft": 8,
+    "dialogue": 7,
+    "pacing": 8,
+    "emotional_depth": 7,
+    "structure": 8,
+    "genre_fit": 8
+  }},
+  "word_count": 1500
+}}
+```"""
 
         prompt = f"""You are a master editor with decades of experience polishing fiction for publication. Your task is to take this first draft and transform it into a polished, publication-ready story.
 
@@ -218,7 +331,7 @@ Title: {title}
 ''' if story_premise else ''}
 
 {ending_guidance}
-
+{undercurrent_section}
 ## YOUR EDITORIAL MANDATE
 
 You are not just proofreading—you are REWRITING to elevate this story. Make it sing.
@@ -253,37 +366,9 @@ You are not just proofreading—you are REWRITING to elevate this story. Make it
 - Transitions should flow naturally
 - The ending must resonate (resolve for standard, hook for cliffhanger)
 
-## OUTPUT FORMAT
+{output_format}
 
-Return your response as JSON:
-
-```json
-{{
-  "title": "Final title (can revise if original is weak)",
-  "narrative": "YOUR COMPLETE POLISHED STORY - the full rewritten narrative",
-  "edit_notes": "Brief summary of major improvements made (2-3 sentences)",
-  "quality_scores": {{
-    "prose_craft": 8,
-    "dialogue": 7,
-    "pacing": 8,
-    "emotional_depth": 7,
-    "structure": 8,
-    "genre_fit": 8
-  }},
-  "word_count": 1500
-}}
-```
-
-## QUALITY CRITERIA (score each 1-10)
-
-- **prose_craft**: Sentence-level quality, vivid language, sensory detail
-- **dialogue**: Natural, distinct voices, reveals character
-- **pacing**: Tension builds appropriately, no dead spots
-- **emotional_depth**: Reader feels something, character interiority
-- **structure**: Beats accomplished, satisfying arc, strong ending
-- **genre_fit**: Delivers on genre promises, appropriate tone
-
-A score of 7+ in each category indicates publication-ready quality.
+{quality_criteria_section}
 
 ## CRITICAL INSTRUCTIONS
 
@@ -292,6 +377,7 @@ A score of 7+ in each category indicates publication-ready quality.
 3. ELEVATE EVERYTHING - Every paragraph should be better than before
 4. HIT WORD COUNT - Stay within ±15% of {total_words} words
 5. BE HONEST - Score the result fairly, not generously
+{f"6. HONOR THE UNDERCURRENT - Ensure the deeper theme resonates powerfully" if undercurrent_active else ""}
 
 Now edit this story into something remarkable.
 """

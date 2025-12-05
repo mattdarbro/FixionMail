@@ -151,6 +151,36 @@
                                 <span>Cozy</span><span>Light</span><span>Moderate</span><span>Dramatic</span><span>Intense</span>
                             </div>
                         </div>
+                        <!-- Undercurrent (Deeper Themes) Section -->
+                        <div class="form-group" style="background: #1a2a2a; padding: 15px; border-radius: 8px; border: 1px solid #2a4a4a;">
+                            <label style="color: #4fd1c5; margin-bottom: 12px; display: block;">
+                                🌊 Undercurrent <span style="color: #888; font-weight: normal;">(Deeper Themes Of The Story)</span>
+                            </label>
+                            <div style="display: flex; flex-direction: column; gap: 10px;">
+                                <label class="radio-option" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                    <input type="radio" name="undercurrentMode" value="off" checked onchange="updateUndercurrentUI()">
+                                    <span><strong>Just Fun Fiction</strong> - Pure entertainment</span>
+                                </label>
+                                <label class="radio-option" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                    <input type="radio" name="undercurrentMode" value="custom" onchange="updateUndercurrentUI()">
+                                    <span><strong>Custom Theme</strong> - You define the deeper meaning</span>
+                                </label>
+                                <label class="radio-option" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                    <input type="radio" name="undercurrentMode" value="surprise" onchange="updateUndercurrentUI()">
+                                    <span><strong>Surprise Me</strong> - AI selects resonant themes</span>
+                                </label>
+                            </div>
+                            <div id="undercurrent-custom-group" class="hidden" style="margin-top: 12px;">
+                                <textarea id="undercurrentCustom" placeholder="Describe the deeper meaning you want woven into your stories. Examples:&#10;• 'The cost of unchecked ambition'&#10;• 'Finding strength in vulnerability'&#10;• 'The importance of genuine connection'" style="min-height: 80px;"></textarea>
+                            </div>
+                            <div id="undercurrent-options" class="hidden" style="margin-top: 12px;">
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #aaa;">
+                                    <input type="checkbox" id="undercurrentMatchIntensity" checked>
+                                    <span><strong>Match Intensity</strong> - Theme depth matches story intensity</span>
+                                </label>
+                                <small style="color: #666; font-size: 11px; margin-left: 24px;">Uncheck to allow deep themes in cozy stories (e.g., a cozy mystery that makes you cry)</small>
+                            </div>
+                        </div>
                         <div class="form-group">
                             <label>Story Length</label>
                             <select id="storyLength" onchange="updateCostEstimate()">
@@ -433,6 +463,26 @@
             document.getElementById('intensity-label').textContent = INTENSITY_LABELS[val];
         }
 
+        function updateUndercurrentUI() {
+            const mode = document.querySelector('input[name="undercurrentMode"]:checked').value;
+            const customGroup = document.getElementById('undercurrent-custom-group');
+            const optionsGroup = document.getElementById('undercurrent-options');
+
+            // Show/hide custom textarea
+            if (mode === 'custom') {
+                customGroup.classList.remove('hidden');
+            } else {
+                customGroup.classList.add('hidden');
+            }
+
+            // Show/hide match intensity option (for custom and surprise)
+            if (mode === 'custom' || mode === 'surprise') {
+                optionsGroup.classList.remove('hidden');
+            } else {
+                optionsGroup.classList.add('hidden');
+            }
+        }
+
         function addCameo() {
             const name = document.getElementById('cameoName').value.trim();
             const desc = document.getElementById('cameoDesc').value.trim();
@@ -471,6 +521,12 @@
 
         async function createBible() {
             log('Creating bible...');
+
+            // Get undercurrent settings
+            const undercurrentMode = document.querySelector('input[name="undercurrentMode"]:checked').value;
+            const undercurrentCustom = document.getElementById('undercurrentCustom').value || null;
+            const undercurrentMatchIntensity = document.getElementById('undercurrentMatchIntensity').checked;
+
             const data = {
                 genre: document.getElementById('genre').value,
                 setting: document.getElementById('setting').value,
@@ -479,7 +535,11 @@
                 story_length: document.getElementById('storyLength').value,
                 premise: document.getElementById('premise').value || null,
                 cameo_pool: cameoPool.length > 0 ? cameoPool : null,
-                beat_structure: document.getElementById('beatStructure').value
+                beat_structure: document.getElementById('beatStructure').value,
+                // Undercurrent (Deeper Themes) settings
+                undercurrent_mode: undercurrentMode,
+                undercurrent_custom: undercurrentMode === 'custom' ? undercurrentCustom : null,
+                undercurrent_match_intensity: undercurrentMatchIntensity
             };
 
             if (!data.setting.trim()) return alert('Enter a setting');

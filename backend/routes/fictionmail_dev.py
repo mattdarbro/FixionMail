@@ -53,6 +53,10 @@ class OnboardingInput(BaseModel):
     premise: Optional[str] = None
     cameo_pool: Optional[list] = None
     beat_structure: str = "classic"  # classic, save_the_cat, heros_journey, truby_beats
+    # Undercurrent (Deeper Themes) settings
+    undercurrent_mode: str = "off"  # off, custom, surprise
+    undercurrent_custom: Optional[str] = None  # User's custom theme (when mode is "custom")
+    undercurrent_match_intensity: bool = True  # Whether theme depth matches story intensity
 
 
 class CameoInput(BaseModel):
@@ -240,7 +244,11 @@ async def dev_onboarding(data: OnboardingInput):
             story_length=data.story_length,
             premise=data.premise,
             cameo_pool=data.cameo_pool,
-            beat_structure=data.beat_structure
+            beat_structure=data.beat_structure,
+            # Undercurrent (Deeper Themes) settings
+            undercurrent_mode=data.undercurrent_mode,
+            undercurrent_custom=data.undercurrent_custom,
+            undercurrent_match_intensity=data.undercurrent_match_intensity
         )
 
         dev_storage["current_bible"] = bible
