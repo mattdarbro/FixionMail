@@ -86,7 +86,12 @@ class CostBreakdown:
                 "output_cost": round(self.judge_output_cost, 4),
                 "total_cost": round(self.judge_total_cost, 4)
             },
-            "claude_total": round(self.claude_total_cost, 4),
+            "claude": {
+                "writer_cost": round(self.writer_total_cost, 4),
+                "judge_cost": round(self.judge_total_cost, 4),
+                "total_cost": round(self.claude_total_cost, 4)
+            },
+            "claude_total": round(self.claude_total_cost, 4),  # Keep for backwards compatibility
             "image": {
                 "count": self.image_count,
                 "cost_per_image": self.image_cost_per_unit,
