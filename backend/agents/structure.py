@@ -6,10 +6,15 @@ story-specific beat plan that guides the WriterAgent.
 
 For single stories: Creates a complete beat plan with scenes, emotions, arcs.
 For multi-chapter (future): Creates story arc across chapters for CBA to expand.
+
+Undercurrent Support:
+When undercurrent_mode is "custom" or "surprise", SSBA weaves deeper themes
+into the story structure via moral premises and thematic connections per beat.
 """
 
 import json
 import time
+import random
 from typing import Dict, Any, Optional, List, Literal
 from dataclasses import dataclass, field
 
@@ -17,6 +22,7 @@ from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage
 
 from backend.config import config
+from backend.storyteller.bible_enhancement import UNDERCURRENT_THEMES
 
 
 # Model configurations for StructureAgent
@@ -80,6 +86,11 @@ class StoryStructure:
     emotional_journey: str  # Protagonist's arc in brief
     thematic_core: str  # The deeper meaning
 
+    # Undercurrent (Deeper Themes) - the moral/philosophical layer
+    moral_premise: str = ""  # The deeper truth the story explores (e.g., "Pride leads to isolation")
+    undercurrent_theme: str = ""  # The selected theme category
+    undercurrent_crystallization: str = ""  # The moment the theme becomes clear
+
     # The beats
     beats: List[StoryBeat] = field(default_factory=list)
 
@@ -100,6 +111,9 @@ class StoryStructure:
             "central_conflict": self.central_conflict,
             "emotional_journey": self.emotional_journey,
             "thematic_core": self.thematic_core,
+            "moral_premise": self.moral_premise,
+            "undercurrent_theme": self.undercurrent_theme,
+            "undercurrent_crystallization": self.undercurrent_crystallization,
             "beats": [b.to_dict() for b in self.beats],
             "genre": self.genre,
             "tone": self.tone,
@@ -109,6 +123,60 @@ class StoryStructure:
             "current_chapter": self.current_chapter,
             "story_arc_position": self.story_arc_position
         }
+
+
+def select_undercurrent_theme(
+    intensity: int = 3,
+    match_intensity: bool = True,
+    genre: str = None
+) -> Dict[str, str]:
+    """
+    Select an undercurrent theme for 'surprise' mode.
+
+    Args:
+        intensity: Story intensity (1-5)
+        match_intensity: Whether to match theme depth to intensity
+        genre: Story genre for context
+
+    Returns:
+        Dict with 'category' and 'theme'
+    """
+    # Determine which categories to draw from based on intensity matching
+    if match_intensity:
+        if intensity <= 2:
+            # Light intensity: prefer inspirations, gentle explorations
+            weights = {"inspirations": 0.6, "explorations": 0.35, "warnings": 0.05}
+        elif intensity >= 4:
+            # High intensity: can handle warnings, deeper explorations
+            weights = {"warnings": 0.4, "explorations": 0.35, "inspirations": 0.25}
+        else:
+            # Moderate: balanced mix
+            weights = {"inspirations": 0.4, "explorations": 0.35, "warnings": 0.25}
+    else:
+        # No intensity matching: equal weights (allows cozy mysteries with deep themes)
+        weights = {"inspirations": 0.33, "explorations": 0.34, "warnings": 0.33}
+
+    # Select category based on weights
+    rand = random.random()
+    cumulative = 0
+    selected_category = "explorations"
+    for category, weight in weights.items():
+        cumulative += weight
+        if rand <= cumulative:
+            selected_category = category
+            break
+
+    # Select random theme from category
+    themes = UNDERCURRENT_THEMES.get(selected_category, [])
+    if themes:
+        selected_theme = random.choice(themes)
+    else:
+        selected_theme = "The nature of identity"
+
+    return {
+        "category": selected_category,
+        "theme": selected_theme
+    }
 
 
 @dataclass
@@ -248,6 +316,11 @@ class StructureAgent:
         story_settings = story_bible.get("story_settings", {})
         intensity = story_settings.get("intensity", 5)
 
+        # Undercurrent (Deeper Themes) settings
+        undercurrent_mode = story_settings.get("undercurrent_mode", "off")
+        undercurrent_custom = story_settings.get("undercurrent_custom", "")
+        undercurrent_match_intensity = story_settings.get("undercurrent_match_intensity", True)
+
         # Beat template info
         template_name = beat_template.get("name", "unknown")
         total_words = beat_template.get("total_words", 1500)
@@ -277,37 +350,42 @@ Create something DIFFERENT from these recent stories.
         # Ending guidance
         ending_guidance = self._get_ending_guidance(is_cliffhanger)
 
-        prompt = f"""You are a Story Structure Beat Agent (SSBA). Your job is to transform a generic beat template into a STORY-SPECIFIC structure.
+        # Build undercurrent guidance
+        undercurrent_guidance = self._build_undercurrent_guidance(
+            undercurrent_mode,
+            undercurrent_custom,
+            undercurrent_match_intensity,
+            intensity,
+            genre
+        )
 
-## YOUR ROLE
+        # Determine if undercurrent is active
+        undercurrent_active = undercurrent_mode in ("custom", "surprise")
 
-You are the story's architect. You design the skeleton - specific scenes, emotional arcs, and key moments - so the prose writer can focus purely on craft.
+        # Build the task section based on undercurrent mode
+        if undercurrent_active:
+            task_section = """## YOUR TASK
 
-Think of yourself as a screenwriter creating a detailed beat sheet before the novelist writes the prose.
+For this specific story world and characters, create:
 
-## STORY WORLD
+1. **STORY PREMISE** - A one-sentence hook that captures the story
+2. **CENTRAL CONFLICT** - What does the protagonist want? What stands in their way?
+3. **EMOTIONAL JOURNEY** - How does the protagonist change from start to end?
+4. **THEMATIC CORE** - What deeper truth does the story explore?
+5. **MORAL PREMISE** - The undercurrent truth (see Undercurrent section above)
+6. **UNDERCURRENT CRYSTALLIZATION** - The moment/beat where the deeper meaning becomes clear
 
-**Genre**: {genre_config.get('label', genre)}
-**Tone**: {tone}
-**Themes**: {', '.join(themes) if themes else 'To be discovered'}
-**Intensity**: {intensity}/10
-
-**Setting**: {setting.get('name', 'Unknown')}
-{setting.get('description', '')}
-
-**Atmosphere**: {setting.get('atmosphere', '')}
-
-{char_context}
-{history_context}
-## BEAT TEMPLATE TO FILL
-
-You have {len(beats)} beats totaling {total_words} words. Transform each generic beat into a specific scene.
-
-{beats_to_fill}
-
-{ending_guidance}
-
-## YOUR TASK
+Then for EACH BEAT, provide:
+- **scene_description**: What specifically happens (2-3 sentences)
+- **emotional_arc**: The emotional shift in this beat (e.g., "hope → doubt")
+- **tension_level**: Tension at start → end of beat (1-10 scale)
+- **character_focus**: Who is central to this beat
+- **key_moment**: The pivotal image or moment readers will remember
+- **purpose**: What this beat accomplishes for the story
+- **connects_to_theme**: How this beat serves the undercurrent theme
+- **setup_for_next**: What this beat sets up for the next beat"""
+        else:
+            task_section = """## YOUR TASK
 
 For this specific story world and characters, create:
 
@@ -324,9 +402,42 @@ Then for EACH BEAT, provide:
 - **key_moment**: The pivotal image or moment readers will remember
 - **purpose**: What this beat accomplishes for the story
 - **connects_to_theme**: How this beat serves the theme (optional)
-- **setup_for_next**: What this beat sets up for the next beat
+- **setup_for_next**: What this beat sets up for the next beat"""
 
-## OUTPUT FORMAT
+        # Build JSON output format based on undercurrent mode
+        if undercurrent_active:
+            json_format = """## OUTPUT FORMAT
+
+Return ONLY valid JSON:
+
+```json
+{{
+  "story_premise": "One sentence hook",
+  "central_conflict": "Protagonist wants X but Y stands in the way",
+  "emotional_journey": "From [starting state] to [ending state]",
+  "thematic_core": "This story is really about...",
+  "moral_premise": "The undercurrent truth: [virtue] leads to [positive outcome] OR [flaw] leads to [negative consequence]",
+  "undercurrent_theme": "The deeper theme being explored",
+  "undercurrent_crystallization": "Beat X - the moment when the theme becomes clear through action/choice",
+  "beats": [
+    {{
+      "beat_number": 1,
+      "beat_name": "opening_hook",
+      "word_target": 400,
+      "scene_description": "Specific scene description",
+      "emotional_arc": "curiosity → unease",
+      "tension_level": "3 → 5",
+      "character_focus": "Protagonist name",
+      "key_moment": "The specific image or moment",
+      "purpose": "Establish world and hint at mystery",
+      "connects_to_theme": "Shows protagonist's starting belief/flaw",
+      "setup_for_next": "Discovery that leads to beat 2"
+    }}
+  ]
+}}
+```"""
+        else:
+            json_format = """## OUTPUT FORMAT
 
 Return ONLY valid JSON:
 
@@ -352,9 +463,11 @@ Return ONLY valid JSON:
     }}
   ]
 }}
-```
+```"""
 
-## QUALITY CRITERIA
+        # Build quality criteria based on undercurrent mode
+        if undercurrent_active:
+            quality_criteria = """## QUALITY CRITERIA
 
 Your structure should:
 - Have a CLEAR protagonist want and obstacle
@@ -363,10 +476,136 @@ Your structure should:
 - Create specific, vivid scenes (not generic descriptions)
 - Ensure the emotional journey has an arc (change happens)
 - Make the ending earn its emotional payoff
+- **UNDERCURRENT**: Weave the deeper theme naturally through character choices and consequences
+- **SUBTLETY**: The theme should emerge from the story, never feel preachy or heavy-handed
+- **CRYSTALLIZATION**: Identify the beat where the undercurrent truth becomes undeniable"""
+        else:
+            quality_criteria = """## QUALITY CRITERIA
+
+Your structure should:
+- Have a CLEAR protagonist want and obstacle
+- Build tension progressively (generally rising until climax)
+- Give each beat a DISTINCT purpose (no redundancy)
+- Create specific, vivid scenes (not generic descriptions)
+- Ensure the emotional journey has an arc (change happens)
+- Make the ending earn its emotional payoff"""
+
+        prompt = f"""You are a Story Structure Beat Agent (SSBA). Your job is to transform a generic beat template into a STORY-SPECIFIC structure.
+
+## YOUR ROLE
+
+You are the story's architect. You design the skeleton - specific scenes, emotional arcs, and key moments - so the prose writer can focus purely on craft.
+
+Think of yourself as a screenwriter creating a detailed beat sheet before the novelist writes the prose.
+
+## STORY WORLD
+
+**Genre**: {genre_config.get('label', genre)}
+**Tone**: {tone}
+**Themes**: {', '.join(themes) if themes else 'To be discovered'}
+**Intensity**: {intensity}/10
+
+**Setting**: {setting.get('name', 'Unknown')}
+{setting.get('description', '')}
+
+**Atmosphere**: {setting.get('atmosphere', '')}
+
+{char_context}
+{history_context}
+{undercurrent_guidance}
+## BEAT TEMPLATE TO FILL
+
+You have {len(beats)} beats totaling {total_words} words. Transform each generic beat into a specific scene.
+
+{beats_to_fill}
+
+{ending_guidance}
+
+{task_section}
+
+{json_format}
+
+{quality_criteria}
 
 Now create the story-specific structure for this {genre} story.
 """
         return prompt
+
+    def _build_undercurrent_guidance(
+        self,
+        mode: str,
+        custom_theme: str,
+        match_intensity: bool,
+        intensity: int,
+        genre: str
+    ) -> str:
+        """Build undercurrent (deeper themes) guidance section."""
+
+        if mode == "off":
+            return ""  # No undercurrent guidance for fun fiction mode
+
+        guidance = "## UNDERCURRENT (Deeper Themes)\n\n"
+
+        if mode == "custom":
+            guidance += f"""**Mode**: Custom Theme (user-defined)
+
+**User's Theme Request**: "{custom_theme}"
+
+Your task: Weave this deeper meaning into the story's DNA. The undercurrent should:
+- Flow naturally from character choices and their consequences
+- Never feel preachy or on-the-nose
+- Crystallize in a key moment where the truth becomes undeniable
+- Leave readers with something that stays with them after the story ends
+
+**Craft a MORAL PREMISE** from this theme in the format:
+"[Virtue/positive trait] leads to [positive outcome]" OR
+"[Flaw/negative trait] leads to [negative consequence]"
+
+Example: "The courage to be vulnerable leads to genuine connection"
+Example: "The fear of failure leads to a life unlived"
+
+"""
+
+        elif mode == "surprise":
+            # Select a theme for surprise mode
+            selected = select_undercurrent_theme(intensity, match_intensity, genre)
+            category = selected["category"]
+            theme = selected["theme"]
+
+            category_labels = {
+                "warnings": "Warning (cautionary tale)",
+                "inspirations": "Inspiration (uplifting truth)",
+                "explorations": "Exploration (philosophical inquiry)"
+            }
+
+            guidance += f"""**Mode**: Surprise Me (AI-selected theme)
+
+**Selected Theme Category**: {category_labels.get(category, category)}
+**Theme to Explore**: "{theme}"
+**Intensity Matching**: {"Enabled" if match_intensity else "Disabled (any depth allowed)"}
+
+Your task: Weave this deeper meaning into the story organically. The undercurrent should:
+- Feel like a natural outgrowth of the plot, not an add-on
+- Emerge through character actions and their consequences
+- Build subtly until it crystallizes in a pivotal moment
+- Resonate without being heavy-handed
+
+**Craft a MORAL PREMISE** from this theme in the format:
+"[Virtue/positive trait] leads to [positive outcome]" OR
+"[Flaw/negative trait] leads to [negative consequence]"
+
+"""
+
+        guidance += """**UNDERCURRENT CRAFT PRINCIPLES**:
+
+1. **Show, Don't Preach**: The theme emerges from what happens, not from what characters say about it
+2. **Character as Vehicle**: The protagonist's journey embodies the thematic truth
+3. **Consequences Matter**: Actions that align or conflict with the theme have meaningful outcomes
+4. **Subtlety is Strength**: The best themes work on readers subconsciously
+5. **Crystallization Moment**: Plan which beat will make the theme undeniable (usually climax or resolution)
+
+"""
+        return guidance
 
     def _build_character_context(
         self,
@@ -495,12 +734,16 @@ The final beat should:
             )
             beats.append(beat)
 
-        # Build structure
+        # Build structure with undercurrent fields
         structure = StoryStructure(
             story_premise=data.get("story_premise", ""),
             central_conflict=data.get("central_conflict", ""),
             emotional_journey=data.get("emotional_journey", ""),
             thematic_core=data.get("thematic_core", ""),
+            # Undercurrent (Deeper Themes) fields
+            moral_premise=data.get("moral_premise", ""),
+            undercurrent_theme=data.get("undercurrent_theme", ""),
+            undercurrent_crystallization=data.get("undercurrent_crystallization", ""),
             beats=beats,
             genre=story_bible.get("genre", ""),
             tone=story_bible.get("tone", ""),
