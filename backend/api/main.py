@@ -152,6 +152,17 @@ async def serve_dashboard():
         raise HTTPException(status_code=404, detail="Dashboard not found")
 
 
+@app.get("/library", response_class=HTMLResponse)
+async def serve_library():
+    """Serve the story library page."""
+    library_path = "./frontend/library.html"
+    if os.path.exists(library_path):
+        with open(library_path, "r") as f:
+            return f.read()
+    else:
+        raise HTTPException(status_code=404, detail="Library not found")
+
+
 # Keep legacy route for backwards compatibility
 @app.get("/dev-dashboard.html", response_class=HTMLResponse)
 async def serve_dashboard_legacy():
