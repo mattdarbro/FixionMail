@@ -1,8 +1,16 @@
+# Web service configuration
+# NOTE: For production, create a SEPARATE Railway service for the worker:
+#   1. Create new service from same repo
+#   2. Set startCommand: python -m backend.jobs.run_worker
+#   3. Remove healthcheck (worker has no HTTP endpoint)
+#   4. Share the same STORAGE_PATH volume
+
 [build]
 builder = "nixpacks"
 
 [deploy]
-startCommand = "gunicorn backend.api.main:app --workers 2 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT --timeout 300"
+# ENABLE_STORY_WORKER=false disables in-process worker (use separate worker service)
+startCommand = "ENABLE_STORY_WORKER=false gunicorn backend.api.main:app --workers 2 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT --timeout 300"
 healthcheckPath = "/health"
 healthcheckTimeout = 300
 restartPolicyType = "on_failure"
