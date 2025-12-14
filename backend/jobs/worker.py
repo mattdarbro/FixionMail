@@ -42,7 +42,7 @@ class StoryWorker:
         self._current_job_id: str | None = None
 
     async def initialize(self):
-        """Initialize database connections"""
+        """Initialize database connections and recover stale jobs"""
         self.job_db = StoryJobDatabase(self.job_db_path)
         await self.job_db.connect()
 
@@ -50,6 +50,11 @@ class StoryWorker:
         await self.email_db.connect()
 
         self.email_scheduler = EmailScheduler(self.email_db)
+
+        # Recover any jobs stuck in 'running' state from previous worker crash
+        recovered = await self.job_db.recover_stale_running_jobs(stale_minutes=10)
+        if recovered > 0:
+            print(f"  ⚠️  Recovered {recovered} stale job(s) from previous worker crash")
 
         print(f"  Story worker initialized")
         print(f"    Job database: {self.job_db_path}")
