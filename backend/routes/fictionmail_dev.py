@@ -5,11 +5,11 @@ Run with: uvicorn backend.routes.fictionmail_dev:app --reload
 Then visit: http://localhost:8000/dev
 """
 
-from fastapi import FastAPI, HTTPException, Request, Body, APIRouter
+from fastapi import FastAPI, HTTPException, Request, Body, APIRouter, Depends
 from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
-from typing import Optional, Dict, Any
+from pydantic import BaseModel, Field, field_validator, EmailStr
+from typing import Optional, Dict, Any, Literal
 import asyncio
 import json
 import time
@@ -27,9 +27,15 @@ from backend.storyteller.cost_calculator import (
     compare_tts_providers
 )
 from backend.storyteller.beat_templates import list_beat_structures, get_beat_structure_info
+from backend.security import verify_api_key
 
 # Create router for use in main.py
-router = APIRouter(prefix="/api/dev", tags=["FixionMail Dev"])
+# All routes require API key auth (bypassed in dev mode)
+router = APIRouter(
+    prefix="/api/dev",
+    tags=["FixionMail Dev"],
+    dependencies=[Depends(verify_api_key)]
+)
 
 # Create standalone app for local testing
 app = FastAPI(title="FixionMail Dev Dashboard")
@@ -42,63 +48,140 @@ dev_storage = {
 }
 
 
-# === Pydantic Models ===
+# === Pydantic Models with Validation ===
+
+# Valid options for enums
+VALID_GENRES = [
+    "scifi", "fantasy", "mystery", "romance", "thriller", "horror",
+    "comedy_sitcom", "drama", "adventure", "literary", "cozy",
+    "scifi_recurring", "fantasy_recurring", "mystery_recurring",
+    "romance_recurring", "thriller_recurring", "comedy_recurring"
+]
+VALID_STORY_LENGTHS = ["short", "medium"]
+VALID_BEAT_STRUCTURES = ["classic", "save_the_cat", "heros_journey", "truby_beats"]
+VALID_UNDERCURRENT_MODES = ["off", "custom", "surprise"]
+VALID_TTS_PROVIDERS = ["openai", "elevenlabs", "google"]
+VALID_MODELS = ["sonnet", "opus"]
+VALID_TIERS = ["free", "premium"]
+
 
 class OnboardingInput(BaseModel):
-    genre: str
-    setting: str
-    character_pool: Optional[list] = None  # Array of {name, description}
-    intensity: int = 3
-    story_length: str = "short"
-    premise: Optional[str] = None
-    cameo_pool: Optional[list] = None
-    beat_structure: str = "classic"  # classic, save_the_cat, heros_journey, truby_beats
-    # Undercurrent (Deeper Themes) settings
-    undercurrent_mode: str = "off"  # off, custom, surprise
-    undercurrent_custom: Optional[str] = None  # User's custom theme (when mode is "custom")
-    undercurrent_match_intensity: bool = True  # Whether theme depth matches story intensity
+    genre: str = Field(..., min_length=1, max_length=50)
+    setting: str = Field(..., min_length=1, max_length=2000)
+    character_pool: Optional[list] = Field(default=None, max_length=10)
+    intensity: int = Field(default=3, ge=1, le=5)
+    story_length: str = Field(default="short")
+    premise: Optional[str] = Field(default=None, max_length=1000)
+    cameo_pool: Optional[list] = Field(default=None, max_length=5)
+    beat_structure: str = Field(default="classic")
+    undercurrent_mode: str = Field(default="off")
+    undercurrent_custom: Optional[str] = Field(default=None, max_length=500)
+    undercurrent_match_intensity: bool = True
+
+    @field_validator('genre')
+    @classmethod
+    def validate_genre(cls, v):
+        if v not in VALID_GENRES:
+            raise ValueError(f"Invalid genre. Must be one of: {', '.join(VALID_GENRES)}")
+        return v
+
+    @field_validator('story_length')
+    @classmethod
+    def validate_story_length(cls, v):
+        if v not in VALID_STORY_LENGTHS:
+            raise ValueError(f"Invalid story_length. Must be one of: {', '.join(VALID_STORY_LENGTHS)}")
+        return v
+
+    @field_validator('beat_structure')
+    @classmethod
+    def validate_beat_structure(cls, v):
+        if v not in VALID_BEAT_STRUCTURES:
+            raise ValueError(f"Invalid beat_structure. Must be one of: {', '.join(VALID_BEAT_STRUCTURES)}")
+        return v
+
+    @field_validator('undercurrent_mode')
+    @classmethod
+    def validate_undercurrent_mode(cls, v):
+        if v not in VALID_UNDERCURRENT_MODES:
+            raise ValueError(f"Invalid undercurrent_mode. Must be one of: {', '.join(VALID_UNDERCURRENT_MODES)}")
+        return v
 
 
 class CameoInput(BaseModel):
-    name: str
-    description: str
-    frequency: str = "sometimes"
+    name: str = Field(..., min_length=1, max_length=100)
+    description: str = Field(..., min_length=1, max_length=500)
+    frequency: Literal["rarely", "sometimes", "often"] = "sometimes"
 
 
 class RatingInput(BaseModel):
-    story_id: str
-    rating: int
+    story_id: str = Field(..., min_length=1, max_length=100)
+    rating: int = Field(..., ge=1, le=5)
     feedback: Optional[Dict[str, bool]] = None
 
 
 class GenerateStoryInput(BaseModel):
-    email: Optional[str] = None
-    voice_id: Optional[str] = None
+    email: Optional[str] = Field(default=None, max_length=254)
+    voice_id: Optional[str] = Field(default=None, max_length=100)
     bible: Optional[Dict[str, Any]] = None
     force_cliffhanger: Optional[bool] = None
-    tts_provider: str = "openai"
-    tts_voice: Optional[str] = None
-    writer_model: str = "sonnet"  # sonnet or opus
+    tts_provider: str = Field(default="openai")
+    tts_voice: Optional[str] = Field(default=None, max_length=100)
+    writer_model: str = Field(default="sonnet")
+
+    @field_validator('tts_provider')
+    @classmethod
+    def validate_tts_provider(cls, v):
+        if v not in VALID_TTS_PROVIDERS:
+            raise ValueError(f"Invalid tts_provider. Must be one of: {', '.join(VALID_TTS_PROVIDERS)}")
+        return v
+
+    @field_validator('writer_model')
+    @classmethod
+    def validate_writer_model(cls, v):
+        if v not in VALID_MODELS:
+            raise ValueError(f"Invalid writer_model. Must be one of: {', '.join(VALID_MODELS)}")
+        return v
 
 
 class CostEstimateInput(BaseModel):
-    tier: str = "free"
-    story_length: str = "short"
+    tier: str = Field(default="free")
+    story_length: str = Field(default="short")
     include_audio: bool = True
     include_image: bool = True
-    tts_provider: str = "openai"
+    tts_provider: str = Field(default="openai")
+
+    @field_validator('tier')
+    @classmethod
+    def validate_tier(cls, v):
+        if v not in VALID_TIERS:
+            raise ValueError(f"Invalid tier. Must be one of: {', '.join(VALID_TIERS)}")
+        return v
 
 
 class QueueStoryInput(BaseModel):
     """Input for queueing a background story generation job."""
-    email: str  # Required - where to send the finished story
-    bible: Optional[Dict[str, Any]] = None  # Story bible (uses current if not provided)
-    writer_model: str = "sonnet"
-    structure_model: str = "sonnet"
-    editor_model: str = "opus"
-    tts_provider: str = "openai"
-    tts_voice: Optional[str] = None
+    email: str = Field(..., min_length=5, max_length=254)  # Required
+    bible: Optional[Dict[str, Any]] = None
+    writer_model: str = Field(default="sonnet")
+    structure_model: str = Field(default="sonnet")
+    editor_model: str = Field(default="opus")
+    tts_provider: str = Field(default="openai")
+    tts_voice: Optional[str] = Field(default=None, max_length=100)
     use_structure_agent: bool = True
+
+    @field_validator('writer_model', 'structure_model', 'editor_model')
+    @classmethod
+    def validate_model(cls, v):
+        if v not in VALID_MODELS:
+            raise ValueError(f"Invalid model. Must be one of: {', '.join(VALID_MODELS)}")
+        return v
+
+    @field_validator('tts_provider')
+    @classmethod
+    def validate_tts(cls, v):
+        if v not in VALID_TTS_PROVIDERS:
+            raise ValueError(f"Invalid tts_provider. Must be one of: {', '.join(VALID_TTS_PROVIDERS)}")
+        return v
 
 
 # === API Routes ===
@@ -608,6 +691,96 @@ async def dev_list_jobs(email: Optional[str] = None, limit: int = 20):
             "worker_status": worker_status
         }
 
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ===== Story Library Endpoints =====
+
+@router.get("/library")
+@app.get("/api/dev/library")
+async def dev_get_library(
+    email: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0
+):
+    """
+    Get library of completed stories with full content.
+
+    Returns stories with title, narrative, audio_url, cover_image_url, etc.
+    Supports pagination and filtering by email.
+    """
+    try:
+        from backend.jobs import get_queue
+
+        queue = await get_queue()
+        stories = await queue.db.get_completed_stories(
+            email=email,
+            limit=min(limit, 100),  # Cap at 100 per request
+            offset=offset
+        )
+        total = await queue.db.get_story_count(email=email)
+
+        return {
+            "success": True,
+            "stories": stories,
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+            "has_more": offset + len(stories) < total
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/library/{job_id}")
+@app.get("/api/dev/library/{job_id}")
+async def dev_get_story(job_id: str):
+    """
+    Get a single story by job_id with full content.
+    """
+    try:
+        from backend.jobs import get_queue
+
+        queue = await get_queue()
+        job = await queue.db.get_job_by_id(job_id)
+
+        if not job:
+            raise HTTPException(status_code=404, detail="Story not found")
+
+        if job["status"] != "completed":
+            raise HTTPException(
+                status_code=400,
+                detail=f"Story not ready. Status: {job['status']}"
+            )
+
+        result = job.get("result", {})
+        story_data = result.get("story", {})
+        bible = job.get("story_bible", {})
+
+        return {
+            "success": True,
+            "story": {
+                "job_id": job["job_id"],
+                "user_email": job["user_email"],
+                "title": story_data.get("title", "Untitled"),
+                "narrative": story_data.get("narrative", ""),
+                "genre": story_data.get("genre") or bible.get("genre", "unknown"),
+                "word_count": story_data.get("word_count", 0),
+                "audio_url": story_data.get("audio_url"),
+                "cover_image_url": story_data.get("cover_image_url"),
+                "created_at": job["created_at"],
+                "completed_at": job["completed_at"],
+                "generation_time_seconds": job["generation_time_seconds"],
+                "metadata": result.get("metadata", {}),
+                "email_sent": result.get("email_sent", False),
+                "story_bible": bible
+            }
+        }
+
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

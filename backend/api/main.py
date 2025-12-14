@@ -71,9 +71,11 @@ app = FastAPI(
 )
 
 # CORS middleware for frontend access
+# Uses config.allowed_origins_list (defaults to ["*"] in dev mode)
+_cors_origins = getattr(config, 'allowed_origins_list', ["*"])
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify allowed origins
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -272,6 +274,27 @@ async def startup_event():
             print(f"Media Generation: {'Enabled' if getattr(config, 'ENABLE_MEDIA_GENERATION', False) else 'Disabled'}")
             print(f"Credits System: {'Enabled' if getattr(config, 'ENABLE_CREDIT_SYSTEM', False) else 'Disabled'}")
             print(f"Debug Mode: {getattr(config, 'DEBUG', False)}")
+
+            # Security status
+            print("\n🔐 Security Status:")
+            auth_required = getattr(config, 'auth_required', False)
+            api_keys = getattr(config, 'api_keys_list', [])
+            allowed_origins = getattr(config, 'allowed_origins_list', ['*'])
+            dev_mode = getattr(config, 'DEV_MODE', True)
+
+            if dev_mode and not api_keys:
+                print("   ⚠️  DEV MODE: Authentication BYPASSED (no API keys configured)")
+            else:
+                print(f"   ✓ Authentication: ENABLED ({len(api_keys)} API key(s) configured)")
+
+            if '*' in allowed_origins:
+                print("   ⚠️  CORS: All origins allowed (configure ALLOWED_ORIGINS for production)")
+            else:
+                print(f"   ✓ CORS: Restricted to {len(allowed_origins)} origin(s)")
+
+            rate_limit = getattr(config, 'RATE_LIMIT_PER_MINUTE', 10)
+            print(f"   Rate limit: {rate_limit} requests/minute")
+
         except Exception as e:
             print(f"⚠️  Error accessing config: {e}")
         

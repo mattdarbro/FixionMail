@@ -1,16 +1,13 @@
 # Web service configuration
-# NOTE: For production, create a SEPARATE Railway service for the worker:
-#   1. Create new service from same repo
-#   2. Set startCommand: python -m backend.jobs.run_worker
-#   3. Remove healthcheck (worker has no HTTP endpoint)
-#   4. Share the same STORAGE_PATH volume
+# Story worker runs in-process because Railway volumes can't be shared between services
 
 [build]
 builder = "nixpacks"
 
 [deploy]
-# ENABLE_STORY_WORKER=false disables in-process worker (use separate worker service)
-startCommand = "ENABLE_STORY_WORKER=false gunicorn backend.api.main:app --workers 2 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT --timeout 300"
+# timeout 900 = 15 minutes to handle long story generation (structure + writer + editor + media)
+# graceful-timeout allows worker to finish current request before being killed
+startCommand = "gunicorn backend.api.main:app --workers 1 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT --timeout 900 --graceful-timeout 900"
 healthcheckPath = "/health"
 healthcheckTimeout = 300
 restartPolicyType = "on_failure"

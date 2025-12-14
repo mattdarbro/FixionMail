@@ -288,6 +288,80 @@ class StoryJobDatabase:
             for row in rows
         ]
 
+    async def get_completed_stories(
+        self,
+        email: Optional[str] = None,
+        limit: int = 50,
+        offset: int = 0
+    ) -> List[Dict[str, Any]]:
+        """
+        Get completed stories with full content for the library.
+        Returns stories with title, narrative, audio_url, image_url, etc.
+        """
+        if email:
+            cursor = await self._conn.execute("""
+                SELECT job_id, user_email, result, story_bible,
+                       created_at, completed_at, generation_time_seconds
+                FROM story_jobs
+                WHERE status = 'completed'
+                AND result IS NOT NULL
+                AND user_email = ?
+                ORDER BY completed_at DESC
+                LIMIT ? OFFSET ?
+            """, (email, limit, offset))
+        else:
+            cursor = await self._conn.execute("""
+                SELECT job_id, user_email, result, story_bible,
+                       created_at, completed_at, generation_time_seconds
+                FROM story_jobs
+                WHERE status = 'completed'
+                AND result IS NOT NULL
+                ORDER BY completed_at DESC
+                LIMIT ? OFFSET ?
+            """, (limit, offset))
+
+        rows = await cursor.fetchall()
+        stories = []
+
+        for row in rows:
+            result = json.loads(row[2]) if row[2] else {}
+            story_data = result.get("story", {})
+            bible = json.loads(row[3]) if row[3] else {}
+
+            stories.append({
+                "job_id": row[0],
+                "user_email": row[1],
+                "title": story_data.get("title", "Untitled"),
+                "narrative": story_data.get("narrative", ""),
+                "genre": story_data.get("genre") or bible.get("genre", "unknown"),
+                "word_count": story_data.get("word_count", 0),
+                "audio_url": story_data.get("audio_url"),
+                "cover_image_url": story_data.get("cover_image_url"),
+                "created_at": row[4],
+                "completed_at": row[5],
+                "generation_time_seconds": row[6],
+                "metadata": result.get("metadata", {}),
+                "email_sent": result.get("email_sent", False)
+            })
+
+        return stories
+
+    async def get_story_count(self, email: Optional[str] = None) -> int:
+        """Get total count of completed stories."""
+        if email:
+            cursor = await self._conn.execute("""
+                SELECT COUNT(*) FROM story_jobs
+                WHERE status = 'completed' AND result IS NOT NULL AND user_email = ?
+            """, (email,))
+        else:
+            cursor = await self._conn.execute("""
+                SELECT COUNT(*) FROM story_jobs
+                WHERE status = 'completed' AND result IS NOT NULL
+            """)
+
+        row = await cursor.fetchone()
+        return row[0] if row else 0
+
     async def cleanup_old_jobs(self, days: int = 30):
         """Remove completed/failed jobs older than specified days"""
         from datetime import timedelta
