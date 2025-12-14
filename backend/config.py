@@ -272,6 +272,43 @@ class AppConfig(BaseSettings):
         description="API server port"
     )
 
+    # ===== Security Settings =====
+    API_KEYS: str | None = Field(
+        default=None,
+        description="Comma-separated list of valid API keys. If empty/None and DEV_MODE=True, auth is bypassed."
+    )
+
+    ALLOWED_ORIGINS: str = Field(
+        default="*",
+        description="Comma-separated list of allowed CORS origins. Use '*' for all (dev only)."
+    )
+
+    RATE_LIMIT_PER_MINUTE: int = Field(
+        default=10,
+        ge=1,
+        le=1000,
+        description="Max API requests per minute per API key (0 = unlimited in dev mode)"
+    )
+
+    @property
+    def api_keys_list(self) -> list[str]:
+        """Get list of valid API keys."""
+        if not self.API_KEYS:
+            return []
+        return [k.strip() for k in self.API_KEYS.split(",") if k.strip()]
+
+    @property
+    def allowed_origins_list(self) -> list[str]:
+        """Get list of allowed CORS origins."""
+        if self.ALLOWED_ORIGINS == "*":
+            return ["*"]
+        return [o.strip() for o in self.ALLOWED_ORIGINS.split(",") if o.strip()]
+
+    @property
+    def auth_required(self) -> bool:
+        """Check if authentication is required (False in dev mode with no keys)."""
+        return bool(self.api_keys_list) or not self.DEV_MODE
+
     # ===== Computed Properties =====
 
     @property
