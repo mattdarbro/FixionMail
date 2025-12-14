@@ -80,11 +80,10 @@ app.add_middleware(
 )
 
 # Include routes if they loaded successfully
+# Note: routes_loaded is False because Iteration 1 routes are archived (not a failure)
 if routes_loaded and router:
     app.include_router(router, prefix="/api")
     app.include_router(email_choice_router, prefix="/api")  # Email choice handler
-else:
-    print("⚠️  Skipping routes registration due to initialization failure")
 
 # Include FixionMail dev router
 if fictionmail_loaded and fictionmail_router:
@@ -235,7 +234,8 @@ async def startup_event():
         print("Storyteller API Starting...")
         print("=" * 60)
         print(f"✓ Config loaded: {config_loaded}")
-        print(f"✓ Routes loaded: {routes_loaded}")
+        print(f"✓ Legacy routes (archived): {routes_loaded}")
+        print(f"✓ FixionMail dev routes: {fictionmail_loaded}")
 
         if not config_loaded:
             print("⚠️  WARNING: Config failed to load. Check environment variables.")
@@ -243,9 +243,8 @@ async def startup_event():
             return
 
         if not routes_loaded:
-            print("⚠️  WARNING: Routes failed to load. Check dependencies.")
-            print("⚠️  Health check will pass, but API endpoints unavailable.")
-            return
+            # This is expected - Iteration 1 routes are archived, FixionMail dev routes handle all endpoints
+            pass
 
         # Check critical environment variables
         import os
