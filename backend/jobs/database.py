@@ -300,6 +300,36 @@ class StoryJobDatabase:
         """, (cutoff,))
         await self._conn.commit()
 
+    async def recover_stale_running_jobs(self, stale_minutes: int = 10) -> int:
+        """
+        Recover jobs stuck in 'running' status (e.g., after worker crash).
+
+        Jobs running for longer than stale_minutes are reset to 'pending'
+        so they can be re-processed.
+
+        Returns the number of recovered jobs.
+        """
+        from datetime import timedelta
+        cutoff = (datetime.utcnow() - timedelta(minutes=stale_minutes)).isoformat()
+
+        # Find and reset stale running jobs
+        cursor = await self._conn.execute("""
+            UPDATE story_jobs
+            SET status = 'pending',
+                current_step = NULL,
+                progress_percent = 0,
+                error_message = 'Recovered from stale running state (worker crash/timeout)'
+            WHERE status = 'running'
+            AND started_at < ?
+            AND retry_count < 3
+            RETURNING job_id
+        """, (cutoff,))
+
+        recovered = await cursor.fetchall()
+        await self._conn.commit()
+
+        return len(recovered)
+
     async def close(self):
         """Close database connection"""
         if self._conn:
