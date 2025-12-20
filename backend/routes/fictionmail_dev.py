@@ -54,6 +54,7 @@ dev_storage = {
 VALID_GENRES = [
     "scifi", "fantasy", "mystery", "romance", "thriller", "horror",
     "comedy_sitcom", "drama", "adventure", "literary", "cozy",
+    "detective", "action", "western", "historical", "strange_fables",
     "scifi_recurring", "fantasy_recurring", "mystery_recurring",
     "romance_recurring", "thriller_recurring", "comedy_recurring"
 ]
