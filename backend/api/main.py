@@ -91,6 +91,16 @@ except Exception as e:
     users_router = None
     users_routes_loaded = False
 
+# Import Chat routes (Fixion)
+try:
+    from backend.routes.chat import router as chat_router
+    chat_routes_loaded = True
+    print("✓ Chat router imported")
+except Exception as e:
+    print(f"⚠️  Chat router loading failed: {e}")
+    chat_router = None
+    chat_routes_loaded = False
+
 # Create FastAPI app
 app = FastAPI(
     title="Storyteller API",
@@ -144,6 +154,13 @@ if users_routes_loaded and users_router:
     print("✓ Users routes registered")
 else:
     print("⚠️  Skipping Users routes")
+
+# Include Chat routes (Fixion)
+if chat_routes_loaded and chat_router:
+    app.include_router(chat_router)
+    print("✓ Chat routes registered")
+else:
+    print("⚠️  Skipping Chat routes")
 
 # Mount static files for generated media
 # Create directories if they don't exist
