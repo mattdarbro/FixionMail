@@ -12,7 +12,7 @@ cmds = [
 ]
 
 [phases.build]
-cmds = ["cd frontend && npm run build"]
+cmds = ["cd frontend && npm install && npm run build"]
 
 [start]
 cmd = "gunicorn backend.api.main:app --workers 1 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT --timeout 900 --graceful-timeout 900"
