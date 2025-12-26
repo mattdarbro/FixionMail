@@ -127,21 +127,37 @@ async def send_message_stream(
     """
     fixion = FixionService(user_id=user_id)
 
+    # Get or create conversation before streaming so we have the ID
+    from backend.database.conversations import ConversationService
+    conv_service = ConversationService()
+
+    if request.conversation_id:
+        conversation = await conv_service.get_by_id(request.conversation_id)
+        if not conversation:
+            conversation = await conv_service.create(
+                user_id, request.context_type or "general", request.story_id
+            )
+    else:
+        conversation = await conv_service.get_or_create_active(
+            user_id, request.context_type or "general", request.story_id
+        )
+
+    actual_conversation_id = conversation["id"]
+
     async def generate():
-        conversation_id = request.conversation_id
         try:
             async for chunk in fixion.chat_stream(
                 user_message=request.message,
                 context_type=request.context_type,
                 story_id=request.story_id,
-                conversation_id=request.conversation_id,
+                conversation_id=actual_conversation_id,
             ):
                 # Send token in JSON format expected by frontend
                 token_data = json.dumps({"type": "token", "content": chunk})
                 yield f"data: {token_data}\n\n"
 
             # Send done signal with conversation ID
-            done_data = json.dumps({"type": "done", "conversation_id": conversation_id})
+            done_data = json.dumps({"type": "done", "conversation_id": actual_conversation_id})
             yield f"data: {done_data}\n\n"
         except Exception as e:
             error_data = json.dumps({"type": "error", "message": str(e)})

@@ -23,9 +23,18 @@ export interface StoryBible {
     time_period?: string;
     location?: string;
     atmosphere?: string;
+    description?: string;
+    name?: string;
   };
   themes?: string[];
   tone?: string;
+  genre?: string;
+  intensity?: number;
+  main_characters?: Array<{ name: string; description: string }>;
+  story_settings?: {
+    intensity_label?: string;
+    story_length?: string;
+  };
   [key: string]: unknown;
 }
 
