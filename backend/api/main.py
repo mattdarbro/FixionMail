@@ -181,9 +181,14 @@ if os.path.exists(react_assets_path):
 # ===== Root Endpoint =====
 
 @app.get("/", response_class=HTMLResponse)
-@app.get("/landing", response_class=HTMLResponse)
 async def root():
-    """Serve the landing page."""
+    """Redirect root to login (React app handles auth redirect if already logged in)."""
+    return serve_react_app()
+
+
+@app.get("/landing", response_class=HTMLResponse)
+async def landing():
+    """Serve the static landing page (for marketing)."""
     landing_path = "./frontend/landing.html"
     if os.path.exists(landing_path):
         with open(landing_path, "r") as f:
