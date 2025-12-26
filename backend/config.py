@@ -324,6 +324,11 @@ class AppConfig(BaseSettings):
         description="API server port"
     )
 
+    APP_BASE_URL: str = Field(
+        default="http://localhost:8000",
+        description="Base URL for the application (used for auth redirects, emails, etc.)"
+    )
+
     # ===== Security Settings =====
     API_KEYS: str | None = Field(
         default=None,
