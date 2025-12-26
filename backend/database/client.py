@@ -8,7 +8,6 @@ from functools import lru_cache
 from typing import Optional
 
 from supabase import create_client, Client
-from supabase.lib.client_options import ClientOptions
 
 from backend.config import config
 
@@ -45,11 +44,7 @@ def get_supabase_admin_client() -> Client:
 
     return create_client(
         config.SUPABASE_URL,
-        config.SUPABASE_SERVICE_KEY,
-        options=ClientOptions(
-            auto_refresh_token=False,
-            persist_session=False,
-        )
+        config.SUPABASE_SERVICE_KEY
     )
 
 
@@ -80,11 +75,7 @@ def get_supabase_client(access_token: Optional[str] = None) -> Client:
 
     client = create_client(
         config.SUPABASE_URL,
-        config.SUPABASE_ANON_KEY,
-        options=ClientOptions(
-            auto_refresh_token=True,
-            persist_session=False,
-        )
+        config.SUPABASE_ANON_KEY
     )
 
     # If access token provided, set it for authenticated requests
