@@ -1,9 +1,9 @@
 import { StoryResponse, StartStoryRequest, ContinueStoryRequest } from '../types/story';
 
-// Get API URL from environment variable, fallback to localhost for development
-const API_BASE_URL = import.meta.env.VITE_API_URL 
+// Get API URL from environment variable, fallback to relative path
+const API_BASE_URL = import.meta.env.VITE_API_URL
   ? `${import.meta.env.VITE_API_URL}/api`
-  : 'http://localhost:8000/api';
+  : '/api';
 
 class ApiError extends Error {
   constructor(

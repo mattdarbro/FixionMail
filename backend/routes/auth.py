@@ -149,9 +149,12 @@ async def get_current_user(
     try:
         # Verify token with Supabase and get user info
         client = get_supabase_admin_client()
+        print(f"[AUTH] Verifying token: {token[:20]}...")
         user_response = client.auth.get_user(token)
+        print(f"[AUTH] User response: {user_response}")
 
         if not user_response or not user_response.user:
+            print(f"[AUTH] No user in response")
             raise HTTPException(
                 status_code=401,
                 detail="Invalid or expired token"
@@ -160,14 +163,17 @@ async def get_current_user(
         supabase_user = user_response.user
         user_id = str(supabase_user.id)
         email = supabase_user.email or ""
+        print(f"[AUTH] Verified user: {user_id} ({email})")
 
         # Get or create user in our database (auto-creates on first login)
         user_service = UserService()
         user = await user_service.get_or_create(user_id, email)
+        print(f"[AUTH] User profile loaded: {user.get('id')}")
 
         return user
 
     except SupabaseClientError as e:
+        print(f"[AUTH] SupabaseClientError: {e}")
         raise HTTPException(
             status_code=503,
             detail=f"Authentication service unavailable: {str(e)}"
@@ -175,6 +181,7 @@ async def get_current_user(
     except HTTPException:
         raise
     except Exception as e:
+        print(f"[AUTH] Exception during token verification: {type(e).__name__}: {e}")
         raise HTTPException(
             status_code=401,
             detail=f"Token verification failed: {str(e)}"
