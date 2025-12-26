@@ -488,7 +488,8 @@ async def startup_event():
 
         print("=" * 60)
         api_host = getattr(config, 'API_HOST', '0.0.0.0')
-        api_port = getattr(config, 'API_PORT', os.getenv('PORT', '8000'))
+        # Use PORT env var first (set by Railway), then fall back to config
+        api_port = os.getenv('PORT', getattr(config, 'API_PORT', '8000'))
         print(f"API available at: http://{api_host}:{api_port}")
         print(f"Docs available at: http://{api_host}:{api_port}/docs")
         print("=" * 60)
