@@ -89,15 +89,67 @@ class AppConfig(BaseSettings):
             return f"{storage_path}/story_checkpoints.db"
         return self.CHECKPOINT_DB_PATH
 
-    # ===== Supabase Storage Configuration =====
+    # ===== Supabase Configuration =====
     SUPABASE_URL: str | None = Field(
         default=None,
-        description="Supabase project URL (for production storage)"
+        description="Supabase project URL"
+    )
+
+    SUPABASE_ANON_KEY: str | None = Field(
+        default=None,
+        description="Supabase anon/public key (for client-side auth)"
     )
 
     SUPABASE_SERVICE_KEY: str | None = Field(
         default=None,
-        description="Supabase service role key (for storage uploads)"
+        description="Supabase service role key (for server-side operations, bypasses RLS)"
+    )
+
+    SUPABASE_JWT_SECRET: str | None = Field(
+        default=None,
+        description="Supabase JWT secret for token verification"
+    )
+
+    # ===== Stripe Configuration =====
+    STRIPE_SECRET_KEY: str | None = Field(
+        default=None,
+        description="Stripe secret key for server-side operations"
+    )
+
+    STRIPE_PUBLISHABLE_KEY: str | None = Field(
+        default=None,
+        description="Stripe publishable key for client-side"
+    )
+
+    STRIPE_WEBHOOK_SECRET: str | None = Field(
+        default=None,
+        description="Stripe webhook signing secret"
+    )
+
+    # Stripe Price IDs (set these after creating products in Stripe)
+    STRIPE_PRICE_MONTHLY: str | None = Field(
+        default=None,
+        description="Stripe Price ID for monthly subscription ($9.99)"
+    )
+
+    STRIPE_PRICE_ANNUAL: str | None = Field(
+        default=None,
+        description="Stripe Price ID for annual subscription ($99)"
+    )
+
+    STRIPE_PRICE_CREDITS_5: str | None = Field(
+        default=None,
+        description="Stripe Price ID for 5 credit pack ($4.49)"
+    )
+
+    STRIPE_PRICE_CREDITS_10: str | None = Field(
+        default=None,
+        description="Stripe Price ID for 10 credit pack ($7.99)"
+    )
+
+    STRIPE_PRICE_CREDITS_20: str | None = Field(
+        default=None,
+        description="Stripe Price ID for 20 credit pack ($14.99)"
     )
 
     # ===== Story Settings =====
@@ -335,6 +387,33 @@ class AppConfig(BaseSettings):
             and self.LANGCHAIN_API_KEY is not None
         )
 
+    @property
+    def supabase_configured(self) -> bool:
+        """Check if Supabase is properly configured."""
+        return (
+            self.SUPABASE_URL is not None
+            and self.SUPABASE_ANON_KEY is not None
+            and self.SUPABASE_SERVICE_KEY is not None
+        )
+
+    @property
+    def stripe_configured(self) -> bool:
+        """Check if Stripe is properly configured for subscriptions."""
+        return (
+            self.STRIPE_SECRET_KEY is not None
+            and self.STRIPE_WEBHOOK_SECRET is not None
+            and self.STRIPE_PRICE_MONTHLY is not None
+        )
+
+    @property
+    def stripe_credit_packs_configured(self) -> bool:
+        """Check if Stripe credit pack products are configured."""
+        return (
+            self.STRIPE_PRICE_CREDITS_5 is not None
+            and self.STRIPE_PRICE_CREDITS_10 is not None
+            and self.STRIPE_PRICE_CREDITS_20 is not None
+        )
+
 
 # Global configuration instance
 # Import this in other modules: from backend.config import config
@@ -358,3 +437,6 @@ if __name__ == "__main__":
     print(f"Image Generation: {'✓' if config.can_generate_images else '✗'}")
     print(f"Audio Generation: {'✓' if config.can_generate_audio else '✗'}")
     print(f"LangSmith Tracing: {'✓' if config.langsmith_enabled else '✗'}")
+    print(f"Supabase: {'✓' if config.supabase_configured else '✗'}")
+    print(f"Stripe: {'✓' if config.stripe_configured else '✗'}")
+    print(f"Stripe Credit Packs: {'✓' if config.stripe_credit_packs_configured else '✗'}")

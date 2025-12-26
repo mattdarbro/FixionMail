@@ -47,5 +47,8 @@ psycopg2-binary>=2.9.9
 # Production server
 gunicorn>=21.2.0
 
-# Supabase integration (optional, for storage)
+# Supabase integration (for auth and database)
 supabase>=2.0.0
+
+# Stripe integration (for payments)
+stripe>=7.0.0

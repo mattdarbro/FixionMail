@@ -61,6 +61,36 @@ except Exception as e:
     fictionmail_router = None
     fictionmail_loaded = False
 
+# Import Auth routes
+try:
+    from backend.routes.auth import router as auth_router
+    auth_routes_loaded = True
+    print("✓ Auth router imported")
+except Exception as e:
+    print(f"⚠️  Auth router loading failed: {e}")
+    auth_router = None
+    auth_routes_loaded = False
+
+# Import Stripe webhook routes
+try:
+    from backend.routes.stripe_webhooks import router as stripe_router
+    stripe_routes_loaded = True
+    print("✓ Stripe router imported")
+except Exception as e:
+    print(f"⚠️  Stripe router loading failed: {e}")
+    stripe_router = None
+    stripe_routes_loaded = False
+
+# Import User routes
+try:
+    from backend.routes.users import router as users_router
+    users_routes_loaded = True
+    print("✓ Users router imported")
+except Exception as e:
+    print(f"⚠️  Users router loading failed: {e}")
+    users_router = None
+    users_routes_loaded = False
+
 # Create FastAPI app
 app = FastAPI(
     title="Storyteller API",
@@ -93,6 +123,27 @@ if fictionmail_loaded and fictionmail_router:
     print("✓ FixionMail dev routes registered")
 else:
     print("⚠️  Skipping FixionMail dev routes")
+
+# Include Auth routes
+if auth_routes_loaded and auth_router:
+    app.include_router(auth_router)
+    print("✓ Auth routes registered")
+else:
+    print("⚠️  Skipping Auth routes")
+
+# Include Stripe webhook routes
+if stripe_routes_loaded and stripe_router:
+    app.include_router(stripe_router)
+    print("✓ Stripe routes registered")
+else:
+    print("⚠️  Skipping Stripe routes")
+
+# Include User routes
+if users_routes_loaded and users_router:
+    app.include_router(users_router)
+    print("✓ Users routes registered")
+else:
+    print("⚠️  Skipping Users routes")
 
 # Mount static files for generated media
 # Create directories if they don't exist
@@ -294,6 +345,22 @@ async def startup_event():
 
             rate_limit = getattr(config, 'RATE_LIMIT_PER_MINUTE', 10)
             print(f"   Rate limit: {rate_limit} requests/minute")
+
+            # Supabase status
+            print("\n🗄️  Database Status:")
+            supabase_configured = getattr(config, 'supabase_configured', False)
+            if supabase_configured:
+                print("   ✓ Supabase: Configured")
+            else:
+                print("   ⚠️  Supabase: Not configured (auth and database features unavailable)")
+
+            # Stripe status
+            print("\n💳 Payment Status:")
+            stripe_configured = getattr(config, 'stripe_configured', False)
+            if stripe_configured:
+                print("   ✓ Stripe: Configured")
+            else:
+                print("   ⚠️  Stripe: Not configured (subscription features unavailable)")
 
         except Exception as e:
             print(f"⚠️  Error accessing config: {e}")
