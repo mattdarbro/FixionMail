@@ -303,6 +303,18 @@ async def serve_auth_callback():
     return serve_react_app()
 
 
+@app.get("/chat", response_class=HTMLResponse)
+async def serve_chat():
+    """Serve the React app for chat page."""
+    return serve_react_app()
+
+
+@app.get("/stories", response_class=HTMLResponse)
+async def serve_stories():
+    """Serve the React app for stories page."""
+    return serve_react_app()
+
+
 # Handle apple-touch-icon requests to prevent 404s
 @app.get("/apple-touch-icon.png")
 @app.get("/apple-touch-icon-precomposed.png")
