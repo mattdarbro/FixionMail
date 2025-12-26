@@ -137,7 +137,10 @@ export function DashboardPage() {
                 </p>
               </div>
             </div>
-            <button className="px-6 py-3 bg-white text-amber-600 rounded-lg font-semibold hover:bg-amber-50 transition-colors">
+            <button
+              onClick={() => navigate('/chat')}
+              className="px-6 py-3 bg-white text-amber-600 rounded-lg font-semibold hover:bg-amber-50 transition-colors"
+            >
               Open Chat
             </button>
           </div>
