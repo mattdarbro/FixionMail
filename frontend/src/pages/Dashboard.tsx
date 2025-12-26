@@ -48,6 +48,12 @@ export function DashboardPage() {
                 </p>
               </div>
               <button
+                onClick={() => navigate('/settings')}
+                className="px-3 py-1.5 text-sm bg-amber-100 text-amber-700 hover:bg-amber-200 rounded-lg transition-colors"
+              >
+                ⚙️ Settings
+              </button>
+              <button
                 onClick={handleSignOut}
                 className="px-3 py-1 text-sm text-stone-600 hover:text-stone-800 transition-colors"
               >
@@ -94,7 +100,10 @@ export function DashboardPage() {
             <p className="text-3xl font-bold text-amber-600 capitalize">
               {user.current_genre || 'Not Set'}
             </p>
-            <button className="text-sm text-amber-600 hover:text-amber-700 mt-1">
+            <button
+              onClick={() => navigate('/settings')}
+              className="text-sm text-amber-600 hover:text-amber-700 mt-1"
+            >
               Change genre
             </button>
           </div>
@@ -107,7 +116,10 @@ export function DashboardPage() {
             <p className="text-3xl font-bold text-amber-600">
               {user.preferences?.delivery_time || '08:00'}
             </p>
-            <button className="text-sm text-amber-600 hover:text-amber-700 mt-1">
+            <button
+              onClick={() => navigate('/settings')}
+              className="text-sm text-amber-600 hover:text-amber-700 mt-1"
+            >
               Change time
             </button>
           </div>

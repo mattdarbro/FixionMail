@@ -5,6 +5,7 @@ import { AuthCallbackPage } from './pages/AuthCallback';
 import { OnboardingPage } from './pages/Onboarding';
 import { DashboardPage } from './pages/Dashboard';
 import { ChatPage } from './pages/Chat';
+import { StorySettingsPage } from './pages/StorySettings';
 
 // Legacy imports for dev mode
 import { useStory } from './hooks/useStory';
@@ -228,6 +229,7 @@ function App() {
           {/* Protected routes */}
           <Route path="/onboarding" element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>} />
           <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+          <Route path="/settings" element={<ProtectedRoute><StorySettingsPage /></ProtectedRoute>} />
           <Route path="/chat" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
 
           {/* Dev mode - accessible without auth */}
