@@ -181,6 +181,7 @@ if os.path.exists(react_assets_path):
 # ===== Root Endpoint =====
 
 @app.get("/", response_class=HTMLResponse)
+@app.get("/landing", response_class=HTMLResponse)
 async def root():
     """Serve the landing page."""
     landing_path = "./frontend/landing.html"
