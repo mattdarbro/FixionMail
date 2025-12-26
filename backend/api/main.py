@@ -171,6 +171,12 @@ os.makedirs("./generated_images", exist_ok=True)
 app.mount("/audio", StaticFiles(directory="./generated_audio"), name="audio")
 app.mount("/images", StaticFiles(directory="./generated_images"), name="images")
 
+# Mount React app static assets (JS, CSS from Vite build)
+react_assets_path = "./frontend/dist/assets"
+if os.path.exists(react_assets_path):
+    app.mount("/assets", StaticFiles(directory=react_assets_path), name="react_assets")
+    print("✓ React app assets mounted at /assets")
+
 
 # ===== Root Endpoint =====
 
@@ -252,6 +258,48 @@ async def serve_signup_placeholder():
             return f.read()
     else:
         raise HTTPException(status_code=404, detail="Placeholder page not found")
+
+
+# ===== React App Routes (SPA) =====
+# These routes serve the React app's index.html for client-side routing
+
+def serve_react_app():
+    """Helper to serve the React app's index.html."""
+    react_index_path = "./frontend/dist/index.html"
+    if os.path.exists(react_index_path):
+        with open(react_index_path, "r") as f:
+            return f.read()
+    else:
+        # Fallback to coming-soon if React app not built
+        placeholder_path = "./frontend/coming-soon.html"
+        if os.path.exists(placeholder_path):
+            with open(placeholder_path, "r") as f:
+                return f.read()
+        raise HTTPException(status_code=404, detail="React app not found. Run 'npm run build' in frontend/")
+
+
+@app.get("/login", response_class=HTMLResponse)
+async def serve_login():
+    """Serve the React app for login page."""
+    return serve_react_app()
+
+
+@app.get("/onboarding", response_class=HTMLResponse)
+async def serve_onboarding():
+    """Serve the React app for onboarding page."""
+    return serve_react_app()
+
+
+@app.get("/dashboard", response_class=HTMLResponse)
+async def serve_dashboard_app():
+    """Serve the React app for dashboard page."""
+    return serve_react_app()
+
+
+@app.get("/auth/callback", response_class=HTMLResponse)
+async def serve_auth_callback():
+    """Serve the React app for auth callback page."""
+    return serve_react_app()
 
 
 # Handle apple-touch-icon requests to prevent 404s

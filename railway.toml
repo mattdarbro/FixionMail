@@ -3,6 +3,8 @@
 
 [build]
 builder = "nixpacks"
+# Build both Python dependencies AND React frontend
+buildCommand = "pip install -r requirements.txt && cd frontend && npm install && npm run build && cd .."
 
 [deploy]
 # timeout 900 = 15 minutes to handle long story generation (structure + writer + editor + media)
