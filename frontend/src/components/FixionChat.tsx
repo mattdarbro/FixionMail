@@ -192,6 +192,7 @@ export function FixionChat({
             disabled={isStreaming || !session}
             rows={1}
             className="flex-1 resize-none rounded-xl border border-stone-300 px-4 py-3 text-sm
+                       bg-white text-stone-800
                        focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent
                        disabled:bg-stone-50 disabled:text-stone-400
                        placeholder:text-stone-400"
