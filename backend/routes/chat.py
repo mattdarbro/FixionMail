@@ -6,6 +6,7 @@ onboarding, story discussions, and general chat.
 """
 
 from typing import Optional, List
+import json
 
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse
@@ -127,6 +128,7 @@ async def send_message_stream(
     fixion = FixionService(user_id=user_id)
 
     async def generate():
+        conversation_id = request.conversation_id
         try:
             async for chunk in fixion.chat_stream(
                 user_message=request.message,
@@ -134,10 +136,16 @@ async def send_message_stream(
                 story_id=request.story_id,
                 conversation_id=request.conversation_id,
             ):
-                yield f"data: {chunk}\n\n"
-            yield "data: [DONE]\n\n"
+                # Send token in JSON format expected by frontend
+                token_data = json.dumps({"type": "token", "content": chunk})
+                yield f"data: {token_data}\n\n"
+
+            # Send done signal with conversation ID
+            done_data = json.dumps({"type": "done", "conversation_id": conversation_id})
+            yield f"data: {done_data}\n\n"
         except Exception as e:
-            yield f"data: [ERROR] {str(e)}\n\n"
+            error_data = json.dumps({"type": "error", "message": str(e)})
+            yield f"data: {error_data}\n\n"
 
     return StreamingResponse(
         generate(),
