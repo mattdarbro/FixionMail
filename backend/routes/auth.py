@@ -118,21 +118,67 @@ async def get_current_user_id(
 
 
 async def get_current_user(
-    user_id: str = Depends(get_current_user_id)
+    authorization: Optional[str] = Header(None, alias="Authorization")
 ) -> dict:
     """
     Get current user's full profile data.
+    Auto-creates user profile if it doesn't exist (first login).
     """
-    user_service = UserService()
-    user = await user_service.get_by_id(user_id)
+    # Dev mode bypass
+    if config.DEV_MODE and not authorization:
+        user_service = UserService()
+        user = await user_service.get_or_create("dev-user-id", "dev@example.com")
+        return user
 
-    if not user:
+    if not authorization:
         raise HTTPException(
-            status_code=404,
-            detail="User profile not found"
+            status_code=401,
+            detail="Authorization header required"
         )
 
-    return user
+    # Extract token from "Bearer <token>" format
+    parts = authorization.split()
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid authorization header format. Use 'Bearer <token>'"
+        )
+
+    token = parts[1]
+
+    try:
+        # Verify token with Supabase and get user info
+        client = get_supabase_admin_client()
+        user_response = client.auth.get_user(token)
+
+        if not user_response or not user_response.user:
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid or expired token"
+            )
+
+        supabase_user = user_response.user
+        user_id = str(supabase_user.id)
+        email = supabase_user.email or ""
+
+        # Get or create user in our database (auto-creates on first login)
+        user_service = UserService()
+        user = await user_service.get_or_create(user_id, email)
+
+        return user
+
+    except SupabaseClientError as e:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Authentication service unavailable: {str(e)}"
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=401,
+            detail=f"Token verification failed: {str(e)}"
+        )
 
 
 # =============================================================================

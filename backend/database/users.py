@@ -57,6 +57,70 @@ class UserService:
         result = self.client.table("users").select("*").eq("email", email).execute()
         return result.data[0] if result.data else None
 
+    async def create(
+        self,
+        user_id: UUID | str,
+        email: str,
+        credits: int = 10,
+        subscription_status: str = "trial"
+    ) -> Dict[str, Any]:
+        """
+        Create a new user record.
+
+        Args:
+            user_id: Supabase auth user ID
+            email: User's email
+            credits: Initial credits (default 10 for trial)
+            subscription_status: Initial status (default 'trial')
+
+        Returns:
+            Created user data
+        """
+        now = datetime.now(timezone.utc).isoformat()
+        user_data = {
+            "id": str(user_id),
+            "email": email,
+            "credits": credits,
+            "subscription_status": subscription_status,
+            "onboarding_completed": False,
+            "onboarding_step": "welcome",
+            "preferences": {
+                "delivery_time": "08:00",
+                "story_length": "medium",
+                "timezone": "UTC"
+            },
+            "story_bible": {},
+            "created_at": now,
+            "updated_at": now,
+        }
+
+        result = self.client.table("users").insert(user_data).execute()
+
+        if not result.data:
+            raise Exception("Failed to create user")
+
+        return result.data[0]
+
+    async def get_or_create(
+        self,
+        user_id: UUID | str,
+        email: str
+    ) -> Dict[str, Any]:
+        """
+        Get existing user or create a new one.
+
+        Args:
+            user_id: Supabase auth user ID
+            email: User's email
+
+        Returns:
+            User data (existing or newly created)
+        """
+        user = await self.get_by_id(user_id)
+        if user:
+            return user
+        return await self.create(user_id, email)
+
     async def get_by_stripe_customer(self, stripe_customer_id: str) -> Optional[Dict[str, Any]]:
         """Get user by Stripe customer ID."""
         result = (
