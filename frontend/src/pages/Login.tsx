@@ -92,6 +92,7 @@ export function LoginPage() {
                 placeholder="you@example.com"
                 required
                 className="w-full px-4 py-3 border border-stone-300 rounded-lg
+                           bg-white text-stone-800
                            focus:ring-2 focus:ring-amber-500 focus:border-transparent
                            placeholder:text-stone-400"
               />
