@@ -1,0 +1,18 @@
+# Nixpacks configuration for Railway
+# Tells Nixpacks we need both Python AND Node.js
+
+[phases.setup]
+nixPkgs = ["python313", "nodejs_20", "npm"]
+
+[phases.install]
+cmds = [
+    "python -m venv --copies /opt/venv",
+    ". /opt/venv/bin/activate && pip install -r requirements.txt",
+    "cd frontend && npm install"
+]
+
+[phases.build]
+cmds = ["cd frontend && npm run build"]
+
+[start]
+cmd = "gunicorn backend.api.main:app --workers 1 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT --timeout 900 --graceful-timeout 900"
