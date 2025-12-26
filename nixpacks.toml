@@ -2,7 +2,7 @@
 # Tells Nixpacks we need both Python AND Node.js
 
 [phases.setup]
-nixPkgs = ["python313", "nodejs_20", "npm"]
+nixPkgs = ["python313", "nodejs_20"]
 
 [phases.install]
 cmds = [
