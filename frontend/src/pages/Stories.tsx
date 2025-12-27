@@ -265,7 +265,13 @@ export function StoriesPage() {
               {selectedStory.word_count.toLocaleString()} words
             </p>
             <button
-              onClick={() => navigate('/chat')}
+              onClick={() => navigate('/chat', {
+                state: {
+                  storyId: selectedStory.id,
+                  storyTitle: selectedStory.title,
+                  storyGenre: selectedStory.genre
+                }
+              })}
               className="px-6 py-3 bg-amber-600 text-white rounded-xl font-medium hover:bg-amber-700 transition-colors"
             >
               💬 Discuss with Fixion

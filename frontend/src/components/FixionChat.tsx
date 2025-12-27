@@ -16,6 +16,8 @@ interface FixionChatProps {
   context?: {
     genre?: string;
     onboarding_step?: string;
+    storyId?: string;
+    contextType?: string;  // 'general', 'story_discussion', 'onboarding'
   };
   initialMessages?: ChatMessage[];
   placeholder?: string;
