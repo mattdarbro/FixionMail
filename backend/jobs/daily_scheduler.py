@@ -4,6 +4,19 @@ Daily Story Delivery Scheduler
 Checks for users who should receive their daily story based on their
 delivery_time and timezone preferences. Queues story generation jobs
 for eligible users.
+
+TIMING STRATEGY:
+Stories are generated AHEAD of the user's preferred delivery time to ensure
+on-time delivery. For example, if a user wants their story at 8:00 AM:
+  - Generation starts at 7:30 AM (30 min buffer by default)
+  - Story is generated, audio/images created
+  - Email is sent once complete (ideally by 8:00 AM)
+
+FUTURE SCALING:
+For high user counts, consider overnight batch generation:
+  - Generate all stories between 2-5 AM (off-peak)
+  - Store completed stories with scheduled delivery time
+  - Separate email worker sends at user's preferred time
 """
 
 import asyncio
@@ -25,7 +38,7 @@ class DailyStoryScheduler:
     Scheduler that checks for users who need their daily story.
 
     Runs every minute (configurable) and checks:
-    1. Is the user's delivery_time in their timezone now (within the window)?
+    1. Is it time to START generating (delivery_time - lead_time)?
     2. Have they already received a story today?
     3. Do they have credits available?
 
@@ -36,10 +49,12 @@ class DailyStoryScheduler:
         self,
         job_db_path: str = "story_jobs.db",
         check_interval_seconds: int = 60,  # Check every minute
-        delivery_window_minutes: int = 5,   # 5-minute delivery window
+        generation_lead_minutes: int = 30,  # Start generating 30 min before delivery
+        delivery_window_minutes: int = 5,   # 5-minute window to catch the trigger
     ):
         self.job_db_path = job_db_path
         self.check_interval = check_interval_seconds
+        self.generation_lead = generation_lead_minutes
         self.delivery_window = delivery_window_minutes
 
         self.scheduler = AsyncIOScheduler()
@@ -59,6 +74,7 @@ class DailyStoryScheduler:
 
         print(f"  Daily scheduler initialized")
         print(f"    Check interval: {self.check_interval}s")
+        print(f"    Generation lead: {self.generation_lead} minutes before delivery")
         print(f"    Delivery window: {self.delivery_window} minutes")
 
     def _parse_delivery_time(self, time_str: str) -> tuple[int, int]:
@@ -69,22 +85,26 @@ class DailyStoryScheduler:
         except (ValueError, IndexError):
             return 8, 0  # Default to 8:00 AM
 
-    def _is_delivery_time(
+    def _is_generation_time(
         self,
         delivery_time: str,
         user_timezone: str,
         now: Optional[datetime] = None
     ) -> bool:
         """
-        Check if current time matches user's delivery time within the window.
+        Check if it's time to START generating the story.
+
+        We trigger generation BEFORE the delivery time to ensure stories
+        arrive on time. If user wants 8:00 AM delivery and lead is 30 min,
+        we start generating at 7:30 AM.
 
         Args:
-            delivery_time: "HH:MM" format
+            delivery_time: "HH:MM" format (user's desired DELIVERY time)
             user_timezone: IANA timezone string (e.g., "America/New_York")
             now: Current UTC time (for testing)
 
         Returns:
-            True if within delivery window
+            True if within generation window (delivery_time - lead_time)
         """
         if now is None:
             now = datetime.now(timezone.utc)
@@ -100,19 +120,19 @@ class DailyStoryScheduler:
         # Parse delivery time
         target_hour, target_minute = self._parse_delivery_time(delivery_time)
 
-        # Create target datetime in user's timezone for today
-        target_time = user_now.replace(
+        # Create target DELIVERY datetime in user's timezone for today
+        delivery_datetime = user_now.replace(
             hour=target_hour,
             minute=target_minute,
             second=0,
             microsecond=0
         )
 
-        # Check if within delivery window
-        window_start = target_time
-        window_end = target_time + timedelta(minutes=self.delivery_window)
+        # Calculate when to START generation (before delivery time)
+        generation_start = delivery_datetime - timedelta(minutes=self.generation_lead)
+        generation_end = generation_start + timedelta(minutes=self.delivery_window)
 
-        return window_start <= user_now < window_end
+        return generation_start <= user_now < generation_end
 
     def _has_story_today(self, user: Dict[str, Any]) -> bool:
         """Check if user already received a story today (in their timezone)."""
@@ -175,8 +195,8 @@ class DailyStoryScheduler:
                     delivery_time = prefs.get("delivery_time", "08:00")
                     user_timezone = prefs.get("timezone", "UTC")
 
-                    # Check if it's delivery time
-                    if not self._is_delivery_time(delivery_time, user_timezone):
+                    # Check if it's time to START generating (ahead of delivery time)
+                    if not self._is_generation_time(delivery_time, user_timezone):
                         continue
 
                     # Queue story generation
@@ -310,6 +330,7 @@ _scheduler_instance: Optional[DailyStoryScheduler] = None
 async def start_daily_scheduler(
     job_db_path: str = "story_jobs.db",
     check_interval: int = 60,
+    generation_lead: int = 30,  # Minutes before delivery to start generating
 ):
     """Start the daily story scheduler. Call during FastAPI startup."""
     global _scheduler_instance
@@ -318,6 +339,7 @@ async def start_daily_scheduler(
         _scheduler_instance = DailyStoryScheduler(
             job_db_path=job_db_path,
             check_interval_seconds=check_interval,
+            generation_lead_minutes=generation_lead,
         )
         await _scheduler_instance.initialize()
         _scheduler_instance.start()
