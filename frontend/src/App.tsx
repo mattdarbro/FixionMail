@@ -6,6 +6,7 @@ import { OnboardingPage } from './pages/Onboarding';
 import { DashboardPage } from './pages/Dashboard';
 import { ChatPage } from './pages/Chat';
 import { StorySettingsPage } from './pages/StorySettings';
+import { StoriesPage } from './pages/Stories';
 
 // Legacy imports for dev mode
 import { useStory } from './hooks/useStory';
@@ -230,6 +231,7 @@ function App() {
           <Route path="/onboarding" element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>} />
           <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><StorySettingsPage /></ProtectedRoute>} />
+          <Route path="/stories" element={<ProtectedRoute><StoriesPage /></ProtectedRoute>} />
           <Route path="/chat" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
 
           {/* Dev mode - accessible without auth */}

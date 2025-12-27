@@ -1,0 +1,337 @@
+"""
+Daily Story Delivery Scheduler
+
+Checks for users who should receive their daily story based on their
+delivery_time and timezone preferences. Queues story generation jobs
+for eligible users.
+"""
+
+import asyncio
+from datetime import datetime, timezone, timedelta
+from typing import List, Dict, Any, Optional
+from uuid import uuid4
+from zoneinfo import ZoneInfo
+
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.interval import IntervalTrigger
+
+from backend.database.users import UserService
+from backend.database.stories import StoryService
+from backend.jobs.database import StoryJobDatabase
+
+
+class DailyStoryScheduler:
+    """
+    Scheduler that checks for users who need their daily story.
+
+    Runs every minute (configurable) and checks:
+    1. Is the user's delivery_time in their timezone now (within the window)?
+    2. Have they already received a story today?
+    3. Do they have credits available?
+
+    If all conditions are met, queues a story generation job.
+    """
+
+    def __init__(
+        self,
+        job_db_path: str = "story_jobs.db",
+        check_interval_seconds: int = 60,  # Check every minute
+        delivery_window_minutes: int = 5,   # 5-minute delivery window
+    ):
+        self.job_db_path = job_db_path
+        self.check_interval = check_interval_seconds
+        self.delivery_window = delivery_window_minutes
+
+        self.scheduler = AsyncIOScheduler()
+        self.job_db: Optional[StoryJobDatabase] = None
+        self.user_service: Optional[UserService] = None
+        self.story_service: Optional[StoryService] = None
+
+        self._is_checking = False
+
+    async def initialize(self):
+        """Initialize database connections."""
+        self.job_db = StoryJobDatabase(self.job_db_path)
+        await self.job_db.connect()
+
+        self.user_service = UserService()
+        self.story_service = StoryService()
+
+        print(f"  Daily scheduler initialized")
+        print(f"    Check interval: {self.check_interval}s")
+        print(f"    Delivery window: {self.delivery_window} minutes")
+
+    def _parse_delivery_time(self, time_str: str) -> tuple[int, int]:
+        """Parse HH:MM string to (hour, minute) tuple."""
+        try:
+            parts = time_str.split(":")
+            return int(parts[0]), int(parts[1])
+        except (ValueError, IndexError):
+            return 8, 0  # Default to 8:00 AM
+
+    def _is_delivery_time(
+        self,
+        delivery_time: str,
+        user_timezone: str,
+        now: Optional[datetime] = None
+    ) -> bool:
+        """
+        Check if current time matches user's delivery time within the window.
+
+        Args:
+            delivery_time: "HH:MM" format
+            user_timezone: IANA timezone string (e.g., "America/New_York")
+            now: Current UTC time (for testing)
+
+        Returns:
+            True if within delivery window
+        """
+        if now is None:
+            now = datetime.now(timezone.utc)
+
+        try:
+            tz = ZoneInfo(user_timezone)
+        except Exception:
+            tz = ZoneInfo("UTC")
+
+        # Convert current time to user's timezone
+        user_now = now.astimezone(tz)
+
+        # Parse delivery time
+        target_hour, target_minute = self._parse_delivery_time(delivery_time)
+
+        # Create target datetime in user's timezone for today
+        target_time = user_now.replace(
+            hour=target_hour,
+            minute=target_minute,
+            second=0,
+            microsecond=0
+        )
+
+        # Check if within delivery window
+        window_start = target_time
+        window_end = target_time + timedelta(minutes=self.delivery_window)
+
+        return window_start <= user_now < window_end
+
+    def _has_story_today(self, user: Dict[str, Any]) -> bool:
+        """Check if user already received a story today (in their timezone)."""
+        last_story_at = user.get("last_story_at")
+        if not last_story_at:
+            return False
+
+        # Parse last_story_at
+        if isinstance(last_story_at, str):
+            try:
+                last_story_dt = datetime.fromisoformat(last_story_at.replace("Z", "+00:00"))
+            except ValueError:
+                return False
+        else:
+            last_story_dt = last_story_at
+
+        # Get user's timezone
+        user_timezone = user.get("preferences", {}).get("timezone", "UTC")
+        try:
+            tz = ZoneInfo(user_timezone)
+        except Exception:
+            tz = ZoneInfo("UTC")
+
+        # Check if last story was today in user's timezone
+        now_user_tz = datetime.now(timezone.utc).astimezone(tz)
+        last_story_user_tz = last_story_dt.astimezone(tz)
+
+        return now_user_tz.date() == last_story_user_tz.date()
+
+    async def check_and_queue_stories(self):
+        """
+        Main scheduler function - checks all eligible users and queues stories.
+        Called periodically by APScheduler.
+        """
+        if self._is_checking:
+            return
+
+        self._is_checking = True
+        queued_count = 0
+
+        try:
+            # Get all users who might need stories
+            users = await self.user_service.get_users_needing_story(
+                before_time=datetime.now(timezone.utc)
+            )
+
+            for user in users:
+                try:
+                    # Skip if no credits
+                    credits = user.get("credits", 0)
+                    if credits < 1:
+                        continue
+
+                    # Skip if already received story today
+                    if self._has_story_today(user):
+                        continue
+
+                    # Get delivery preferences
+                    prefs = user.get("preferences", {})
+                    delivery_time = prefs.get("delivery_time", "08:00")
+                    user_timezone = prefs.get("timezone", "UTC")
+
+                    # Check if it's delivery time
+                    if not self._is_delivery_time(delivery_time, user_timezone):
+                        continue
+
+                    # Queue story generation
+                    await self._queue_story_for_user(user)
+                    queued_count += 1
+
+                except Exception as e:
+                    print(f"  Error checking user {user.get('email')}: {e}")
+                    continue
+
+            if queued_count > 0:
+                print(f"  Daily scheduler: Queued {queued_count} story jobs")
+
+        except Exception as e:
+            print(f"  Daily scheduler error: {e}")
+            import traceback
+            traceback.print_exc()
+        finally:
+            self._is_checking = False
+
+    async def _queue_story_for_user(self, user: Dict[str, Any]):
+        """Queue a story generation job for a user."""
+        user_id = user["id"]
+        user_email = user["email"]
+
+        # Build story bible from user preferences
+        story_bible = user.get("story_bible", {})
+        story_bible["genre"] = user.get("current_genre", "mystery")
+
+        # Add protagonist if available
+        if user.get("current_protagonist"):
+            story_bible["protagonist"] = user["current_protagonist"]
+
+        # Get preferences for settings
+        prefs = user.get("preferences", {})
+        subscription_status = user.get("subscription_status", "trial")
+
+        # Determine user tier and model settings
+        is_premium = subscription_status == "active"
+        user_tier = "premium" if is_premium else "free"
+
+        settings = {
+            "user_tier": user_tier,
+            "user_id": user_id,
+            "story_length": prefs.get("story_length", "medium"),
+            "writer_model": "sonnet",
+            "structure_model": "sonnet",
+            "editor_model": "opus" if is_premium else "sonnet",
+            "tts_voice": prefs.get("voice_id", "nova"),
+            "dev_mode": False,  # Production mode
+        }
+
+        # Create job
+        job_id = f"daily_{user_id}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
+
+        await self.job_db.create_job(
+            job_id=job_id,
+            story_bible=story_bible,
+            user_email=user_email,
+            settings=settings
+        )
+
+        # Update user's last_story_at to prevent duplicate deliveries
+        await self.user_service.record_story_delivery(user_id)
+
+        print(f"  Queued daily story for {user_email} (job: {job_id})")
+
+    async def queue_story_now(
+        self,
+        user_id: str,
+        user_email: str,
+        story_bible: Dict[str, Any],
+        settings: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """
+        Manually queue a story for immediate generation.
+        Used for testing and on-demand story requests.
+
+        Returns:
+            Job ID
+        """
+        job_id = f"manual_{user_id}_{uuid4().hex[:8]}"
+
+        default_settings = {
+            "user_tier": "free",
+            "user_id": user_id,
+            "writer_model": "sonnet",
+            "structure_model": "sonnet",
+            "editor_model": "sonnet",
+            "dev_mode": True,
+        }
+
+        if settings:
+            default_settings.update(settings)
+
+        await self.job_db.create_job(
+            job_id=job_id,
+            story_bible=story_bible,
+            user_email=user_email,
+            settings=default_settings
+        )
+
+        print(f"  Queued manual story for {user_email} (job: {job_id})")
+        return job_id
+
+    def start(self):
+        """Start the daily scheduler."""
+        self.scheduler.add_job(
+            self.check_and_queue_stories,
+            trigger=IntervalTrigger(seconds=self.check_interval),
+            id="daily_story_scheduler",
+            name="Check and queue daily stories",
+            replace_existing=True,
+            max_instances=1
+        )
+
+        self.scheduler.start()
+        print(f"  Daily story scheduler started (checking every {self.check_interval}s)")
+
+    def shutdown(self):
+        """Shutdown the scheduler."""
+        if self.scheduler.running:
+            self.scheduler.shutdown(wait=False)
+        print("  Daily story scheduler stopped")
+
+
+# Global scheduler instance
+_scheduler_instance: Optional[DailyStoryScheduler] = None
+
+
+async def start_daily_scheduler(
+    job_db_path: str = "story_jobs.db",
+    check_interval: int = 60,
+):
+    """Start the daily story scheduler. Call during FastAPI startup."""
+    global _scheduler_instance
+
+    if _scheduler_instance is None:
+        _scheduler_instance = DailyStoryScheduler(
+            job_db_path=job_db_path,
+            check_interval_seconds=check_interval,
+        )
+        await _scheduler_instance.initialize()
+        _scheduler_instance.start()
+
+
+def stop_daily_scheduler():
+    """Stop the daily story scheduler. Call during FastAPI shutdown."""
+    global _scheduler_instance
+
+    if _scheduler_instance is not None:
+        _scheduler_instance.shutdown()
+        _scheduler_instance = None
+
+
+def get_daily_scheduler() -> Optional[DailyStoryScheduler]:
+    """Get the current scheduler instance."""
+    return _scheduler_instance

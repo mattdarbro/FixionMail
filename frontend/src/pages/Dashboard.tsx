@@ -4,12 +4,66 @@
  * The main user dashboard showing recent stories, credits, and quick actions.
  */
 
+import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { Story } from '../types/story';
+
+const GENRE_ICONS: Record<string, string> = {
+  mystery: '🔍',
+  romance: '💕',
+  comedy: '😂',
+  fantasy: '🧙',
+  scifi: '🚀',
+  cozy: '☕',
+  western: '🤠',
+  action: '💥',
+  historical: '📜',
+  strange_fables: '🌀',
+};
 
 export function DashboardPage() {
-  const { user, signOut } = useAuth();
+  const { user, session, signOut } = useAuth();
   const navigate = useNavigate();
+  const [recentStories, setRecentStories] = useState<Story[]>([]);
+  const [totalStories, setTotalStories] = useState(0);
+  const [isLoadingStories, setIsLoadingStories] = useState(true);
+
+  useEffect(() => {
+    if (session?.access_token) {
+      fetchRecentStories();
+    }
+  }, [session]);
+
+  const fetchRecentStories = async () => {
+    if (!session?.access_token) return;
+
+    try {
+      const response = await fetch('/api/stories?limit=3', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setRecentStories(data.stories);
+        setTotalStories(data.total);
+      }
+    } catch {
+      // Silent fail for stories
+    } finally {
+      setIsLoadingStories(false);
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+    });
+  };
 
   const handleSignOut = async () => {
     await signOut();
@@ -125,16 +179,63 @@ export function DashboardPage() {
           </div>
         </div>
 
-        {/* Recent Stories Placeholder */}
+        {/* Recent Stories */}
         <div className="bg-white rounded-2xl shadow-lg p-6">
-          <h3 className="text-xl font-bold text-stone-800 mb-4">Recent Stories</h3>
-          <div className="text-center py-12 text-stone-500">
-            <div className="text-5xl mb-4">📚</div>
-            <p className="text-lg">Your stories will appear here</p>
-            <p className="text-sm mt-2">
-              Your first story will arrive at your scheduled delivery time.
-            </p>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xl font-bold text-stone-800">Recent Stories</h3>
+            {totalStories > 0 && (
+              <button
+                onClick={() => navigate('/stories')}
+                className="text-sm text-amber-600 hover:text-amber-700 font-medium"
+              >
+                View All ({totalStories}) →
+              </button>
+            )}
           </div>
+
+          {isLoadingStories ? (
+            <div className="text-center py-8">
+              <div className="w-8 h-8 border-4 border-amber-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+              <p className="text-stone-500 text-sm">Loading stories...</p>
+            </div>
+          ) : recentStories.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {recentStories.map((story) => (
+                <button
+                  key={story.id}
+                  onClick={() => navigate('/stories')}
+                  className="bg-stone-50 rounded-xl p-4 text-left hover:bg-amber-50 transition-colors group"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="text-3xl">
+                      {GENRE_ICONS[story.genre] || '📖'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-semibold text-stone-800 truncate group-hover:text-amber-700 transition-colors">
+                        {story.title}
+                      </h4>
+                      <p className="text-xs text-stone-500 mt-1">
+                        {formatDate(story.created_at)} · {Math.ceil(story.word_count / 200)} min
+                      </p>
+                      {story.rating && (
+                        <div className="mt-1 text-amber-500 text-xs">
+                          {'★'.repeat(story.rating)}{'☆'.repeat(5 - story.rating)}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12 text-stone-500">
+              <div className="text-5xl mb-4">📚</div>
+              <p className="text-lg">Your stories will appear here</p>
+              <p className="text-sm mt-2">
+                Your first story will arrive at your scheduled delivery time.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Chat with Fixion CTA */}

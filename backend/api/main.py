@@ -101,6 +101,16 @@ except Exception as e:
     chat_router = None
     chat_routes_loaded = False
 
+# Import Stories routes
+try:
+    from backend.routes.stories import router as stories_router
+    stories_routes_loaded = True
+    print("✓ Stories router imported")
+except Exception as e:
+    print(f"⚠️  Stories router loading failed: {e}")
+    stories_router = None
+    stories_routes_loaded = False
+
 # Create FastAPI app
 app = FastAPI(
     title="Storyteller API",
@@ -161,6 +171,13 @@ if chat_routes_loaded and chat_router:
     print("✓ Chat routes registered")
 else:
     print("⚠️  Skipping Chat routes")
+
+# Include Stories routes
+if stories_routes_loaded and stories_router:
+    app.include_router(stories_router)
+    print("✓ Stories routes registered")
+else:
+    print("⚠️  Skipping Stories routes")
 
 # Mount static files for generated media
 # Create directories if they don't exist
@@ -488,6 +505,20 @@ async def startup_event():
         else:
             print("ℹ️  Story worker disabled (ENABLE_STORY_WORKER=false)")
 
+        # Start daily story scheduler
+        if os.getenv("ENABLE_DAILY_SCHEDULER", "true").lower() == "true":
+            try:
+                from backend.jobs import start_daily_scheduler
+                print("\n📅 Starting daily story scheduler...")
+                await start_daily_scheduler()
+                print("✓ Daily story scheduler started (checking delivery times)")
+            except Exception as e:
+                print(f"⚠️  Error starting daily scheduler: {e}")
+                import traceback
+                traceback.print_exc()
+        else:
+            print("ℹ️  Daily scheduler disabled (ENABLE_DAILY_SCHEDULER=false)")
+
         # Validate world templates exist (no longer using RAG)
         try:
             from pathlib import Path
@@ -535,6 +566,15 @@ async def shutdown_event():
             print("✓ Background story worker stopped")
         except Exception as e:
             print(f"⚠️  Error stopping story worker: {e}")
+
+        # Stop daily story scheduler
+        try:
+            from backend.jobs import stop_daily_scheduler
+            print("📅 Stopping daily story scheduler...")
+            stop_daily_scheduler()
+            print("✓ Daily story scheduler stopped")
+        except Exception as e:
+            print(f"⚠️  Error stopping daily scheduler: {e}")
         print("=" * 60)
         print("Shutdown complete")
         print("=" * 60)
