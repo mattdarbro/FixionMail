@@ -41,3 +41,54 @@ export interface StoryState {
   imageUrl?: string;
   audioUrl?: string;
 }
+
+// FixionMail standalone story types
+export interface Story {
+  id: string;
+  title: string;
+  narrative: string;
+  genre: string;
+  word_count: number;
+  audio_url?: string;
+  image_url?: string;
+  rating?: number;
+  is_retell: boolean;
+  created_at: string;
+}
+
+export interface StoryListResponse {
+  stories: Story[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface StoryStats {
+  total_stories: number;
+  original_stories: number;
+  retells: number;
+  genres: Record<string, number>;
+  total_words: number;
+  average_rating: number;
+}
+
+export interface GenerateStoryRequest {
+  genre?: string;
+  intensity?: number;
+}
+
+export interface GenerateStoryResponse {
+  job_id: string;
+  message: string;
+  status: string;
+}
+
+export interface JobStatus {
+  job_id: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  current_step?: string;
+  progress_percent: number;
+  created_at: string;
+  completed_at?: string;
+  error_message?: string;
+}
