@@ -64,6 +64,8 @@ export const chatApi = {
     context?: {
       genre?: string;
       onboarding_step?: string;
+      storyId?: string;
+      contextType?: string;
     }
   ): Promise<ChatResponse> {
     return fetchWithAuth<ChatResponse>(
@@ -74,7 +76,8 @@ export const chatApi = {
         body: JSON.stringify({
           message,
           conversation_id: conversationId,
-          context,
+          context_type: context?.contextType,
+          story_id: context?.storyId,
         }),
       }
     );
@@ -87,7 +90,12 @@ export const chatApi = {
     accessToken: string,
     message: string,
     conversationId: string | undefined,
-    context: { genre?: string; onboarding_step?: string } | undefined,
+    context: {
+      genre?: string;
+      onboarding_step?: string;
+      storyId?: string;
+      contextType?: string;
+    } | undefined,
     onToken: (token: string) => void,
     onComplete: (response: ChatResponse) => void,
     onError: (error: Error) => void
@@ -103,7 +111,8 @@ export const chatApi = {
       body: JSON.stringify({
         message,
         conversation_id: conversationId,
-        context,
+        context_type: context?.contextType,
+        story_id: context?.storyId,
       }),
       signal: controller.signal,
     })

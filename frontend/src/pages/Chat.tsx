@@ -6,14 +6,30 @@
  */
 
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { FixionChat } from '../components/FixionChat';
 import { ChatMessage } from '../types/chat';
 
+interface LocationState {
+  storyId?: string;
+  storyTitle?: string;
+  storyGenre?: string;
+}
+
 export function ChatPage() {
   const { user, session } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const locationState = location.state as LocationState | null;
+
+  // Extract story context from navigation state
+  const storyContext = locationState?.storyId ? {
+    storyId: locationState.storyId,
+    storyTitle: locationState.storyTitle,
+    storyGenre: locationState.storyGenre,
+  } : null;
+
   const [conversationId, setConversationId] = useState<string | undefined>();
   const [initialMessages, setInitialMessages] = useState<ChatMessage[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
@@ -22,6 +38,20 @@ export function ChatPage() {
   useEffect(() => {
     async function loadOrStartConversation() {
       if (!session?.access_token) return;
+
+      // If we have story context, start a fresh story discussion
+      if (storyContext) {
+        const storyTitle = storyContext.storyTitle || 'this story';
+        setInitialMessages([
+          {
+            role: 'assistant',
+            content: `I see you've been reading "${storyTitle}"! What did you think? I'd love to hear your thoughts, answer questions about the plot, discuss character motivations, or help you explore what happens next.\n\nWhat's on your mind?`,
+            timestamp: new Date().toISOString(),
+          },
+        ]);
+        setIsLoadingHistory(false);
+        return;
+      }
 
       try {
         // Try to get recent conversations
@@ -67,11 +97,11 @@ export function ChatPage() {
     }
 
     loadOrStartConversation();
-  }, [session?.access_token]);
+  }, [session?.access_token, storyContext]);
 
-  // Add welcome message if starting fresh
+  // Add welcome message if starting fresh (and no story context)
   useEffect(() => {
-    if (!isLoadingHistory && initialMessages.length === 0) {
+    if (!isLoadingHistory && initialMessages.length === 0 && !storyContext) {
       const genre = user?.current_genre || 'mystery';
       setInitialMessages([
         {
@@ -81,7 +111,7 @@ export function ChatPage() {
         },
       ]);
     }
-  }, [isLoadingHistory, initialMessages.length, user?.current_genre]);
+  }, [isLoadingHistory, initialMessages.length, user?.current_genre, storyContext]);
 
   if (!user) {
     return (
@@ -119,11 +149,19 @@ export function ChatPage() {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <span className="text-sm text-stone-500 capitalize">
-                {user.current_genre || 'Mystery'} mode
-              </span>
+              {storyContext ? (
+                <span className="text-sm text-stone-500">
+                  Discussing: <span className="font-medium text-amber-700">{storyContext.storyTitle}</span>
+                </span>
+              ) : (
+                <span className="text-sm text-stone-500 capitalize">
+                  {user.current_genre || 'Mystery'} mode
+                </span>
+              )}
               <button
                 onClick={() => {
+                  // Clear story context by navigating without state
+                  navigate('/chat', { replace: true, state: null });
                   setConversationId(undefined);
                   setInitialMessages([{
                     role: 'assistant',
@@ -153,9 +191,16 @@ export function ChatPage() {
           <FixionChat
             conversationId={conversationId}
             onConversationIdChange={setConversationId}
-            context={{ genre: user.current_genre }}
+            context={{
+              genre: user.current_genre,
+              storyId: storyContext?.storyId,
+              contextType: storyContext ? 'story_discussion' : 'general',
+            }}
             initialMessages={initialMessages}
-            placeholder="Ask Fixion anything about your stories..."
+            placeholder={storyContext
+              ? `Share your thoughts on "${storyContext.storyTitle}"...`
+              : "Ask Fixion anything about your stories..."
+            }
             className="flex-1"
           />
         )}
