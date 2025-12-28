@@ -34,7 +34,12 @@ export interface StoryBible {
   story_settings?: {
     intensity_label?: string;
     story_length?: string;
+    beat_structure?: string;
+    undercurrent_mode?: string;
+    undercurrent_custom?: string | null;
+    undercurrent_match_intensity?: boolean;
   };
+  beat_structure?: string;
   [key: string]: unknown;
 }
 
