@@ -155,7 +155,7 @@ export function StorySettingsPage() {
           setUndercurrentCustom(user.story_bible.story_settings.undercurrent_custom || '');
         } else if (user.story_bible.beat_structure) {
           // Fallback to top-level beat_structure if exists
-          setBeatStructure(user.story_bible.beat_structure);
+          setBeatStructure(user.story_bible.beat_structure as string);
         }
       }
     }
