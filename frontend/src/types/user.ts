@@ -31,6 +31,12 @@ export interface StoryBible {
   genre?: string;
   intensity?: number;
   main_characters?: Array<{ name: string; description: string }>;
+  cameo_characters?: Array<{
+    name: string;
+    description: string;
+    frequency: 'rarely' | 'sometimes' | 'often';
+    appearances?: number;
+  }>;
   story_settings?: {
     intensity_label?: string;
     story_length?: string;
