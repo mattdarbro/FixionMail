@@ -108,6 +108,18 @@ interface Character {
   description: string;
 }
 
+interface CameoCharacter {
+  name: string;
+  description: string;
+  frequency: 'rarely' | 'sometimes' | 'often';
+}
+
+const CAMEO_FREQUENCIES = [
+  { value: 'rarely', label: 'Rarely', desc: '~15% of stories', icon: '🌟' },
+  { value: 'sometimes', label: 'Sometimes', desc: '~30% of stories', icon: '✨' },
+  { value: 'often', label: 'Often', desc: '~60% of stories', icon: '🌠' },
+] as const;
+
 export function StorySettingsPage() {
   const { user, session, refreshUser } = useAuth();
   const navigate = useNavigate();
@@ -122,6 +134,12 @@ export function StorySettingsPage() {
   const [characters, setCharacters] = useState<Character[]>([]);
   const [newCharName, setNewCharName] = useState('');
   const [newCharDesc, setNewCharDesc] = useState('');
+
+  // Cameo characters
+  const [cameoCharacters, setCameoCharacters] = useState<CameoCharacter[]>([]);
+  const [newCameoName, setNewCameoName] = useState('');
+  const [newCameoDesc, setNewCameoDesc] = useState('');
+  const [newCameoFreq, setNewCameoFreq] = useState<'rarely' | 'sometimes' | 'often'>('sometimes');
 
   // Story structure and themes
   const [beatStructure, setBeatStructure] = useState('classic');
@@ -157,6 +175,10 @@ export function StorySettingsPage() {
           // Fallback to top-level beat_structure if exists
           setBeatStructure(user.story_bible.beat_structure as string);
         }
+        // Load cameo characters
+        if (user.story_bible.cameo_characters) {
+          setCameoCharacters(user.story_bible.cameo_characters as CameoCharacter[]);
+        }
       }
     }
   }, [user]);
@@ -174,6 +196,32 @@ export function StorySettingsPage() {
 
   const removeCharacter = (index: number) => {
     setCharacters(characters.filter((_, i) => i !== index));
+  };
+
+  const addCameo = () => {
+    if (!newCameoName.trim()) return;
+    if (cameoCharacters.length >= 5) {
+      setSaveMessage({ type: 'error', text: 'Maximum 5 cameo characters allowed' });
+      return;
+    }
+    setCameoCharacters([...cameoCharacters, {
+      name: newCameoName,
+      description: newCameoDesc,
+      frequency: newCameoFreq
+    }]);
+    setNewCameoName('');
+    setNewCameoDesc('');
+    setNewCameoFreq('sometimes');
+  };
+
+  const removeCameo = (index: number) => {
+    setCameoCharacters(cameoCharacters.filter((_, i) => i !== index));
+  };
+
+  const updateCameoFrequency = (index: number, frequency: 'rarely' | 'sometimes' | 'often') => {
+    setCameoCharacters(cameoCharacters.map((cameo, i) =>
+      i === index ? { ...cameo, frequency } : cameo
+    ));
   };
 
   const handleSave = async () => {
@@ -213,6 +261,12 @@ export function StorySettingsPage() {
         intensity,
         setting: { description: setting, name: setting.slice(0, 50) },
         main_characters: characters,
+        cameo_characters: cameoCharacters.map(c => ({
+          name: c.name,
+          description: c.description,
+          frequency: c.frequency,
+          appearances: 0,
+        })),
         beat_structure: beatStructure,
         story_settings: {
           intensity_label: INTENSITY_LEVELS.find(l => l.value === intensity)?.label,
@@ -531,6 +585,103 @@ export function StorySettingsPage() {
                 )}
               </div>
             )}
+
+            {/* Cameo Characters */}
+            <div className="bg-white rounded-2xl shadow-lg p-6">
+              <h2 className="text-xl font-bold text-stone-800 mb-2">Cameo Characters</h2>
+              <p className="text-sm text-stone-500 mb-4">
+                Add yourself, friends, or anyone you'd like to occasionally appear in your stories (max 5)
+              </p>
+
+              {/* Existing cameos */}
+              <div className="space-y-3 mb-4">
+                {cameoCharacters.map((cameo, idx) => (
+                  <div key={idx} className="p-4 bg-purple-50 rounded-xl border border-purple-100">
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex-1">
+                        <span className="font-semibold text-stone-800">{cameo.name}</span>
+                        {cameo.description && (
+                          <p className="text-sm text-stone-500 mt-1">{cameo.description}</p>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => removeCameo(idx)}
+                        className="text-red-400 hover:text-red-600 text-xl ml-2"
+                      >
+                        ×
+                      </button>
+                    </div>
+                    <div className="flex gap-2 mt-3">
+                      {CAMEO_FREQUENCIES.map((freq) => (
+                        <button
+                          key={freq.value}
+                          onClick={() => updateCameoFrequency(idx, freq.value)}
+                          className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                            cameo.frequency === freq.value
+                              ? 'bg-purple-600 text-white'
+                              : 'bg-white text-stone-600 hover:bg-purple-100 border border-stone-200'
+                          }`}
+                        >
+                          <span className="mr-1">{freq.icon}</span>
+                          {freq.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Add cameo form */}
+              {cameoCharacters.length < 5 && (
+                <div className="space-y-3 p-4 bg-stone-50 rounded-xl">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={newCameoName}
+                      onChange={(e) => setNewCameoName(e.target.value)}
+                      placeholder="Name (e.g., 'Mom', 'Best Friend Jake')"
+                      className="flex-1 px-3 py-2 border border-stone-300 rounded-lg bg-white text-stone-800 placeholder:text-stone-400"
+                    />
+                  </div>
+                  <input
+                    type="text"
+                    value={newCameoDesc}
+                    onChange={(e) => setNewCameoDesc(e.target.value)}
+                    placeholder="Brief description (e.g., 'Loves gardening and always has good advice')"
+                    className="w-full px-3 py-2 border border-stone-300 rounded-lg bg-white text-stone-800 placeholder:text-stone-400"
+                  />
+                  <div className="flex gap-2 items-center">
+                    <span className="text-sm text-stone-500">Appears:</span>
+                    {CAMEO_FREQUENCIES.map((freq) => (
+                      <button
+                        key={freq.value}
+                        onClick={() => setNewCameoFreq(freq.value)}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                          newCameoFreq === freq.value
+                            ? 'bg-purple-600 text-white'
+                            : 'bg-white text-stone-600 hover:bg-purple-100 border border-stone-200'
+                        }`}
+                      >
+                        {freq.icon} {freq.label}
+                      </button>
+                    ))}
+                    <button
+                      onClick={addCameo}
+                      disabled={!newCameoName.trim()}
+                      className="ml-auto px-4 py-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-stone-300 disabled:cursor-not-allowed font-medium"
+                    >
+                      Add Cameo
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {cameoCharacters.length === 0 && (
+                <p className="text-center text-stone-400 text-sm py-2">
+                  No cameos yet. Add someone special to occasionally appear in your stories!
+                </p>
+              )}
+            </div>
 
             {/* Story Length */}
             <div className="bg-white rounded-2xl shadow-lg p-6">
