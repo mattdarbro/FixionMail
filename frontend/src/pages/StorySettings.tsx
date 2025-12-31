@@ -151,6 +151,10 @@ export function StorySettingsPage() {
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [activeSection, setActiveSection] = useState<'genre' | 'story' | 'delivery'>('genre');
 
+  // Generate story now state
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generateMessage, setGenerateMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
   // Load user preferences
   useEffect(() => {
     if (user) {
@@ -298,6 +302,46 @@ export function StorySettingsPage() {
       setSaveMessage({ type: 'error', text: 'Failed to save settings. Please try again.' });
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleGenerateNow = async () => {
+    if (!session?.access_token) return;
+
+    setIsGenerating(true);
+    setGenerateMessage(null);
+
+    try {
+      const response = await fetch('/api/stories/generate', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          genre: selectedGenre,
+          intensity: intensity,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Failed to generate story');
+      }
+
+      const result = await response.json();
+      setGenerateMessage({
+        type: 'success',
+        text: `Story generation started! Check your email shortly. (Job ID: ${result.job_id.slice(0, 8)}...)`,
+      });
+    } catch (error) {
+      console.error('Failed to generate story:', error);
+      setGenerateMessage({
+        type: 'error',
+        text: error instanceof Error ? error.message : 'Failed to generate story. Please try again.',
+      });
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -749,6 +793,49 @@ export function StorySettingsPage() {
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* Generate Story Now */}
+            <div className="bg-white rounded-2xl shadow-lg p-6">
+              <h2 className="text-xl font-bold text-stone-800 mb-2">Generate Story Now</h2>
+              <p className="text-sm text-stone-500 mb-4">
+                Can't wait for your next scheduled story? Generate one immediately!
+              </p>
+
+              {generateMessage && (
+                <div className={`mb-4 p-3 rounded-lg text-sm ${
+                  generateMessage.type === 'success'
+                    ? 'bg-green-50 text-green-700 border border-green-200'
+                    : 'bg-red-50 text-red-700 border border-red-200'
+                }`}>
+                  {generateMessage.text}
+                </div>
+              )}
+
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={handleGenerateNow}
+                  disabled={isGenerating}
+                  className="px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl font-semibold hover:from-amber-600 hover:to-orange-600 transition-all disabled:from-stone-300 disabled:to-stone-400 shadow-lg hover:shadow-xl disabled:shadow-none"
+                >
+                  {isGenerating ? (
+                    <span className="flex items-center gap-2">
+                      <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Generating...
+                    </span>
+                  ) : (
+                    'Generate Story Now'
+                  )}
+                </button>
+                <span className="text-sm text-stone-400">Uses 1 credit</span>
+              </div>
+
+              <p className="mt-4 text-xs text-stone-400">
+                Your story will be generated with your current settings and delivered to your email.
+              </p>
             </div>
           </div>
         )}
