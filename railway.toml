@@ -9,7 +9,7 @@ buildCommand = "pip install -r requirements.txt && cd frontend && npm install &&
 [deploy]
 # timeout 900 = 15 minutes to handle long story generation (structure + writer + editor + media)
 # graceful-timeout allows worker to finish current request before being killed
-startCommand = "gunicorn backend.api.main:app --workers 1 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT --timeout 900 --graceful-timeout 900"
+startCommand = "gunicorn backend.api.main:app --workers 2 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT --timeout 900 --graceful-timeout 900"
 healthcheckPath = "/health"
 healthcheckTimeout = 300
 restartPolicyType = "on_failure"
