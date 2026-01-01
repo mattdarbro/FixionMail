@@ -33,7 +33,10 @@ class StoryJobDatabase:
         if db_dir and str(db_dir) != "." and not db_dir.exists():
             db_dir.mkdir(parents=True, exist_ok=True)
 
-        self._conn = await aiosqlite.connect(self.db_path)
+        # Enable WAL mode and set timeout for better concurrent access
+        self._conn = await aiosqlite.connect(self.db_path, timeout=30.0)
+        await self._conn.execute("PRAGMA journal_mode=WAL")
+        await self._conn.execute("PRAGMA busy_timeout=30000")  # 30 second timeout
         await self._create_tables()
 
     async def _create_tables(self):
