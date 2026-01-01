@@ -111,6 +111,16 @@ except Exception as e:
     stories_router = None
     stories_routes_loaded = False
 
+# Import Admin routes
+try:
+    from backend.routes.admin import router as admin_router
+    admin_routes_loaded = True
+    print("✓ Admin router imported")
+except Exception as e:
+    print(f"⚠️  Admin router loading failed: {e}")
+    admin_router = None
+    admin_routes_loaded = False
+
 # Create FastAPI app
 app = FastAPI(
     title="Storyteller API",
@@ -179,6 +189,13 @@ if stories_routes_loaded and stories_router:
 else:
     print("⚠️  Skipping Stories routes")
 
+# Include Admin routes
+if admin_routes_loaded and admin_router:
+    app.include_router(admin_router)
+    print("✓ Admin routes registered")
+else:
+    print("⚠️  Skipping Admin routes")
+
 # Mount static files for generated media
 # Create directories if they don't exist
 os.makedirs("./generated_audio", exist_ok=True)
@@ -224,6 +241,7 @@ async def api_info():
         "mode": "Standalone Daily Stories",
         "docs": "/docs",
         "dashboard": "/dev",
+        "admin": "/admin",
         "endpoints": {
             "onboarding": "POST /api/dev/onboarding",
             "generate_story": "POST /api/dev/generate-story (sync, waits for completion)",
@@ -233,7 +251,13 @@ async def api_info():
             "list_jobs": "GET /api/dev/jobs",
             "rate_story": "POST /api/dev/rate-story",
             "get_bible": "GET /api/dev/bible",
-            "reset": "DELETE /api/dev/reset"
+            "reset": "DELETE /api/dev/reset",
+            "admin_overview": "GET /api/admin/overview",
+            "admin_users": "GET /api/admin/users",
+            "admin_stories": "GET /api/admin/stories",
+            "admin_scheduled": "GET /api/admin/scheduled",
+            "admin_jobs": "GET /api/admin/jobs",
+            "admin_logs": "GET /api/admin/logs"
         }
     }
 
@@ -258,6 +282,17 @@ async def serve_library():
             return f.read()
     else:
         raise HTTPException(status_code=404, detail="Library not found")
+
+
+@app.get("/admin", response_class=HTMLResponse)
+async def serve_admin_dashboard():
+    """Serve the admin dashboard for system monitoring."""
+    admin_path = "./frontend/admin-dashboard.html"
+    if os.path.exists(admin_path):
+        with open(admin_path, "r") as f:
+            return f.read()
+    else:
+        raise HTTPException(status_code=404, detail="Admin dashboard not found")
 
 
 # Keep legacy route for backwards compatibility

@@ -13,6 +13,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 from backend.jobs.database import StoryJobDatabase, JobStatus
 from backend.email.scheduler import EmailScheduler
 from backend.email.database import EmailDatabase
+from backend.utils.logging import job_logger as logger
 
 
 class StoryWorker:
@@ -54,11 +55,9 @@ class StoryWorker:
         # Recover any jobs stuck in 'running' state from previous worker crash
         recovered = await self.job_db.recover_stale_running_jobs(stale_minutes=10)
         if recovered > 0:
-            print(f"  ⚠️  Recovered {recovered} stale job(s) from previous worker crash")
+            logger.warning(f"Recovered {recovered} stale job(s) from previous worker crash", recovered_count=recovered)
 
-        print(f"  Story worker initialized")
-        print(f"    Job database: {self.job_db_path}")
-        print(f"    Poll interval: {self.poll_interval}s")
+        logger.info("Story worker initialized", db_path=self.job_db_path, poll_interval=self.poll_interval)
 
     async def process_jobs(self):
         """
@@ -85,24 +84,18 @@ class StoryWorker:
                     error_message="Max retries exceeded",
                     should_retry=False
                 )
-                print(f"  Job {job_id} failed: max retries exceeded")
+                logger.error(f"Job failed: max retries exceeded", job_id=job_id, retries=job["retry_count"])
                 return
 
             self._is_processing = True
             self._current_job_id = job_id
 
-            print(f"\n{'='*60}")
-            print(f"PROCESSING JOB: {job_id}")
-            print(f"Email: {job['user_email']}")
-            print(f"Created: {job['created_at']}")
-            print(f"{'='*60}")
+            logger.info(f"Processing job", job_id=job_id, email=job['user_email'])
 
             await self._process_single_job(job)
 
         except Exception as e:
-            print(f"  Worker error: {e}")
-            import traceback
-            traceback.print_exc()
+            logger.error(f"Worker error: {e}", error=str(e))
         finally:
             self._is_processing = False
             self._current_job_id = None
@@ -186,7 +179,7 @@ class StoryWorker:
             )
 
             if not email_sent:
-                print(f"  Warning: Email failed to send, but story was generated")
+                logger.warning(f"Email failed to send but story was generated", job_id=job_id, email=user_email)
 
             # Calculate total time
             generation_time = time.time() - start_time
@@ -202,17 +195,13 @@ class StoryWorker:
                 generation_time=generation_time
             )
 
-            print(f"\n{'='*60}")
-            print(f"JOB COMPLETED: {job_id}")
-            print(f"Title: {story['title']}")
-            print(f"Words: {story['word_count']}")
-            print(f"Time: {generation_time:.1f}s")
-            print(f"Email: {'Sent' if email_sent else 'FAILED'}")
-            print(f"{'='*60}\n")
+            logger.info(f"Job completed", job_id=job_id, title=story['title'],
+                       word_count=story['word_count'], time_seconds=round(generation_time, 1),
+                       email_sent=email_sent)
 
         except Exception as e:
             error_msg = str(e)
-            print(f"\n  Job {job_id} failed: {error_msg}")
+            logger.error(f"Job failed: {error_msg}", job_id=job_id, error=error_msg)
 
             # Determine if we should retry
             # Retry on transient errors (API timeouts, rate limits)
@@ -238,13 +227,13 @@ class StoryWorker:
         )
 
         self.scheduler.start()
-        print(f"  Story worker started (polling every {self.poll_interval}s)")
+        logger.info(f"Story worker started", poll_interval=self.poll_interval)
 
     def shutdown(self):
         """Shutdown the worker"""
         if self.scheduler.running:
             self.scheduler.shutdown(wait=False)
-        print("  Story worker stopped")
+        logger.info("Story worker stopped")
 
     @property
     def is_processing(self) -> bool:
