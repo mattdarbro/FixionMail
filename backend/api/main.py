@@ -408,52 +408,43 @@ async def health_check():
 
 @app.get("/api/status")
 async def system_status():
-    """System status endpoint - shows queue depth and worker status."""
-    from backend.jobs.daily_scheduler import get_daily_scheduler
+    """System status endpoint - shows queue depth, worker status, and delivery stats."""
+    from datetime import datetime, timezone
 
-    scheduler = get_daily_scheduler()
     queue_stats = {"pending": 0, "running": 0, "completed_today": 0, "failed_today": 0}
+    delivery_stats = {"pending": 0, "sent_today": 0, "failed": 0}
 
-    if scheduler and scheduler.job_db:
-        try:
-            # Get queue counts
-            conn = scheduler.job_db._conn
-            if conn:
-                from datetime import datetime, timezone
-                today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    try:
+        from backend.database.jobs import JobQueueService
+        from backend.database.deliveries import DeliveryService
 
-                # Pending jobs
-                cursor = await conn.execute(
-                    "SELECT COUNT(*) FROM story_jobs WHERE status = 'pending'"
-                )
-                queue_stats["pending"] = (await cursor.fetchone())[0]
+        # Job queue stats from Supabase
+        job_service = JobQueueService()
+        job_stats = await job_service.get_queue_stats()
+        queue_stats["pending"] = job_stats.get("pending", 0)
+        queue_stats["running"] = job_stats.get("running", 0)
+        queue_stats["completed_today"] = job_stats.get("completed", 0)
+        queue_stats["failed_today"] = job_stats.get("failed", 0)
 
-                # Running jobs
-                cursor = await conn.execute(
-                    "SELECT COUNT(*) FROM story_jobs WHERE status = 'running'"
-                )
-                queue_stats["running"] = (await cursor.fetchone())[0]
+        # Delivery stats from Supabase
+        delivery_service = DeliveryService()
+        del_stats = await delivery_service.get_delivery_stats()
+        delivery_stats["pending"] = del_stats.get("pending", 0)
+        delivery_stats["sent_today"] = del_stats.get("sent_today", 0)
+        delivery_stats["failed"] = del_stats.get("failed", 0)
+        delivery_stats["upcoming_1h"] = del_stats.get("upcoming_1h", 0)
 
-                # Completed today
-                cursor = await conn.execute(
-                    "SELECT COUNT(*) FROM story_jobs WHERE status = 'completed' AND completed_at LIKE ?",
-                    (f"{today}%",)
-                )
-                queue_stats["completed_today"] = (await cursor.fetchone())[0]
-
-                # Failed today
-                cursor = await conn.execute(
-                    "SELECT COUNT(*) FROM story_jobs WHERE status = 'failed' AND completed_at LIKE ?",
-                    (f"{today}%",)
-                )
-                queue_stats["failed_today"] = (await cursor.fetchone())[0]
-        except Exception as e:
-            queue_stats["error"] = str(e)
+    except Exception as e:
+        queue_stats["error"] = str(e)
 
     return {
         "status": "operational",
         "queue": queue_stats,
-        "workers": 2,
+        "deliveries": delivery_stats,
+        "workers": {
+            "story_worker": "Generation (off-peak)",
+            "delivery_worker": "Email sending (on schedule)"
+        },
         "capacity": "~6 stories/hour"
     }
 
@@ -617,6 +608,20 @@ async def startup_event():
         else:
             print("ℹ️  Daily scheduler disabled (ENABLE_DAILY_SCHEDULER=false)")
 
+        # Start email delivery worker
+        if os.getenv("ENABLE_DELIVERY_WORKER", "true").lower() == "true":
+            try:
+                from backend.email import start_delivery_worker
+                print("\n📧 Starting email delivery worker...")
+                await start_delivery_worker()
+                print("✓ Email delivery worker started (sending scheduled emails)")
+            except Exception as e:
+                print(f"⚠️  Error starting delivery worker: {e}")
+                import traceback
+                traceback.print_exc()
+        else:
+            print("ℹ️  Delivery worker disabled (ENABLE_DELIVERY_WORKER=false)")
+
         # Validate world templates exist (no longer using RAG)
         try:
             from pathlib import Path
@@ -673,6 +678,15 @@ async def shutdown_event():
             print("✓ Daily story scheduler stopped")
         except Exception as e:
             print(f"⚠️  Error stopping daily scheduler: {e}")
+
+        # Stop email delivery worker
+        try:
+            from backend.email import stop_delivery_worker
+            print("📧 Stopping email delivery worker...")
+            stop_delivery_worker()
+            print("✓ Email delivery worker stopped")
+        except Exception as e:
+            print(f"⚠️  Error stopping delivery worker: {e}")
         print("=" * 60)
         print("Shutdown complete")
         print("=" * 60)

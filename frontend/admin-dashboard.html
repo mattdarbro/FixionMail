@@ -38,7 +38,7 @@
         /* Stats Grid */
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
             gap: 15px;
             margin-bottom: 20px;
         }
@@ -51,6 +51,7 @@
         .stat-card.error { border-color: #dc2626; background: linear-gradient(135deg, #1a1a1a 0%, #2a1515 100%); }
         .stat-card.warning { border-color: #f59e0b; background: linear-gradient(135deg, #1a1a1a 0%, #2a2515 100%); }
         .stat-card.success { border-color: #10b981; background: linear-gradient(135deg, #1a1a1a 0%, #152a1f 100%); }
+        .stat-card.info { border-color: #3b82f6; background: linear-gradient(135deg, #1a1a1a 0%, #15202a 100%); }
         .stat-label { font-size: 0.8rem; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
         .stat-value { font-size: 2rem; font-weight: 700; margin: 5px 0; }
         .stat-detail { font-size: 0.85rem; color: #aaa; }
@@ -64,6 +65,7 @@
             padding: 5px;
             border-radius: 8px;
             border: 1px solid #333;
+            flex-wrap: wrap;
         }
         .tab {
             background: transparent;
@@ -177,17 +179,9 @@
         }
 
         /* Scheduled Story Highlight */
-        .scheduled-email {
-            font-weight: 600;
-            color: #60a5fa;
-        }
-        .scheduled-time {
-            font-weight: 600;
-            color: #10b981;
-        }
-        .due-soon {
-            animation: pulse 2s infinite;
-        }
+        .scheduled-email { font-weight: 600; color: #60a5fa; }
+        .scheduled-time { font-weight: 600; color: #10b981; }
+        .due-soon { animation: pulse 2s infinite; }
         @keyframes pulse {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.7; }
@@ -225,22 +219,22 @@
         <!-- Stats Overview -->
         <div class="stats-grid" id="stats-grid">
             <div class="stat-card">
-                <div class="stat-label">Total Users</div>
+                <div class="stat-label">Users</div>
                 <div class="stat-value" id="stat-users">-</div>
                 <div class="stat-detail" id="stat-users-detail">Loading...</div>
             </div>
             <div class="stat-card">
-                <div class="stat-label">Stories Generated</div>
+                <div class="stat-label">Stories</div>
                 <div class="stat-value" id="stat-stories">-</div>
                 <div class="stat-detail" id="stat-stories-detail">Loading...</div>
             </div>
-            <div class="stat-card">
-                <div class="stat-label">Scheduled</div>
-                <div class="stat-value" id="stat-scheduled">-</div>
-                <div class="stat-detail" id="stat-scheduled-detail">Loading...</div>
+            <div class="stat-card info" id="deliveries-card">
+                <div class="stat-label">Deliveries</div>
+                <div class="stat-value" id="stat-deliveries">-</div>
+                <div class="stat-detail" id="stat-deliveries-detail">Pending emails</div>
             </div>
             <div class="stat-card">
-                <div class="stat-label">Job Queue</div>
+                <div class="stat-label">Generation</div>
                 <div class="stat-value" id="stat-jobs">-</div>
                 <div class="stat-detail" id="stat-jobs-detail">Loading...</div>
             </div>
@@ -258,8 +252,8 @@
 
         <!-- Tabs -->
         <div class="tabs">
-            <button class="tab active" data-tab="scheduled">Scheduled</button>
-            <button class="tab" data-tab="jobs">Job Queue</button>
+            <button class="tab active" data-tab="deliveries">Deliveries</button>
+            <button class="tab" data-tab="jobs">Generation Queue</button>
             <button class="tab" data-tab="stories">Stories</button>
             <button class="tab" data-tab="users">Users</button>
             <button class="tab" data-tab="failed">Failed</button>
@@ -267,29 +261,29 @@
             <button class="tab" data-tab="system">System</button>
         </div>
 
-        <!-- Scheduled Stories Panel -->
-        <div class="data-panel active" id="panel-scheduled">
+        <!-- Deliveries Panel -->
+        <div class="data-panel active" id="panel-deliveries">
             <div class="panel-header">
-                <h2>Scheduled Story Deliveries</h2>
+                <h2>Email Delivery Schedule</h2>
                 <div class="filter-controls">
-                    <select id="scheduled-status-filter" onchange="loadScheduled()">
+                    <select id="delivery-status-filter" onchange="loadDeliveries()">
+                        <option value="">Pending & Sending</option>
                         <option value="pending">Pending</option>
-                        <option value="generating">Generating</option>
-                        <option value="completed">Completed</option>
+                        <option value="sending">Sending</option>
+                        <option value="sent">Sent</option>
                         <option value="failed">Failed</option>
-                        <option value="">All Statuses</option>
                     </select>
                 </div>
             </div>
-            <div class="panel-content" id="scheduled-content">
-                <div class="loading"><div class="spinner"></div>Loading scheduled stories...</div>
+            <div class="panel-content" id="deliveries-content">
+                <div class="loading"><div class="spinner"></div>Loading deliveries...</div>
             </div>
         </div>
 
         <!-- Job Queue Panel -->
         <div class="data-panel" id="panel-jobs">
             <div class="panel-header">
-                <h2>Job Queue</h2>
+                <h2>Story Generation Queue</h2>
                 <div class="filter-controls">
                     <select id="job-status-filter" onchange="loadJobs()">
                         <option value="">All Statuses</option>
@@ -347,10 +341,10 @@
         <!-- Failed Panel -->
         <div class="data-panel" id="panel-failed">
             <div class="panel-header">
-                <h2>Failed Generations</h2>
+                <h2>Failed Jobs & Deliveries</h2>
             </div>
             <div class="panel-content" id="failed-content">
-                <div class="loading"><div class="spinner"></div>Loading failed jobs...</div>
+                <div class="loading"><div class="spinner"></div>Loading failed items...</div>
             </div>
         </div>
 
@@ -396,9 +390,8 @@
                 tab.classList.add('active');
                 document.getElementById(`panel-${tab.dataset.tab}`).classList.add('active');
 
-                // Load data for the selected tab
                 switch(tab.dataset.tab) {
-                    case 'scheduled': loadScheduled(); break;
+                    case 'deliveries': loadDeliveries(); break;
                     case 'jobs': loadJobs(); break;
                     case 'stories': loadStories(); break;
                     case 'users': loadUsers(); break;
@@ -414,32 +407,28 @@
                 const res = await fetch(`${API_URL}/api/admin/overview`);
                 const data = await res.json();
 
-                // Users
                 document.getElementById('stat-users').textContent = data.users.total;
                 document.getElementById('stat-users-detail').textContent =
-                    `${data.users.new_today} new today, ${data.users.active_today} active`;
+                    `${data.users.new_today} new, ${data.users.active_today} active`;
 
-                // Stories
                 document.getElementById('stat-stories').textContent = data.stories.total;
                 document.getElementById('stat-stories-detail').textContent =
-                    `${data.stories.generated_today} today, ${data.stories.failed_today} failed`;
+                    `${data.stories.generated_today} today`;
 
-                // Scheduled
-                document.getElementById('stat-scheduled').textContent = data.scheduled.pending;
-                document.getElementById('stat-scheduled-detail').textContent =
-                    `${data.scheduled.due_soon} due within 1hr`;
+                // Deliveries
+                const del = data.deliveries || {};
+                document.getElementById('stat-deliveries').textContent = del.pending || 0;
+                document.getElementById('stat-deliveries-detail').textContent =
+                    `${del.upcoming_1h || 0} due in 1hr, ${del.sent_today || 0} sent today`;
 
-                // Jobs
                 const jobsPending = data.jobs.pending + data.jobs.running;
                 document.getElementById('stat-jobs').textContent = jobsPending;
                 document.getElementById('stat-jobs-detail').textContent =
-                    `${data.jobs.completed_today} done, ${data.jobs.failed_today} failed today`;
+                    `${data.jobs.completed_today} done, ${data.jobs.failed_today} failed`;
 
-                // Logs
                 document.getElementById('stat-errors').textContent = data.logs.errors;
                 document.getElementById('stat-warnings').textContent = data.logs.warnings;
 
-                // Update card styling based on counts
                 const errorsCard = document.getElementById('errors-card');
                 const warningsCard = document.getElementById('warnings-card');
                 if (data.logs.errors > 0) errorsCard.classList.add('error');
@@ -455,60 +444,55 @@
             }
         }
 
-        async function loadScheduled() {
-            const content = document.getElementById('scheduled-content');
-            const status = document.getElementById('scheduled-status-filter').value;
+        async function loadDeliveries() {
+            const content = document.getElementById('deliveries-content');
+            const status = document.getElementById('delivery-status-filter').value;
 
             content.innerHTML = '<div class="loading"><div class="spinner"></div>Loading...</div>';
 
             try {
                 const url = status
-                    ? `${API_URL}/api/admin/scheduled?status=${status}`
-                    : `${API_URL}/api/admin/scheduled`;
+                    ? `${API_URL}/api/admin/deliveries?status=${status}`
+                    : `${API_URL}/api/admin/deliveries`;
                 const res = await fetch(url);
-                if (!res.ok) {
-                    throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-                }
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 const data = await res.json();
 
-                if (!data.scheduled_stories || data.scheduled_stories.length === 0) {
-                    content.innerHTML = '<div class="empty-state"><div class="icon">📅</div>No queued stories found<br><small style="color: #666;">Stories are queued when users\' delivery time arrives</small></div>';
+                if (!data.deliveries || data.deliveries.length === 0) {
+                    content.innerHTML = '<div class="empty-state"><div class="icon">📬</div>No deliveries scheduled<br><small style="color: #666;">Stories will appear here after generation completes</small></div>';
                     return;
                 }
 
                 let html = `<table>
                     <thead>
                         <tr>
-                            <th>Queued At</th>
+                            <th>Deliver At</th>
                             <th>Email</th>
+                            <th>Story</th>
                             <th>Genre</th>
                             <th>Status</th>
-                            <th>Step</th>
-                            <th>Progress</th>
-                            <th>Attempts</th>
+                            <th>Sent At</th>
+                            <th>Retries</th>
                             <th>Error</th>
                         </tr>
                     </thead>
                     <tbody>`;
 
-                for (const item of data.scheduled_stories) {
-                    const statusBadge = getStatusBadge(item.status);
-                    const progress = item.progress_percent || 0;
+                for (const d of data.deliveries) {
+                    const statusBadge = getDeliveryStatusBadge(d.status);
+                    const deliverAt = new Date(d.deliver_at);
+                    const now = new Date();
+                    const isDueSoon = d.status === 'pending' && (deliverAt - now) < 3600000;
 
                     html += `<tr>
-                        <td><span class="scheduled-time">${formatDateTime(item.created_at)}</span></td>
-                        <td><span class="scheduled-email">${item.user_email || 'Unknown'}</span></td>
-                        <td><span class="badge badge-info">${item.genre || '-'}</span></td>
+                        <td><span class="scheduled-time ${isDueSoon ? 'due-soon' : ''}">${formatDateTime(d.deliver_at)}</span></td>
+                        <td><span class="scheduled-email">${d.user_email}</span></td>
+                        <td>${d.story_title || 'Untitled'}</td>
+                        <td><span class="badge badge-info">${d.story_genre || '-'}</span></td>
                         <td>${statusBadge}</td>
-                        <td>${item.current_step || '-'}</td>
-                        <td>
-                            <div style="width: 60px; height: 6px; background: #333; border-radius: 3px; overflow: hidden; display: inline-block; vertical-align: middle;">
-                                <div style="width: ${progress}%; height: 100%; background: ${item.status === 'running' ? '#3b82f6' : '#10b981'};"></div>
-                            </div>
-                            <span style="font-size: 0.75rem; color: #888; margin-left: 4px;">${progress}%</span>
-                        </td>
-                        <td>${item.attempts || 0}</td>
-                        <td class="error-message" title="${item.error_message || ''}">${item.error_message || '-'}</td>
+                        <td>${d.sent_at ? formatDateTime(d.sent_at) : '-'}</td>
+                        <td>${d.retry_count || 0}</td>
+                        <td class="error-message" title="${d.error_message || ''}">${d.error_message || '-'}</td>
                     </tr>`;
                 }
 
@@ -546,7 +530,7 @@
                             <th>Status</th>
                             <th>Step</th>
                             <th>Progress</th>
-                            <th>Time</th>
+                            <th>Gen Time</th>
                             <th>Created</th>
                         </tr>
                     </thead>
@@ -560,15 +544,15 @@
                         : '-';
 
                     html += `<tr>
-                        <td style="font-family: monospace; font-size: 0.8rem;">${job.job_id.substring(0, 8)}...</td>
+                        <td style="font-family: monospace; font-size: 0.8rem;">${job.job_id.substring(0, 12)}...</td>
                         <td>${job.user_email}</td>
                         <td>${statusBadge}</td>
                         <td>${job.current_step || '-'}</td>
                         <td>
-                            <div style="width: 100px; height: 8px; background: #333; border-radius: 4px; overflow: hidden;">
-                                <div style="width: ${progress}%; height: 100%; background: #10b981;"></div>
+                            <div style="width: 80px; height: 6px; background: #333; border-radius: 3px; overflow: hidden; display: inline-block; vertical-align: middle;">
+                                <div style="width: ${progress}%; height: 100%; background: ${job.status === 'running' ? '#3b82f6' : '#10b981'};"></div>
                             </div>
-                            <span style="font-size: 0.75rem; color: #888;">${progress}%</span>
+                            <span style="font-size: 0.75rem; color: #888; margin-left: 4px;">${progress}%</span>
                         </td>
                         <td>${genTime}</td>
                         <td>${formatDateTime(job.created_at)}</td>
@@ -610,7 +594,7 @@
                             <th>Model</th>
                             <th>Status</th>
                             <th>Rating</th>
-                            <th>Email Sent</th>
+                            <th>Delivered</th>
                             <th>Created</th>
                         </tr>
                     </thead>
@@ -618,8 +602,10 @@
 
                 for (const story of data.stories) {
                     const statusBadge = getStatusBadge(story.status);
-                    const rating = story.rating ? '⭐'.repeat(story.rating) : '-';
-                    const emailSent = story.email_sent ? '<span style="color: #10b981;">✓</span>' : '-';
+                    const rating = story.rating ? '★'.repeat(story.rating) : '-';
+                    const delivered = story.delivered_at
+                        ? `<span style="color: #10b981;">${formatDateTime(story.delivered_at)}</span>`
+                        : (story.email_sent ? '<span style="color: #10b981;">✓</span>' : '-');
 
                     html += `<tr>
                         <td>${story.title || 'Untitled'}</td>
@@ -627,8 +613,8 @@
                         <td>${story.word_count || '-'}</td>
                         <td>${story.model_used || '-'}</td>
                         <td>${statusBadge}</td>
-                        <td>${rating}</td>
-                        <td>${emailSent}</td>
+                        <td style="color: #fbbf24;">${rating}</td>
+                        <td>${delivered}</td>
                         <td>${formatDateTime(story.created_at)}</td>
                     </tr>`;
                 }
@@ -665,7 +651,7 @@
                             <th>Email</th>
                             <th>Subscription</th>
                             <th>Credits</th>
-                            <th>Total Used</th>
+                            <th>Used</th>
                             <th>Genre</th>
                             <th>Onboarding</th>
                             <th>Last Story</th>
@@ -677,7 +663,7 @@
                 for (const user of data.users) {
                     const subBadge = getSubscriptionBadge(user.subscription_status, user.subscription_tier);
                     const onboarding = user.onboarding_completed
-                        ? '<span style="color: #10b981;">Complete</span>'
+                        ? '<span style="color: #10b981;">✓</span>'
                         : '<span style="color: #f59e0b;">Pending</span>';
 
                     html += `<tr>
@@ -705,39 +691,78 @@
             content.innerHTML = '<div class="loading"><div class="spinner"></div>Loading...</div>';
 
             try {
-                const res = await fetch(`${API_URL}/api/admin/jobs/failed`);
-                const data = await res.json();
+                const [jobsRes, deliveriesRes] = await Promise.all([
+                    fetch(`${API_URL}/api/admin/jobs/failed`),
+                    fetch(`${API_URL}/api/admin/deliveries/failed`)
+                ]);
 
-                if (data.failed_jobs.length === 0) {
-                    content.innerHTML = '<div class="empty-state"><div class="icon">✅</div>No failed jobs - everything is working!</div>';
+                const jobsData = await jobsRes.json();
+                const deliveriesData = await deliveriesRes.json();
+
+                const failedJobs = jobsData.failed_jobs || [];
+                const failedDeliveries = deliveriesData.failed_deliveries || [];
+
+                if (failedJobs.length === 0 && failedDeliveries.length === 0) {
+                    content.innerHTML = '<div class="empty-state"><div class="icon">✅</div>No failures - everything is working!</div>';
                     return;
                 }
 
-                let html = `<table>
-                    <thead>
-                        <tr>
-                            <th>Job ID</th>
-                            <th>Email</th>
-                            <th>Failed At Step</th>
-                            <th>Error Message</th>
-                            <th>Retries</th>
-                            <th>Failed At</th>
-                        </tr>
-                    </thead>
-                    <tbody>`;
+                let html = '';
 
-                for (const job of data.failed_jobs) {
-                    html += `<tr>
-                        <td style="font-family: monospace; font-size: 0.8rem;">${job.job_id.substring(0, 8)}...</td>
-                        <td>${job.user_email}</td>
-                        <td><span class="badge badge-error">${job.failed_at_step || 'unknown'}</span></td>
-                        <td class="error-message" title="${job.error_message || ''}">${job.error_message || '-'}</td>
-                        <td>${job.retry_count || 0}</td>
-                        <td>${formatDateTime(job.completed_at)}</td>
-                    </tr>`;
+                if (failedJobs.length > 0) {
+                    html += `<h3 style="padding: 15px 15px 0; color: #f87171;">Failed Generation Jobs</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Job ID</th>
+                                <th>Email</th>
+                                <th>Step</th>
+                                <th>Error</th>
+                                <th>Retries</th>
+                                <th>Failed At</th>
+                            </tr>
+                        </thead>
+                        <tbody>`;
+
+                    for (const job of failedJobs) {
+                        html += `<tr>
+                            <td style="font-family: monospace; font-size: 0.8rem;">${job.job_id.substring(0, 12)}...</td>
+                            <td>${job.user_email}</td>
+                            <td><span class="badge badge-error">${job.failed_at_step || 'unknown'}</span></td>
+                            <td class="error-message" title="${job.error_message || ''}">${job.error_message || '-'}</td>
+                            <td>${job.retry_count || 0}</td>
+                            <td>${formatDateTime(job.completed_at)}</td>
+                        </tr>`;
+                    }
+                    html += '</tbody></table>';
                 }
 
-                html += '</tbody></table>';
+                if (failedDeliveries.length > 0) {
+                    html += `<h3 style="padding: 15px 15px 0; color: #f87171; margin-top: 20px;">Failed Email Deliveries</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Email</th>
+                                <th>Story</th>
+                                <th>Error</th>
+                                <th>Retries</th>
+                                <th>Updated</th>
+                            </tr>
+                        </thead>
+                        <tbody>`;
+
+                    for (const d of failedDeliveries) {
+                        html += `<tr>
+                            <td>${d.user_email}</td>
+                            <td>${d.story_title || 'Untitled'}</td>
+                            <td class="error-message" title="${d.error_message || ''}">${d.error_message || '-'}</td>
+                            <td>${d.retry_count || 0}</td>
+                            <td>${formatDateTime(d.updated_at)}</td>
+                        </tr>`;
+                    }
+                    html += '</tbody></table>';
+                }
+
                 content.innerHTML = html;
 
             } catch (e) {
@@ -766,8 +791,7 @@
                 let html = '';
                 for (const log of data.logs) {
                     const levelClass = log.level === 'error' || log.level === 'critical' ? 'error'
-                        : log.level === 'warning' ? 'warning'
-                        : 'info';
+                        : log.level === 'warning' ? 'warning' : 'info';
 
                     html += `<div class="log-entry ${levelClass}">
                         <span class="timestamp">${formatDateTime(log.timestamp)}</span>
@@ -793,17 +817,14 @@
 
             try {
                 const res = await fetch(`${API_URL}/api/admin/system`);
-                if (!res.ok) {
-                    throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-                }
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 const data = await res.json();
 
-                // Safely access nested properties
                 const cfg = data.config || {};
                 const keys = data.api_keys || {};
 
                 let html = `
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
                         <div class="stat-card">
                             <h3 style="color: #667eea; margin-bottom: 15px;">Environment</h3>
                             <p><strong>Python:</strong> ${data.python_version || 'N/A'}</p>
@@ -814,19 +835,19 @@
 
                         <div class="stat-card">
                             <h3 style="color: #667eea; margin-bottom: 15px;">Configuration</h3>
-                            <p><strong>Supabase:</strong> ${cfg.supabase_configured ? '✅ Connected' : '❌ Not configured'}</p>
-                            <p><strong>Stripe:</strong> ${cfg.stripe_configured ? '✅ Connected' : '❌ Not configured'}</p>
-                            <p><strong>Media Generation:</strong> ${cfg.media_generation_enabled ? '✅ Enabled' : '❌ Disabled'}</p>
-                            <p><strong>Credit System:</strong> ${cfg.credit_system_enabled ? '✅ Enabled' : '❌ Disabled'}</p>
-                            <p><strong>Model:</strong> ${cfg.model || 'N/A'}</p>
+                            <p><strong>Supabase:</strong> ${cfg.supabase_configured ? '✅' : '❌'}</p>
+                            <p><strong>Stripe:</strong> ${cfg.stripe_configured ? '✅' : '❌'}</p>
+                            <p><strong>Media Gen:</strong> ${cfg.media_generation_enabled ? '✅' : '❌'}</p>
+                            <p><strong>Credits:</strong> ${cfg.credit_system_enabled ? '✅' : '❌'}</p>
+                            <p><strong>Job Queue:</strong> ${cfg.job_queue || 'supabase'}</p>
                         </div>
 
                         <div class="stat-card">
                             <h3 style="color: #667eea; margin-bottom: 15px;">API Keys</h3>
-                            <p><strong>Anthropic:</strong> ${keys.anthropic ? '✅ Set' : '❌ Missing'}</p>
-                            <p><strong>OpenAI:</strong> ${keys.openai ? '✅ Set' : '❌ Missing'}</p>
-                            <p><strong>Replicate:</strong> ${keys.replicate ? '✅ Set' : '❌ Missing'}</p>
-                            <p><strong>Resend:</strong> ${keys.resend ? '✅ Set' : '❌ Missing'}</p>
+                            <p><strong>Anthropic:</strong> ${keys.anthropic ? '✅' : '❌'}</p>
+                            <p><strong>OpenAI:</strong> ${keys.openai ? '✅' : '❌'}</p>
+                            <p><strong>Replicate:</strong> ${keys.replicate ? '✅' : '❌'}</p>
+                            <p><strong>Resend:</strong> ${keys.resend ? '✅' : '❌'}</p>
                         </div>
 
                         ${data.memory ? `
@@ -848,24 +869,22 @@
         }
 
         async function clearLogs() {
-            if (!confirm('Are you sure you want to clear all logs?')) return;
-
+            if (!confirm('Clear all logs?')) return;
             try {
                 await fetch(`${API_URL}/api/admin/logs/clear`, { method: 'POST' });
                 loadLogs();
                 loadOverview();
             } catch (e) {
-                alert('Failed to clear logs: ' + e.message);
+                alert('Failed: ' + e.message);
             }
         }
 
         function refreshAll() {
             loadOverview();
-            // Refresh the current active tab
             const activeTab = document.querySelector('.tab.active');
             if (activeTab) {
                 switch(activeTab.dataset.tab) {
-                    case 'scheduled': loadScheduled(); break;
+                    case 'deliveries': loadDeliveries(); break;
                     case 'jobs': loadJobs(); break;
                     case 'stories': loadStories(); break;
                     case 'users': loadUsers(); break;
@@ -878,8 +897,7 @@
 
         function formatDateTime(isoString) {
             if (!isoString) return '-';
-            const date = new Date(isoString);
-            return date.toLocaleString();
+            return new Date(isoString).toLocaleString();
         }
 
         function getStatusBadge(status) {
@@ -891,6 +909,16 @@
                 delivered: '<span class="badge badge-success">Delivered</span>',
                 failed: '<span class="badge badge-error">Failed</span>',
                 cancelled: '<span class="badge badge-warning">Cancelled</span>'
+            };
+            return badges[status] || `<span class="badge badge-pending">${status}</span>`;
+        }
+
+        function getDeliveryStatusBadge(status) {
+            const badges = {
+                pending: '<span class="badge badge-pending">Pending</span>',
+                sending: '<span class="badge badge-info">Sending</span>',
+                sent: '<span class="badge badge-success">Sent</span>',
+                failed: '<span class="badge badge-error">Failed</span>'
             };
             return badges[status] || `<span class="badge badge-pending">${status}</span>`;
         }
@@ -910,9 +938,7 @@
         // Initial load
         document.addEventListener('DOMContentLoaded', () => {
             loadOverview();
-            loadScheduled();
-
-            // Auto-refresh every 30 seconds
+            loadDeliveries();
             setInterval(refreshAll, 30000);
         });
     </script>
