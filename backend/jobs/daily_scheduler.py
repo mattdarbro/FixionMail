@@ -30,7 +30,10 @@ from apscheduler.triggers.interval import IntervalTrigger
 
 from backend.database.users import UserService
 from backend.database.stories import StoryService
-from backend.jobs.database import StoryJobDatabase
+from backend.database.jobs import JobQueueService
+from backend.utils.logging import get_logger
+
+logger = get_logger("daily_scheduler")
 
 
 class DailyStoryScheduler:
@@ -47,18 +50,16 @@ class DailyStoryScheduler:
 
     def __init__(
         self,
-        job_db_path: str = "story_jobs.db",
         check_interval_seconds: int = 60,  # Check every minute
         generation_lead_minutes: int = 30,  # Start generating 30 min before delivery
         delivery_window_minutes: int = 5,   # 5-minute window to catch the trigger
     ):
-        self.job_db_path = job_db_path
         self.check_interval = check_interval_seconds
         self.generation_lead = generation_lead_minutes
         self.delivery_window = delivery_window_minutes
 
         self.scheduler = AsyncIOScheduler()
-        self.job_db: Optional[StoryJobDatabase] = None
+        self.job_service: Optional[JobQueueService] = None
         self.user_service: Optional[UserService] = None
         self.story_service: Optional[StoryService] = None
 
@@ -66,16 +67,16 @@ class DailyStoryScheduler:
 
     async def initialize(self):
         """Initialize database connections."""
-        self.job_db = StoryJobDatabase(self.job_db_path)
-        await self.job_db.connect()
-
+        self.job_service = JobQueueService()
         self.user_service = UserService()
         self.story_service = StoryService()
 
-        print(f"  Daily scheduler initialized")
-        print(f"    Check interval: {self.check_interval}s")
-        print(f"    Generation lead: {self.generation_lead} minutes before delivery")
-        print(f"    Delivery window: {self.delivery_window} minutes")
+        logger.info(
+            "Daily scheduler initialized",
+            check_interval=self.check_interval,
+            generation_lead=self.generation_lead,
+            delivery_window=self.delivery_window
+        )
 
     def _parse_delivery_time(self, time_str: str) -> tuple[int, int]:
         """Parse HH:MM string to (hour, minute) tuple."""
@@ -204,14 +205,14 @@ class DailyStoryScheduler:
                     queued_count += 1
 
                 except Exception as e:
-                    print(f"  Error checking user {user.get('email')}: {e}")
+                    logger.error(f"Error checking user", email=user.get('email'), error=str(e))
                     continue
 
             if queued_count > 0:
-                print(f"  Daily scheduler: Queued {queued_count} story jobs")
+                logger.info(f"Daily scheduler: Queued story jobs", count=queued_count)
 
         except Exception as e:
-            print(f"  Daily scheduler error: {e}")
+            logger.error(f"Daily scheduler error", error=str(e))
             import traceback
             traceback.print_exc()
         finally:
@@ -252,17 +253,18 @@ class DailyStoryScheduler:
         # Create job
         job_id = f"daily_{user_id}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
 
-        await self.job_db.create_job(
+        await self.job_service.create_job(
             job_id=job_id,
             story_bible=story_bible,
             user_email=user_email,
-            settings=settings
+            settings=settings,
+            user_id=user_id
         )
 
         # Update user's last_story_at to prevent duplicate deliveries
         await self.user_service.record_story_delivery(user_id)
 
-        print(f"  Queued daily story for {user_email} (job: {job_id})")
+        logger.info(f"Queued daily story", email=user_email, job_id=job_id)
 
     async def queue_story_now(
         self,
@@ -292,14 +294,15 @@ class DailyStoryScheduler:
         if settings:
             default_settings.update(settings)
 
-        await self.job_db.create_job(
+        await self.job_service.create_job(
             job_id=job_id,
             story_bible=story_bible,
             user_email=user_email,
-            settings=default_settings
+            settings=default_settings,
+            user_id=user_id
         )
 
-        print(f"  Queued manual story for {user_email} (job: {job_id})")
+        logger.info(f"Queued manual story", email=user_email, job_id=job_id)
         return job_id
 
     def start(self):
@@ -314,13 +317,13 @@ class DailyStoryScheduler:
         )
 
         self.scheduler.start()
-        print(f"  Daily story scheduler started (checking every {self.check_interval}s)")
+        logger.info(f"Daily story scheduler started", check_interval=self.check_interval)
 
     def shutdown(self):
         """Shutdown the scheduler."""
         if self.scheduler.running:
             self.scheduler.shutdown(wait=False)
-        print("  Daily story scheduler stopped")
+        logger.info("Daily story scheduler stopped")
 
 
 # Global scheduler instance
@@ -328,7 +331,6 @@ _scheduler_instance: Optional[DailyStoryScheduler] = None
 
 
 async def start_daily_scheduler(
-    job_db_path: str = "story_jobs.db",
     check_interval: int = 60,
     generation_lead: int = 30,  # Minutes before delivery to start generating
 ):
@@ -337,7 +339,6 @@ async def start_daily_scheduler(
 
     if _scheduler_instance is None:
         _scheduler_instance = DailyStoryScheduler(
-            job_db_path=job_db_path,
             check_interval_seconds=check_interval,
             generation_lead_minutes=generation_lead,
         )
