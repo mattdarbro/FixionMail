@@ -464,51 +464,51 @@
             try {
                 const url = status
                     ? `${API_URL}/api/admin/scheduled?status=${status}`
-                    : `${API_URL}/api/admin/scheduled?status=pending`;
+                    : `${API_URL}/api/admin/scheduled`;
                 const res = await fetch(url);
+                if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                }
                 const data = await res.json();
 
-                if (data.scheduled_stories.length === 0) {
-                    content.innerHTML = '<div class="empty-state"><div class="icon">📅</div>No scheduled stories found</div>';
+                if (!data.scheduled_stories || data.scheduled_stories.length === 0) {
+                    content.innerHTML = '<div class="empty-state"><div class="icon">📅</div>No queued stories found<br><small style="color: #666;">Stories are queued when users\' delivery time arrives</small></div>';
                     return;
                 }
-
-                const now = new Date();
-                const oneHour = 60 * 60 * 1000;
 
                 let html = `<table>
                     <thead>
                         <tr>
-                            <th>Scheduled For</th>
+                            <th>Queued At</th>
                             <th>Email</th>
+                            <th>Genre</th>
                             <th>Status</th>
+                            <th>Step</th>
+                            <th>Progress</th>
                             <th>Attempts</th>
                             <th>Error</th>
-                            <th>Created</th>
                         </tr>
                     </thead>
                     <tbody>`;
 
                 for (const item of data.scheduled_stories) {
-                    const scheduledDate = new Date(item.scheduled_for);
-                    const isDueSoon = (scheduledDate - now) < oneHour && (scheduledDate - now) > 0;
-                    const isPast = scheduledDate < now;
-
                     const statusBadge = getStatusBadge(item.status);
-                    const dueSoonClass = isDueSoon ? 'due-soon' : '';
-                    const timeClass = isPast ? 'style="color: #f87171;"' : '';
+                    const progress = item.progress_percent || 0;
 
                     html += `<tr>
-                        <td class="${dueSoonClass}">
-                            <span class="scheduled-time" ${timeClass}>${formatDateTime(item.scheduled_for)}</span>
-                            ${isDueSoon ? '<br><span style="color: #f59e0b; font-size: 0.75rem;">Due soon!</span>' : ''}
-                            ${isPast && item.status === 'pending' ? '<br><span style="color: #f87171; font-size: 0.75rem;">Overdue</span>' : ''}
-                        </td>
+                        <td><span class="scheduled-time">${formatDateTime(item.created_at)}</span></td>
                         <td><span class="scheduled-email">${item.user_email || 'Unknown'}</span></td>
+                        <td><span class="badge badge-info">${item.genre || '-'}</span></td>
                         <td>${statusBadge}</td>
+                        <td>${item.current_step || '-'}</td>
+                        <td>
+                            <div style="width: 60px; height: 6px; background: #333; border-radius: 3px; overflow: hidden; display: inline-block; vertical-align: middle;">
+                                <div style="width: ${progress}%; height: 100%; background: ${item.status === 'running' ? '#3b82f6' : '#10b981'};"></div>
+                            </div>
+                            <span style="font-size: 0.75rem; color: #888; margin-left: 4px;">${progress}%</span>
+                        </td>
                         <td>${item.attempts || 0}</td>
-                        <td class="error-message">${item.error_message || '-'}</td>
-                        <td>${formatDateTime(item.created_at)}</td>
+                        <td class="error-message" title="${item.error_message || ''}">${item.error_message || '-'}</td>
                     </tr>`;
                 }
 
@@ -793,33 +793,40 @@
 
             try {
                 const res = await fetch(`${API_URL}/api/admin/system`);
+                if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                }
                 const data = await res.json();
+
+                // Safely access nested properties
+                const cfg = data.config || {};
+                const keys = data.api_keys || {};
 
                 let html = `
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
                         <div class="stat-card">
                             <h3 style="color: #667eea; margin-bottom: 15px;">Environment</h3>
-                            <p><strong>Python:</strong> ${data.python_version}</p>
-                            <p><strong>Platform:</strong> ${data.platform}</p>
-                            <p><strong>Environment:</strong> ${data.environment}</p>
+                            <p><strong>Python:</strong> ${data.python_version || 'N/A'}</p>
+                            <p><strong>Platform:</strong> ${data.platform || 'N/A'}</p>
+                            <p><strong>Environment:</strong> ${data.environment || 'N/A'}</p>
                             <p><strong>Debug Mode:</strong> ${data.debug_mode ? 'Yes' : 'No'}</p>
                         </div>
 
                         <div class="stat-card">
                             <h3 style="color: #667eea; margin-bottom: 15px;">Configuration</h3>
-                            <p><strong>Supabase:</strong> ${data.config.supabase_configured ? '✅ Connected' : '❌ Not configured'}</p>
-                            <p><strong>Stripe:</strong> ${data.config.stripe_configured ? '✅ Connected' : '❌ Not configured'}</p>
-                            <p><strong>Media Generation:</strong> ${data.config.media_generation_enabled ? '✅ Enabled' : '❌ Disabled'}</p>
-                            <p><strong>Credit System:</strong> ${data.config.credit_system_enabled ? '✅ Enabled' : '❌ Disabled'}</p>
-                            <p><strong>Model:</strong> ${data.config.model}</p>
+                            <p><strong>Supabase:</strong> ${cfg.supabase_configured ? '✅ Connected' : '❌ Not configured'}</p>
+                            <p><strong>Stripe:</strong> ${cfg.stripe_configured ? '✅ Connected' : '❌ Not configured'}</p>
+                            <p><strong>Media Generation:</strong> ${cfg.media_generation_enabled ? '✅ Enabled' : '❌ Disabled'}</p>
+                            <p><strong>Credit System:</strong> ${cfg.credit_system_enabled ? '✅ Enabled' : '❌ Disabled'}</p>
+                            <p><strong>Model:</strong> ${cfg.model || 'N/A'}</p>
                         </div>
 
                         <div class="stat-card">
                             <h3 style="color: #667eea; margin-bottom: 15px;">API Keys</h3>
-                            <p><strong>Anthropic:</strong> ${data.api_keys.anthropic ? '✅ Set' : '❌ Missing'}</p>
-                            <p><strong>OpenAI:</strong> ${data.api_keys.openai ? '✅ Set' : '❌ Missing'}</p>
-                            <p><strong>Replicate:</strong> ${data.api_keys.replicate ? '✅ Set' : '❌ Missing'}</p>
-                            <p><strong>Resend:</strong> ${data.api_keys.resend ? '✅ Set' : '❌ Missing'}</p>
+                            <p><strong>Anthropic:</strong> ${keys.anthropic ? '✅ Set' : '❌ Missing'}</p>
+                            <p><strong>OpenAI:</strong> ${keys.openai ? '✅ Set' : '❌ Missing'}</p>
+                            <p><strong>Replicate:</strong> ${keys.replicate ? '✅ Set' : '❌ Missing'}</p>
+                            <p><strong>Resend:</strong> ${keys.resend ? '✅ Set' : '❌ Missing'}</p>
                         </div>
 
                         ${data.memory ? `
