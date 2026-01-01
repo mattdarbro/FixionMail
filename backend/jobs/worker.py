@@ -1,6 +1,6 @@
 """
 Background worker for story generation jobs.
-Polls the job queue and processes stories asynchronously.
+Polls the Supabase job queue and processes stories asynchronously.
 """
 
 import asyncio
@@ -10,7 +10,7 @@ from datetime import datetime
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
-from backend.jobs.database import StoryJobDatabase, JobStatus
+from backend.database.jobs import JobQueueService, JobStatus
 from backend.email.scheduler import EmailScheduler
 from backend.email.database import EmailDatabase
 from backend.utils.logging import job_logger as logger
@@ -20,22 +20,20 @@ class StoryWorker:
     """
     Background worker that processes story generation jobs.
 
-    Polls the database every few seconds for pending jobs,
+    Polls Supabase every few seconds for pending jobs,
     runs the generation pipeline, and sends results via email.
     """
 
     def __init__(
         self,
-        job_db_path: str = "story_jobs.db",
         email_db_path: str = "email_scheduler.db",
         poll_interval_seconds: int = 5
     ):
-        self.job_db_path = job_db_path
         self.email_db_path = email_db_path
         self.poll_interval = poll_interval_seconds
 
         self.scheduler = AsyncIOScheduler()
-        self.job_db: StoryJobDatabase | None = None
+        self.job_service: JobQueueService | None = None
         self.email_db: EmailDatabase | None = None
         self.email_scheduler: EmailScheduler | None = None
 
@@ -44,20 +42,21 @@ class StoryWorker:
 
     async def initialize(self):
         """Initialize database connections and recover stale jobs"""
-        self.job_db = StoryJobDatabase(self.job_db_path)
-        await self.job_db.connect()
+        # Initialize Supabase job queue service
+        self.job_service = JobQueueService()
 
+        # Email database still uses SQLite for now
         self.email_db = EmailDatabase(self.email_db_path)
         await self.email_db.connect()
 
         self.email_scheduler = EmailScheduler(self.email_db)
 
         # Recover any jobs stuck in 'running' state from previous worker crash
-        recovered = await self.job_db.recover_stale_running_jobs(stale_minutes=10)
+        recovered = await self.job_service.recover_stale_running_jobs(stale_minutes=10)
         if recovered > 0:
             logger.warning(f"Recovered {recovered} stale job(s) from previous worker crash", recovered_count=recovered)
 
-        logger.info("Story worker initialized", db_path=self.job_db_path, poll_interval=self.poll_interval)
+        logger.info("Story worker initialized (Supabase job queue)", poll_interval=self.poll_interval)
 
     async def process_jobs(self):
         """
@@ -70,7 +69,7 @@ class StoryWorker:
 
         try:
             # Get next pending job
-            pending = await self.job_db.get_pending_jobs(limit=1)
+            pending = await self.job_service.get_pending_jobs(limit=1)
             if not pending:
                 return
 
@@ -78,8 +77,8 @@ class StoryWorker:
             job_id = job["job_id"]
 
             # Check retry limit (max 3 attempts)
-            if job["retry_count"] >= 3:
-                await self.job_db.mark_failed(
+            if job.get("retry_count", 0) >= 3:
+                await self.job_service.mark_failed(
                     job_id,
                     error_message="Max retries exceeded",
                     should_retry=False
@@ -107,7 +106,7 @@ class StoryWorker:
 
         try:
             # Mark as running
-            await self.job_db.update_status(
+            await self.job_service.update_status(
                 job_id,
                 JobStatus.RUNNING,
                 current_step="starting",
@@ -117,7 +116,7 @@ class StoryWorker:
             # Extract job data
             story_bible = job["story_bible"]
             user_email = job["user_email"]
-            settings = job.get("settings", {})
+            settings = job.get("settings") or {}
 
             # Get model settings (with defaults)
             writer_model = settings.get("writer_model", "sonnet")
@@ -133,7 +132,7 @@ class StoryWorker:
             from backend.storyteller.standalone_generation import generate_standalone_story
 
             # Update progress: Structure phase
-            await self.job_db.update_status(
+            await self.job_service.update_status(
                 job_id,
                 JobStatus.RUNNING,
                 current_step="structure",
@@ -158,7 +157,7 @@ class StoryWorker:
                 raise Exception(result.get("error", "Unknown generation error"))
 
             # Update progress: Sending email
-            await self.job_db.update_status(
+            await self.job_service.update_status(
                 job_id,
                 JobStatus.RUNNING,
                 current_step="email",
@@ -242,7 +241,7 @@ class StoryWorker:
             generation_time = time.time() - start_time
 
             # Mark completed
-            await self.job_db.mark_completed(
+            await self.job_service.mark_completed(
                 job_id,
                 result={
                     "story": story,
@@ -250,7 +249,8 @@ class StoryWorker:
                     "metadata": result.get("metadata", {}),
                     "email_sent": email_sent
                 },
-                generation_time=generation_time
+                generation_time=generation_time,
+                story_id=story_id
             )
 
             logger.info(f"Job completed", job_id=job_id, title=story['title'],
@@ -267,7 +267,7 @@ class StoryWorker:
                 "timeout", "rate limit", "429", "503", "502", "connection"
             ])
 
-            await self.job_db.mark_failed(
+            await self.job_service.mark_failed(
                 job_id,
                 error_message=error_msg,
                 should_retry=should_retry
@@ -285,7 +285,7 @@ class StoryWorker:
         )
 
         self.scheduler.start()
-        logger.info(f"Story worker started", poll_interval=self.poll_interval)
+        logger.info(f"Story worker started (Supabase mode)", poll_interval=self.poll_interval)
 
     def shutdown(self):
         """Shutdown the worker"""
@@ -309,7 +309,6 @@ _worker_instance: StoryWorker | None = None
 
 
 async def start_story_worker(
-    job_db_path: str = "story_jobs.db",
     email_db_path: str = "email_scheduler.db",
     poll_interval: int = 5
 ):
@@ -321,7 +320,6 @@ async def start_story_worker(
 
     if _worker_instance is None:
         _worker_instance = StoryWorker(
-            job_db_path=job_db_path,
             email_db_path=email_db_path,
             poll_interval_seconds=poll_interval
         )

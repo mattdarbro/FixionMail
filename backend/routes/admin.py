@@ -67,7 +67,7 @@ async def get_dashboard_overview():
             ).execute()
             overview["users"]["new_today"] = new_result.count or 0
 
-            # Story counts
+            # Story counts (from stories table)
             stories_result = client.table("stories").select("id", count="exact").execute()
             overview["stories"]["total"] = stories_result.count or 0
 
@@ -77,67 +77,46 @@ async def get_dashboard_overview():
             ).eq("status", "completed").execute()
             overview["stories"]["generated_today"] = gen_today.count or 0
 
-            # Failed today
+            # Failed stories today
             failed_today = client.table("stories").select("id", count="exact").gte(
                 "created_at", f"{today}T00:00:00"
             ).eq("status", "failed").execute()
             overview["stories"]["failed_today"] = failed_today.count or 0
 
-            # Scheduled stories
-            scheduled_result = client.table("scheduled_stories").select("id", count="exact").eq(
+            # Job queue stats (from story_jobs table)
+            pending_jobs = client.table("story_jobs").select("id", count="exact").eq(
                 "status", "pending"
             ).execute()
-            overview["scheduled"]["pending"] = scheduled_result.count or 0
+            overview["jobs"]["pending"] = pending_jobs.count or 0
+            overview["scheduled"]["pending"] = pending_jobs.count or 0
 
-            # Due in next hour
+            running_jobs = client.table("story_jobs").select("id", count="exact").eq(
+                "status", "running"
+            ).execute()
+            overview["jobs"]["running"] = running_jobs.count or 0
+
+            # Jobs completed today
+            completed_today = client.table("story_jobs").select("id", count="exact").eq(
+                "status", "completed"
+            ).gte("completed_at", f"{today}T00:00:00").execute()
+            overview["jobs"]["completed_today"] = completed_today.count or 0
+
+            # Jobs failed today
+            failed_jobs_today = client.table("story_jobs").select("id", count="exact").eq(
+                "status", "failed"
+            ).gte("completed_at", f"{today}T00:00:00").execute()
+            overview["jobs"]["failed_today"] = failed_jobs_today.count or 0
+
+            # Due soon (pending jobs created in last hour = imminent)
             next_hour = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
-            due_soon = client.table("scheduled_stories").select("id", count="exact").eq(
+            due_soon = client.table("story_jobs").select("id", count="exact").eq(
                 "status", "pending"
-            ).lte("scheduled_for", next_hour).execute()
+            ).execute()
             overview["scheduled"]["due_soon"] = due_soon.count or 0
 
         except Exception as e:
             logger.error(f"Failed to fetch Supabase stats: {e}", error=str(e))
             overview["system"]["supabase_error"] = str(e)
-
-    # Get job queue stats from SQLite
-    try:
-        from backend.jobs.database import StoryJobDatabase
-        job_db = StoryJobDatabase()
-        await job_db.connect()
-
-        conn = job_db._conn
-        if conn:
-            # Pending jobs
-            cursor = await conn.execute(
-                "SELECT COUNT(*) FROM story_jobs WHERE status = 'pending'"
-            )
-            overview["jobs"]["pending"] = (await cursor.fetchone())[0]
-
-            # Running jobs
-            cursor = await conn.execute(
-                "SELECT COUNT(*) FROM story_jobs WHERE status = 'running'"
-            )
-            overview["jobs"]["running"] = (await cursor.fetchone())[0]
-
-            # Completed today
-            cursor = await conn.execute(
-                "SELECT COUNT(*) FROM story_jobs WHERE status = 'completed' AND completed_at LIKE ?",
-                (f"{today}%",)
-            )
-            overview["jobs"]["completed_today"] = (await cursor.fetchone())[0]
-
-            # Failed today
-            cursor = await conn.execute(
-                "SELECT COUNT(*) FROM story_jobs WHERE status = 'failed' AND completed_at LIKE ?",
-                (f"{today}%",)
-            )
-            overview["jobs"]["failed_today"] = (await cursor.fetchone())[0]
-
-        await job_db.close()
-    except Exception as e:
-        logger.error(f"Failed to fetch job queue stats: {e}", error=str(e))
-        overview["system"]["jobs_error"] = str(e)
 
     # Get log buffer stats
     log_buffer = get_log_buffer()
@@ -307,7 +286,7 @@ async def get_failed_stories(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ===== Scheduled Stories =====
+# ===== Scheduled Stories / Job Queue =====
 
 @router.get("/scheduled")
 async def get_scheduled_stories(
@@ -315,79 +294,51 @@ async def get_scheduled_stories(
     status: Optional[str] = Query(None, description="Filter by status (pending, running, completed, failed)")
 ):
     """
-    Get scheduled/queued stories from the job queue.
+    Get scheduled/queued stories from the job queue (Supabase).
 
-    Note: The scheduler uses SQLite job queue, not Supabase scheduled_stories table.
-    This endpoint shows pending and recent jobs from the actual job queue.
+    Shows pending and recent jobs from the story_jobs table.
     """
+    if not config.supabase_configured:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+
     try:
-        from backend.jobs.database import StoryJobDatabase
-        job_db = StoryJobDatabase()
-        await job_db.connect()
+        from backend.database.client import get_supabase_admin_client
+        client = get_supabase_admin_client()
 
-        conn = job_db._conn
+        if status:
+            query = client.table("story_jobs").select(
+                "job_id, status, user_email, story_bible, settings, "
+                "current_step, progress_percent, error_message, "
+                "created_at, started_at, completed_at, retry_count"
+            ).eq("status", status).order("created_at", desc=True).limit(limit)
+        else:
+            # Show pending and running by default
+            query = client.table("story_jobs").select(
+                "job_id, status, user_email, story_bible, settings, "
+                "current_step, progress_percent, error_message, "
+                "created_at, started_at, completed_at, retry_count"
+            ).in_("status", ["pending", "running"]).order("created_at").limit(limit)
+
+        result = query.execute()
+
         scheduled = []
+        for row in result.data:
+            bible = row.get("story_bible") or {}
+            scheduled.append({
+                "id": row["job_id"],
+                "status": row["status"],
+                "user_email": row["user_email"],
+                "genre": bible.get("genre", "unknown"),
+                "current_step": row.get("current_step"),
+                "progress_percent": row.get("progress_percent", 0),
+                "error_message": row.get("error_message"),
+                "created_at": row["created_at"],
+                "started_at": row.get("started_at"),
+                "completed_at": row.get("completed_at"),
+                "attempts": row.get("retry_count", 0),
+                "scheduled_for": row["created_at"]
+            })
 
-        if conn:
-            # Get jobs - default to pending/running if no status specified
-            if status:
-                cursor = await conn.execute("""
-                    SELECT job_id, status, user_email, story_bible, settings,
-                           current_step, progress_percent, error_message,
-                           created_at, started_at, completed_at, retry_count
-                    FROM story_jobs
-                    WHERE status = ?
-                    ORDER BY created_at DESC
-                    LIMIT ?
-                """, (status, limit))
-            else:
-                # Show pending and running by default
-                cursor = await conn.execute("""
-                    SELECT job_id, status, user_email, story_bible, settings,
-                           current_step, progress_percent, error_message,
-                           created_at, started_at, completed_at, retry_count
-                    FROM story_jobs
-                    WHERE status IN ('pending', 'running')
-                    ORDER BY created_at ASC
-                    LIMIT ?
-                """, (limit,))
-
-            rows = await cursor.fetchall()
-            import json
-            for row in rows:
-                # Parse settings to get delivery info
-                settings = {}
-                try:
-                    if row[4]:
-                        settings = json.loads(row[4])
-                except:
-                    pass
-
-                # Parse story_bible to get genre
-                bible = {}
-                try:
-                    if row[3]:
-                        bible = json.loads(row[3])
-                except:
-                    pass
-
-                scheduled.append({
-                    "id": row[0],
-                    "status": row[1],
-                    "user_email": row[2],
-                    "genre": bible.get("genre", "unknown"),
-                    "current_step": row[5],
-                    "progress_percent": row[6],
-                    "error_message": row[7],
-                    "created_at": row[8],
-                    "started_at": row[9],
-                    "completed_at": row[10],
-                    "attempts": row[11] or 0,
-                    # Use created_at as scheduled_for since jobs are created at schedule time
-                    "scheduled_for": row[8]
-                })
-
-        await job_db.close()
         return {"scheduled_stories": scheduled}
     except Exception as e:
         logger.error(f"Failed to fetch scheduled stories: {e}", error=str(e))
@@ -402,56 +353,43 @@ async def get_jobs(
     status: Optional[str] = Query(None, description="Filter by status (pending, running, completed, failed)")
 ):
     """
-    Get job queue status from SQLite database.
+    Get job queue status from Supabase.
     """
+    if not config.supabase_configured:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+
     try:
-        from backend.jobs.database import StoryJobDatabase
-        job_db = StoryJobDatabase()
-        await job_db.connect()
+        from backend.database.client import get_supabase_admin_client
+        client = get_supabase_admin_client()
 
-        conn = job_db._conn
-        jobs = []
+        query = client.table("story_jobs").select(
+            "job_id, status, user_email, current_step, progress_percent, "
+            "error_message, created_at, started_at, completed_at, "
+            "generation_time_seconds, retry_count"
+        ).order("created_at", desc=True).limit(limit)
 
-        if conn:
-            if status:
-                cursor = await conn.execute("""
-                    SELECT job_id, status, user_email, current_step, progress_percent,
-                           error_message, created_at, started_at, completed_at,
-                           generation_time_seconds, retry_count
-                    FROM story_jobs
-                    WHERE status = ?
-                    ORDER BY created_at DESC
-                    LIMIT ?
-                """, (status, limit))
-            else:
-                cursor = await conn.execute("""
-                    SELECT job_id, status, user_email, current_step, progress_percent,
-                           error_message, created_at, started_at, completed_at,
-                           generation_time_seconds, retry_count
-                    FROM story_jobs
-                    ORDER BY created_at DESC
-                    LIMIT ?
-                """, (limit,))
+        if status:
+            query = query.eq("status", status)
 
-            rows = await cursor.fetchall()
-            jobs = [
-                {
-                    "job_id": row[0],
-                    "status": row[1],
-                    "user_email": row[2],
-                    "current_step": row[3],
-                    "progress_percent": row[4],
-                    "error_message": row[5],
-                    "created_at": row[6],
-                    "started_at": row[7],
-                    "completed_at": row[8],
-                    "generation_time_seconds": row[9],
-                    "retry_count": row[10]
-                }
-                for row in rows
-            ]
+        result = query.execute()
 
-        await job_db.close()
+        jobs = [
+            {
+                "job_id": row["job_id"],
+                "status": row["status"],
+                "user_email": row["user_email"],
+                "current_step": row.get("current_step"),
+                "progress_percent": row.get("progress_percent", 0),
+                "error_message": row.get("error_message"),
+                "created_at": row["created_at"],
+                "started_at": row.get("started_at"),
+                "completed_at": row.get("completed_at"),
+                "generation_time_seconds": row.get("generation_time_seconds"),
+                "retry_count": row.get("retry_count", 0)
+            }
+            for row in result.data
+        ]
+
         return {"jobs": jobs}
     except Exception as e:
         logger.error(f"Failed to fetch jobs: {e}", error=str(e))
@@ -461,40 +399,28 @@ async def get_jobs(
 @router.get("/jobs/failed")
 async def get_failed_jobs(limit: int = Query(50, ge=1, le=200)):
     """Get failed jobs with error details."""
+    if not config.supabase_configured:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+
     try:
-        from backend.jobs.database import StoryJobDatabase
-        job_db = StoryJobDatabase()
-        await job_db.connect()
+        from backend.database.jobs import JobQueueService, JobStatus
+        job_service = JobQueueService()
+        failed_jobs = await job_service.get_failed_jobs(limit=limit)
 
-        conn = job_db._conn
-        jobs = []
+        jobs = [
+            {
+                "job_id": row["job_id"],
+                "status": "failed",
+                "user_email": row["user_email"],
+                "failed_at_step": row.get("story_bible", {}).get("current_step"),
+                "error_message": row.get("error_message"),
+                "created_at": row["created_at"],
+                "completed_at": row.get("completed_at"),
+                "retry_count": row.get("retry_count", 0)
+            }
+            for row in failed_jobs
+        ]
 
-        if conn:
-            cursor = await conn.execute("""
-                SELECT job_id, status, user_email, current_step, error_message,
-                       created_at, completed_at, retry_count
-                FROM story_jobs
-                WHERE status = 'failed'
-                ORDER BY completed_at DESC
-                LIMIT ?
-            """, (limit,))
-
-            rows = await cursor.fetchall()
-            jobs = [
-                {
-                    "job_id": row[0],
-                    "status": row[1],
-                    "user_email": row[2],
-                    "failed_at_step": row[3],
-                    "error_message": row[4],
-                    "created_at": row[5],
-                    "completed_at": row[6],
-                    "retry_count": row[7]
-                }
-                for row in rows
-            ]
-
-        await job_db.close()
         return {"failed_jobs": jobs}
     except Exception as e:
         logger.error(f"Failed to fetch failed jobs: {e}", error=str(e))
@@ -504,12 +430,13 @@ async def get_failed_jobs(limit: int = Query(50, ge=1, le=200)):
 @router.get("/jobs/stats")
 async def get_job_stats():
     """Get job queue statistics."""
-    try:
-        from backend.jobs.database import StoryJobDatabase
-        job_db = StoryJobDatabase()
-        await job_db.connect()
+    if not config.supabase_configured:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
 
-        conn = job_db._conn
+    try:
+        from backend.database.client import get_supabase_admin_client
+        client = get_supabase_admin_client()
+
         stats = {
             "by_status": {},
             "avg_generation_time": None,
@@ -518,43 +445,41 @@ async def get_job_stats():
             "success_rate_24h": 0
         }
 
-        if conn:
-            # Count by status
-            cursor = await conn.execute("""
-                SELECT status, COUNT(*) FROM story_jobs GROUP BY status
-            """)
-            rows = await cursor.fetchall()
-            stats["by_status"] = {row[0]: row[1] for row in rows}
-            stats["total_jobs"] = sum(stats["by_status"].values())
+        # Count by status
+        for status in ["pending", "running", "completed", "failed"]:
+            result = client.table("story_jobs").select("id", count="exact").eq("status", status).execute()
+            stats["by_status"][status] = result.count or 0
 
-            # Average generation time for completed jobs
-            cursor = await conn.execute("""
-                SELECT AVG(generation_time_seconds) FROM story_jobs
-                WHERE status = 'completed' AND generation_time_seconds IS NOT NULL
-            """)
-            avg = (await cursor.fetchone())[0]
-            stats["avg_generation_time"] = round(avg, 2) if avg else None
+        stats["total_jobs"] = sum(stats["by_status"].values())
 
-            # Jobs in last 24 hours
-            yesterday = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
-            cursor = await conn.execute("""
-                SELECT COUNT(*) FROM story_jobs WHERE created_at >= ?
-            """, (yesterday,))
-            stats["jobs_last_24h"] = (await cursor.fetchone())[0]
+        # Average generation time for completed jobs
+        completed_jobs = client.table("story_jobs").select(
+            "generation_time_seconds"
+        ).eq("status", "completed").not_.is_("generation_time_seconds", "null").limit(100).execute()
 
-            # Success rate in last 24h
-            cursor = await conn.execute("""
-                SELECT
-                    SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
-                    SUM(CASE WHEN status IN ('completed', 'failed') THEN 1 ELSE 0 END) as total
-                FROM story_jobs
-                WHERE created_at >= ?
-            """, (yesterday,))
-            row = await cursor.fetchone()
-            if row[1] and row[1] > 0:
-                stats["success_rate_24h"] = round((row[0] / row[1]) * 100, 1)
+        if completed_jobs.data:
+            times = [j["generation_time_seconds"] for j in completed_jobs.data if j.get("generation_time_seconds")]
+            if times:
+                stats["avg_generation_time"] = round(sum(times) / len(times), 2)
 
-        await job_db.close()
+        # Jobs in last 24 hours
+        yesterday = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+        jobs_24h = client.table("story_jobs").select("id", count="exact").gte("created_at", yesterday).execute()
+        stats["jobs_last_24h"] = jobs_24h.count or 0
+
+        # Success rate in last 24h
+        completed_24h = client.table("story_jobs").select("id", count="exact").eq(
+            "status", "completed"
+        ).gte("created_at", yesterday).execute()
+
+        failed_24h = client.table("story_jobs").select("id", count="exact").eq(
+            "status", "failed"
+        ).gte("created_at", yesterday).execute()
+
+        total_finished = (completed_24h.count or 0) + (failed_24h.count or 0)
+        if total_finished > 0:
+            stats["success_rate_24h"] = round(((completed_24h.count or 0) / total_finished) * 100, 1)
+
         return stats
     except Exception as e:
         logger.error(f"Failed to fetch job stats: {e}", error=str(e))
@@ -647,7 +572,8 @@ async def get_system_info():
         "stripe_configured": config.stripe_configured,
         "media_generation_enabled": config.ENABLE_MEDIA_GENERATION,
         "credit_system_enabled": config.ENABLE_CREDIT_SYSTEM,
-        "model": config.MODEL_NAME
+        "model": config.MODEL_NAME,
+        "job_queue": "supabase"  # Indicate we're now using Supabase
     }
 
     # Check API keys (without exposing them)

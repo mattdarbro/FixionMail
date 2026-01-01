@@ -5,12 +5,14 @@ Provides high-level interface for creating and managing story generation jobs.
 
 import uuid
 from typing import Dict, Any, Optional
-from backend.jobs.database import StoryJobDatabase, JobStatus
+from backend.database.jobs import JobQueueService, JobStatus
 
 
 class StoryJobQueue:
     """
     High-level interface for the story job queue.
+
+    Uses Supabase for persistence via JobQueueService.
 
     Usage:
         queue = StoryJobQueue()
@@ -23,21 +25,20 @@ class StoryJobQueue:
         status = await queue.get_status(job_id)
     """
 
-    def __init__(self, db_path: str = "story_jobs.db"):
-        self.db = StoryJobDatabase(db_path)
-        self._initialized = False
+    def __init__(self):
+        self.job_service = JobQueueService()
+        self._initialized = True  # Supabase client is lazy-loaded
 
     async def initialize(self):
-        """Initialize the database connection"""
-        if not self._initialized:
-            await self.db.connect()
-            self._initialized = True
+        """Initialize the service (no-op for Supabase, kept for API compatibility)"""
+        self._initialized = True
 
     async def enqueue(
         self,
         story_bible: Dict[str, Any],
         user_email: str,
-        settings: Optional[Dict[str, Any]] = None
+        settings: Optional[Dict[str, Any]] = None,
+        user_id: Optional[str] = None
     ) -> str:
         """
         Queue a new story generation job.
@@ -46,20 +47,19 @@ class StoryJobQueue:
             story_bible: The story bible/configuration
             user_email: Email to send the completed story to
             settings: Optional settings (models, tier, etc.)
+            user_id: Optional user ID if known
 
         Returns:
             job_id: Unique identifier for tracking the job
         """
-        if not self._initialized:
-            await self.initialize()
-
         job_id = f"story_{uuid.uuid4().hex[:12]}"
 
-        await self.db.create_job(
+        await self.job_service.create_job(
             job_id=job_id,
             story_bible=story_bible,
             user_email=user_email,
-            settings=settings
+            settings=settings,
+            user_id=user_id
         )
 
         return job_id
@@ -71,23 +71,20 @@ class StoryJobQueue:
         Returns:
             Dict with status info or None if job not found
         """
-        if not self._initialized:
-            await self.initialize()
-
-        job = await self.db.get_job_by_id(job_id)
+        job = await self.job_service.get_job_by_id(job_id)
         if not job:
             return None
 
         return {
             "job_id": job["job_id"],
             "status": job["status"],
-            "current_step": job["current_step"],
-            "progress_percent": job["progress_percent"],
-            "error_message": job["error_message"],
+            "current_step": job.get("current_step"),
+            "progress_percent": job.get("progress_percent", 0),
+            "error_message": job.get("error_message"),
             "created_at": job["created_at"],
-            "started_at": job["started_at"],
-            "completed_at": job["completed_at"],
-            "generation_time_seconds": job["generation_time_seconds"]
+            "started_at": job.get("started_at"),
+            "completed_at": job.get("completed_at"),
+            "generation_time_seconds": job.get("generation_time_seconds")
         }
 
     async def get_result(self, job_id: str) -> Optional[Dict[str, Any]]:
@@ -97,17 +94,11 @@ class StoryJobQueue:
         Returns:
             Full job data including result, or None if not found
         """
-        if not self._initialized:
-            await self.initialize()
-
-        return await self.db.get_job_by_id(job_id)
+        return await self.job_service.get_job_by_id(job_id)
 
     async def get_pending_count(self) -> int:
         """Get the number of pending jobs in the queue"""
-        if not self._initialized:
-            await self.initialize()
-
-        jobs = await self.db.get_pending_jobs(limit=1000)
+        jobs = await self.job_service.get_pending_jobs(limit=1000)
         return len(jobs)
 
     async def get_recent_jobs(
@@ -116,32 +107,27 @@ class StoryJobQueue:
         limit: int = 20
     ) -> list:
         """Get recent jobs for display"""
-        if not self._initialized:
-            await self.initialize()
-
-        return await self.db.get_recent_jobs(email=email, limit=limit)
+        return await self.job_service.get_recent_jobs(email=email, limit=limit)
 
     async def close(self):
-        """Close the database connection"""
-        if self._initialized:
-            await self.db.close()
-            self._initialized = False
+        """Close the connection (no-op for Supabase, kept for API compatibility)"""
+        self._initialized = False
 
 
 # Global queue instance (initialized on first use)
 _queue_instance: Optional[StoryJobQueue] = None
 
 
-async def get_queue(db_path: str = "story_jobs.db") -> StoryJobQueue:
+async def get_queue() -> StoryJobQueue:
     """
     Get or create the global queue instance.
 
-    This ensures we reuse the same database connection across the app.
+    This ensures we reuse the same instance across the app.
     """
     global _queue_instance
 
     if _queue_instance is None:
-        _queue_instance = StoryJobQueue(db_path)
+        _queue_instance = StoryJobQueue()
         await _queue_instance.initialize()
 
     return _queue_instance

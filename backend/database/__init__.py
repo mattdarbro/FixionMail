@@ -10,6 +10,7 @@ from .users import UserService
 from .stories import StoryService
 from .conversations import ConversationService
 from .credits import CreditService
+from .jobs import JobQueueService, JobStatus
 
 __all__ = [
     "get_supabase_client",
@@ -18,4 +19,6 @@ __all__ = [
     "StoryService",
     "ConversationService",
     "CreditService",
+    "JobQueueService",
+    "JobStatus",
 ]

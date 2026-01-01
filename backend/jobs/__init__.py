@@ -2,7 +2,7 @@
 Story job queue system for background generation.
 
 Components:
-- StoryJobDatabase: SQLite-backed job storage
+- JobQueueService: Supabase-backed job storage
 - StoryJobQueue: High-level queue interface
 - StoryWorker: Background worker that processes jobs
 - DailyStoryScheduler: Scheduler for daily story delivery
@@ -22,7 +22,7 @@ Usage:
     status = await queue.get_status(job_id)
 """
 
-from backend.jobs.database import StoryJobDatabase, JobStatus
+from backend.database.jobs import JobQueueService, JobStatus
 from backend.jobs.queue import StoryJobQueue, get_queue, close_queue
 from backend.jobs.worker import (
     StoryWorker,
@@ -38,8 +38,8 @@ from backend.jobs.daily_scheduler import (
 )
 
 __all__ = [
-    # Database
-    "StoryJobDatabase",
+    # Database/Service
+    "JobQueueService",
     "JobStatus",
 
     # Queue
