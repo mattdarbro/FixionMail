@@ -181,11 +181,12 @@ class StoryWorker:
             if not email_sent:
                 logger.warning(f"Email failed to send but story was generated", job_id=job_id, email=user_email)
 
-            # Save story to Supabase database
+            # Save story to Supabase database and deduct credits
             story_id = None
             try:
                 from backend.database.stories import StoryService
                 from backend.database.users import UserService
+                from backend.database.credits import CreditService
                 from backend.config import config
 
                 if config.supabase_configured:
@@ -209,6 +210,20 @@ class StoryWorker:
                             credits_used=1 if user_tier != "free" else 0,
                         )
                         story_id = saved_story.get("id")
+
+                        # Deduct credits if credit system is enabled
+                        if config.ENABLE_CREDIT_SYSTEM and user_tier != "free":
+                            try:
+                                credit_service = CreditService()
+                                new_balance = await credit_service.deduct_for_story(
+                                    user_id=user["id"],
+                                    story_id=story_id,
+                                    is_retell=False
+                                )
+                                logger.info(f"Credits deducted", user_id=user["id"], new_balance=new_balance)
+                            except Exception as credit_error:
+                                logger.error(f"Failed to deduct credits: {credit_error}", error=str(credit_error))
+                                # Don't fail - story was already generated
 
                         # Mark as delivered if email sent
                         if email_sent:
