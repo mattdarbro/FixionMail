@@ -496,10 +496,21 @@
 
             // Render grid
             container.innerHTML = `
-                <div class="story-grid">
-                    ${pageStories.map(story => renderStoryCard(story)).join('')}
+                <div class="story-grid" id="storyGrid">
+                    ${pageStories.map((story, idx) => renderStoryCard(story, start + idx)).join('')}
                 </div>
             `;
+
+            // Add click handlers via event delegation (safer than inline onclick)
+            document.getElementById('storyGrid').addEventListener('click', (e) => {
+                const card = e.target.closest('.story-card');
+                if (card) {
+                    const storyIndex = parseInt(card.dataset.storyIndex);
+                    if (!isNaN(storyIndex) && allStories[storyIndex]) {
+                        openStory(allStories[storyIndex]);
+                    }
+                }
+            });
 
             // Update pagination
             if (totalPages > 1) {
@@ -512,21 +523,21 @@
             }
         }
 
-        function renderStoryCard(story) {
+        function renderStoryCard(story, index) {
             const coverUrl = story.cover_image_url || 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200"><rect fill="%231a1a1a"/><text x="50%" y="50%" fill="%23667eea" text-anchor="middle" dy=".3em" font-size="40">📖</text></svg>';
             const date = story.completed_at ? new Date(story.completed_at).toLocaleDateString() : 'Unknown';
             const preview = story.narrative ? story.narrative.substring(0, 150) + '...' : 'No preview available';
             const genre = formatGenre(story.genre);
 
             return `
-                <div class="story-card" onclick='openStory(${JSON.stringify(story).replace(/'/g, "&#39;")})'>
-                    <img class="story-card-image" src="${coverUrl}" alt="${story.title}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 200%22><rect fill=%22%231a1a1a%22/><text x=%2250%%22 y=%2250%%22 fill=%22%23667eea%22 text-anchor=%22middle%22 dy=%22.3em%22 font-size=%2240%22>📖</text></svg>'">
+                <div class="story-card" data-story-index="${index}">
+                    <img class="story-card-image" src="${escapeHtml(coverUrl)}" alt="${escapeHtml(story.title || 'Story')}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 200%22><rect fill=%22%231a1a1a%22/><text x=%2250%%22 y=%2250%%22 fill=%22%23667eea%22 text-anchor=%22middle%22 dy=%22.3em%22 font-size=%2240%22>📖</text></svg>'">
                     <div class="story-card-content">
                         <div class="story-card-title">${escapeHtml(story.title || 'Untitled')}</div>
                         <div class="story-card-meta">
-                            <span class="genre-tag">${genre}</span>
+                            <span class="genre-tag">${escapeHtml(genre)}</span>
                             <span>📝 ${formatNumber(story.word_count || 0)} words</span>
-                            <span>📅 ${date}</span>
+                            <span>📅 ${escapeHtml(date)}</span>
                         </div>
                         <div class="story-card-preview">${escapeHtml(preview)}</div>
                     </div>

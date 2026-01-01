@@ -327,17 +327,37 @@ class StoryJobDatabase:
         stories = []
 
         for row in rows:
-            result = json.loads(row[2]) if row[2] else {}
+            try:
+                result = json.loads(row[2]) if row[2] else {}
+            except (json.JSONDecodeError, TypeError):
+                # Skip malformed result data
+                continue
+
+            # Handle different result structures (old vs new format)
             story_data = result.get("story", {})
-            bible = json.loads(row[3]) if row[3] else {}
+
+            # Fallback: if story_data is empty, try using result directly
+            # (in case old format stored story fields at root level)
+            if not story_data and "narrative" in result:
+                story_data = result
+
+            try:
+                bible = json.loads(row[3]) if row[3] else {}
+            except (json.JSONDecodeError, TypeError):
+                bible = {}
+
+            # Only include if we have actual content
+            narrative = story_data.get("narrative", "")
+            if not narrative:
+                continue
 
             stories.append({
                 "job_id": row[0],
                 "user_email": row[1],
                 "title": story_data.get("title", "Untitled"),
-                "narrative": story_data.get("narrative", ""),
+                "narrative": narrative,
                 "genre": story_data.get("genre") or bible.get("genre", "unknown"),
-                "word_count": story_data.get("word_count", 0),
+                "word_count": story_data.get("word_count", len(narrative.split())),
                 "audio_url": story_data.get("audio_url"),
                 "cover_image_url": story_data.get("cover_image_url"),
                 "created_at": row[4],

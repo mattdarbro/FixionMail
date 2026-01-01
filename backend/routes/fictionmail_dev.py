@@ -844,13 +844,60 @@ async def dev_get_stories():
 
 @router.get("/story/{story_id}")
 @app.get("/api/dev/story/{story_id}")
-async def dev_get_story(story_id: str):
-    """Get a specific story."""
+async def dev_get_inmemory_story(story_id: str):
+    """Get a specific story from in-memory storage (dev only)."""
     for story in dev_storage["stories"]:
         if story["id"] == story_id:
             return story
 
     raise HTTPException(status_code=404, detail="Story not found")
+
+
+@router.get("/debug/jobs")
+@app.get("/api/dev/debug/jobs")
+async def dev_debug_jobs(limit: int = 10):
+    """
+    Debug endpoint to see raw job data from the database.
+    Helps diagnose why stories might not appear in the library.
+    """
+    try:
+        from backend.jobs import get_queue
+
+        queue = await get_queue()
+        cursor = await queue.db._conn.execute("""
+            SELECT job_id, status, result IS NOT NULL as has_result,
+                   LENGTH(result) as result_length,
+                   created_at, completed_at
+            FROM story_jobs
+            ORDER BY created_at DESC
+            LIMIT ?
+        """, (limit,))
+
+        rows = await cursor.fetchall()
+
+        return {
+            "success": True,
+            "jobs": [
+                {
+                    "job_id": row[0],
+                    "status": row[1],
+                    "has_result": bool(row[2]),
+                    "result_length": row[3],
+                    "created_at": row[4],
+                    "completed_at": row[5]
+                }
+                for row in rows
+            ],
+            "db_path": queue.db.db_path
+        }
+
+    except Exception as e:
+        import traceback
+        return {
+            "success": False,
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        }
 
 
 @router.delete("/reset")

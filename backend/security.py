@@ -7,12 +7,14 @@ Provides API key authentication and rate limiting with dev mode bypass.
 from fastapi import HTTPException, Header, Request, Depends
 from functools import wraps
 import time
+import threading
 from typing import Optional
 from collections import defaultdict
 
 
-# Simple in-memory rate limiter (per API key)
+# Thread-safe rate limiter (per API key)
 _rate_limit_store: dict[str, list[float]] = defaultdict(list)
+_rate_limit_lock = threading.Lock()
 
 
 def get_api_key(
@@ -62,25 +64,26 @@ async def verify_api_key(
             detail="Invalid API key"
         )
 
-    # Rate limiting
+    # Rate limiting (thread-safe)
     if config.RATE_LIMIT_PER_MINUTE > 0:
         now = time.time()
         window_start = now - 60
 
-        # Clean old entries
-        _rate_limit_store[api_key] = [
-            t for t in _rate_limit_store[api_key] if t > window_start
-        ]
+        with _rate_limit_lock:
+            # Clean old entries
+            _rate_limit_store[api_key] = [
+                t for t in _rate_limit_store[api_key] if t > window_start
+            ]
 
-        # Check limit
-        if len(_rate_limit_store[api_key]) >= config.RATE_LIMIT_PER_MINUTE:
-            raise HTTPException(
-                status_code=429,
-                detail=f"Rate limit exceeded. Max {config.RATE_LIMIT_PER_MINUTE} requests per minute."
-            )
+            # Check limit
+            if len(_rate_limit_store[api_key]) >= config.RATE_LIMIT_PER_MINUTE:
+                raise HTTPException(
+                    status_code=429,
+                    detail=f"Rate limit exceeded. Max {config.RATE_LIMIT_PER_MINUTE} requests per minute."
+                )
 
-        # Record this request
-        _rate_limit_store[api_key].append(now)
+            # Record this request
+            _rate_limit_store[api_key].append(now)
 
     return api_key
 
