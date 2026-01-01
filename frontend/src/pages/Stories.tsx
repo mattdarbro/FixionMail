@@ -108,11 +108,10 @@ export function StoriesPage() {
         throw new Error(data.detail || 'Failed to generate story');
       }
 
-      const data = await response.json();
-      alert(data.message);
+      // Navigate to dashboard to show generation progress
+      navigate('/dashboard');
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to generate story');
-    } finally {
       setIsGenerating(false);
     }
   };

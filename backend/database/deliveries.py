@@ -199,6 +199,26 @@ class DeliveryService:
         )
         return result.data
 
+    async def get_user_next_delivery(
+        self,
+        user_id: str | UUID
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Get the user's next pending delivery (if any).
+
+        Returns the soonest pending delivery with story details.
+        """
+        result = (
+            self.client.table("scheduled_deliveries")
+            .select("id, deliver_at, timezone, status, stories(id, title, genre)")
+            .eq("user_id", str(user_id))
+            .eq("status", DeliveryStatus.PENDING.value)
+            .order("deliver_at")
+            .limit(1)
+            .execute()
+        )
+        return result.data[0] if result.data else None
+
     async def get_upcoming_deliveries(
         self,
         hours_ahead: int = 24,

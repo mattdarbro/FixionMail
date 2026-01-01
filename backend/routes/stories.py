@@ -13,6 +13,8 @@ from pydantic import BaseModel
 
 from backend.database.stories import StoryService
 from backend.database.users import UserService
+from backend.database.jobs import JobQueueService
+from backend.database.deliveries import DeliveryService
 from backend.jobs.daily_scheduler import get_daily_scheduler
 from backend.routes.auth import get_current_user_id
 
@@ -67,6 +69,33 @@ class GenerateStoryResponse(BaseModel):
     job_id: str
     message: str
     status: str
+
+
+class ActiveJobResponse(BaseModel):
+    """A pending or running story generation job."""
+    job_id: str
+    status: str
+    current_step: Optional[str] = None
+    progress_percent: int = 0
+    genre: Optional[str] = None
+    created_at: str
+    started_at: Optional[str] = None
+
+
+class NextDeliveryResponse(BaseModel):
+    """User's next scheduled email delivery."""
+    delivery_id: str
+    deliver_at: str
+    timezone: str
+    story_title: Optional[str] = None
+    story_genre: Optional[str] = None
+
+
+class DashboardStatusResponse(BaseModel):
+    """Dashboard status including active jobs and upcoming deliveries."""
+    active_jobs: List[ActiveJobResponse]
+    next_delivery: Optional[NextDeliveryResponse] = None
+    has_pending_story: bool
 
 
 # =============================================================================
@@ -130,6 +159,58 @@ async def get_story_stats(
     stats = await story_service.get_user_stats(user_id)
 
     return StoryStatsResponse(**stats)
+
+
+@router.get("/status", response_model=DashboardStatusResponse)
+async def get_dashboard_status(
+    user_id: str = Depends(get_current_user_id)
+):
+    """
+    Get user's story generation status for the dashboard.
+
+    Returns:
+    - Active jobs (pending/running story generation)
+    - Next scheduled delivery (if any)
+    - Whether user has a story being generated
+    """
+    job_service = JobQueueService()
+    delivery_service = DeliveryService()
+
+    # Get active jobs for this user
+    active_jobs_raw = await job_service.get_user_active_jobs(user_id)
+
+    active_jobs = [
+        ActiveJobResponse(
+            job_id=job["job_id"],
+            status=job["status"],
+            current_step=job.get("current_step"),
+            progress_percent=job.get("progress_percent", 0),
+            genre=job.get("story_bible", {}).get("genre"),
+            created_at=job["created_at"],
+            started_at=job.get("started_at"),
+        )
+        for job in active_jobs_raw
+    ]
+
+    # Get next delivery
+    next_delivery_raw = await delivery_service.get_user_next_delivery(user_id)
+
+    next_delivery = None
+    if next_delivery_raw:
+        story_info = next_delivery_raw.get("stories") or {}
+        next_delivery = NextDeliveryResponse(
+            delivery_id=next_delivery_raw["id"],
+            deliver_at=next_delivery_raw["deliver_at"],
+            timezone=next_delivery_raw.get("timezone", "UTC"),
+            story_title=story_info.get("title"),
+            story_genre=story_info.get("genre"),
+        )
+
+    return DashboardStatusResponse(
+        active_jobs=active_jobs,
+        next_delivery=next_delivery,
+        has_pending_story=len(active_jobs) > 0 or next_delivery is not None,
+    )
 
 
 @router.get("/latest")

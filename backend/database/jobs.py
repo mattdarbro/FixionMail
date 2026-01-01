@@ -141,6 +141,27 @@ class JobQueueService:
         )
         return result.data
 
+    async def get_user_active_jobs(
+        self,
+        user_id: str,
+        limit: int = 5
+    ) -> List[Dict[str, Any]]:
+        """
+        Get pending/running jobs for a specific user.
+
+        Used to show users their in-progress story generation status.
+        """
+        result = (
+            self.client.table("story_jobs")
+            .select("job_id, status, current_step, progress_percent, story_bible, created_at, started_at")
+            .eq("user_id", user_id)
+            .in_("status", [JobStatus.PENDING.value, JobStatus.RUNNING.value])
+            .order("created_at", desc=True)
+            .limit(limit)
+            .execute()
+        )
+        return result.data
+
     # =========================================================================
     # Job Status Updates
     # =========================================================================
