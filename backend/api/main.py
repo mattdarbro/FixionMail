@@ -360,6 +360,58 @@ async def health_check():
     }
 
 
+@app.get("/api/status")
+async def system_status():
+    """System status endpoint - shows queue depth and worker status."""
+    from backend.jobs.daily_scheduler import get_daily_scheduler
+
+    scheduler = get_daily_scheduler()
+    queue_stats = {"pending": 0, "running": 0, "completed_today": 0, "failed_today": 0}
+
+    if scheduler and scheduler.job_db:
+        try:
+            # Get queue counts
+            conn = scheduler.job_db._conn
+            if conn:
+                from datetime import datetime, timezone
+                today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+                # Pending jobs
+                cursor = await conn.execute(
+                    "SELECT COUNT(*) FROM story_jobs WHERE status = 'pending'"
+                )
+                queue_stats["pending"] = (await cursor.fetchone())[0]
+
+                # Running jobs
+                cursor = await conn.execute(
+                    "SELECT COUNT(*) FROM story_jobs WHERE status = 'running'"
+                )
+                queue_stats["running"] = (await cursor.fetchone())[0]
+
+                # Completed today
+                cursor = await conn.execute(
+                    "SELECT COUNT(*) FROM story_jobs WHERE status = 'completed' AND completed_at LIKE ?",
+                    (f"{today}%",)
+                )
+                queue_stats["completed_today"] = (await cursor.fetchone())[0]
+
+                # Failed today
+                cursor = await conn.execute(
+                    "SELECT COUNT(*) FROM story_jobs WHERE status = 'failed' AND completed_at LIKE ?",
+                    (f"{today}%",)
+                )
+                queue_stats["failed_today"] = (await cursor.fetchone())[0]
+        except Exception as e:
+            queue_stats["error"] = str(e)
+
+    return {
+        "status": "operational",
+        "queue": queue_stats,
+        "workers": 2,
+        "capacity": "~6 stories/hour"
+    }
+
+
 # ===== Error Handlers =====
 
 @app.exception_handler(Exception)
