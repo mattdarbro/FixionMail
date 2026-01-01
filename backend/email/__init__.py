@@ -1,21 +1,21 @@
 """
-Email module for StoryKeeper.
-Handles email scheduling and delivery via Resend.
+Email module for FixionMail.
+Handles email delivery via Resend at scheduled times.
+
+The DeliveryWorker sends emails from the scheduled_deliveries queue.
+Story generation is decoupled from email delivery.
 """
 
-from backend.email.database import EmailDatabase
-from backend.email.scheduler import EmailScheduler, send_scheduled_emails
-from backend.email.background import (
-    BackgroundEmailProcessor,
-    start_background_processor,
-    stop_background_processor
+from backend.email.delivery_worker import (
+    DeliveryWorker,
+    start_delivery_worker,
+    stop_delivery_worker,
+    get_delivery_worker
 )
 
 __all__ = [
-    "EmailDatabase",
-    "EmailScheduler",
-    "send_scheduled_emails",
-    "BackgroundEmailProcessor",
-    "start_background_processor",
-    "stop_background_processor"
+    "DeliveryWorker",
+    "start_delivery_worker",
+    "stop_delivery_worker",
+    "get_delivery_worker",
 ]

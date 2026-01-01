@@ -248,6 +248,9 @@ class DailyStoryScheduler:
             "editor_model": "opus" if is_premium else "sonnet",
             "tts_voice": prefs.get("voice_id", "nova"),
             "dev_mode": False,  # Production mode
+            # Delivery preferences for scheduling email
+            "delivery_time": delivery_time,
+            "timezone": user_timezone,
         }
 
         # Create job

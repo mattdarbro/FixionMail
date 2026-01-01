@@ -39,6 +39,7 @@ async def get_dashboard_overview():
         "stories": {"total": 0, "generated_today": 0, "failed_today": 0},
         "scheduled": {"pending": 0, "due_soon": 0},
         "jobs": {"pending": 0, "running": 0, "completed_today": 0, "failed_today": 0},
+        "deliveries": {"pending": 0, "sent_today": 0, "upcoming_1h": 0, "failed": 0},
         "logs": {"errors": 0, "warnings": 0, "total": 0},
         "system": {"status": "operational"}
     }
@@ -113,6 +114,18 @@ async def get_dashboard_overview():
                 "status", "pending"
             ).execute()
             overview["scheduled"]["due_soon"] = due_soon.count or 0
+
+            # Delivery stats (email delivery queue)
+            try:
+                from backend.database.deliveries import DeliveryService
+                delivery_service = DeliveryService()
+                del_stats = await delivery_service.get_delivery_stats()
+                overview["deliveries"]["pending"] = del_stats.get("pending", 0)
+                overview["deliveries"]["sent_today"] = del_stats.get("sent_today", 0)
+                overview["deliveries"]["upcoming_1h"] = del_stats.get("upcoming_1h", 0)
+                overview["deliveries"]["failed"] = del_stats.get("failed", 0)
+            except Exception as del_e:
+                logger.warning(f"Failed to fetch delivery stats: {del_e}")
 
         except Exception as e:
             logger.error(f"Failed to fetch Supabase stats: {e}", error=str(e))
@@ -483,6 +496,128 @@ async def get_job_stats():
         return stats
     except Exception as e:
         logger.error(f"Failed to fetch job stats: {e}", error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ===== Deliveries =====
+
+@router.get("/deliveries")
+async def get_deliveries(
+    limit: int = Query(50, ge=1, le=200),
+    status: Optional[str] = Query(None, description="Filter by status (pending, sending, sent, failed)")
+):
+    """
+    Get scheduled email deliveries.
+
+    Shows the email delivery queue - stories waiting to be sent at scheduled times.
+    """
+    if not config.supabase_configured:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+
+    try:
+        from backend.database.deliveries import DeliveryService
+        delivery_service = DeliveryService()
+        deliveries = await delivery_service.get_delivery_schedule(status=status, limit=limit)
+
+        result = []
+        for d in deliveries:
+            story = d.get("stories") or {}
+            result.append({
+                "id": d["id"],
+                "user_email": d["user_email"],
+                "story_title": story.get("title", "Untitled"),
+                "story_genre": story.get("genre", "unknown"),
+                "word_count": story.get("word_count", 0),
+                "deliver_at": d["deliver_at"],
+                "timezone": d.get("timezone", "UTC"),
+                "status": d["status"],
+                "sent_at": d.get("sent_at"),
+                "error_message": d.get("error_message"),
+                "retry_count": d.get("retry_count", 0),
+                "created_at": d["created_at"]
+            })
+
+        return {"deliveries": result}
+    except Exception as e:
+        logger.error(f"Failed to fetch deliveries: {e}", error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/deliveries/stats")
+async def get_delivery_stats():
+    """Get email delivery statistics."""
+    if not config.supabase_configured:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+
+    try:
+        from backend.database.deliveries import DeliveryService
+        delivery_service = DeliveryService()
+        stats = await delivery_service.get_delivery_stats()
+        return stats
+    except Exception as e:
+        logger.error(f"Failed to fetch delivery stats: {e}", error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/deliveries/upcoming")
+async def get_upcoming_deliveries(
+    hours: int = Query(24, ge=1, le=168, description="Hours to look ahead")
+):
+    """Get upcoming deliveries within the next N hours."""
+    if not config.supabase_configured:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+
+    try:
+        from backend.database.deliveries import DeliveryService
+        delivery_service = DeliveryService()
+        deliveries = await delivery_service.get_upcoming_deliveries(hours_ahead=hours)
+
+        result = []
+        for d in deliveries:
+            story = d.get("stories") or {}
+            result.append({
+                "id": d["id"],
+                "user_email": d["user_email"],
+                "story_title": story.get("title", "Untitled"),
+                "story_genre": story.get("genre", "unknown"),
+                "deliver_at": d["deliver_at"],
+                "timezone": d.get("timezone", "UTC"),
+                "status": d["status"]
+            })
+
+        return {"upcoming": result, "hours_ahead": hours}
+    except Exception as e:
+        logger.error(f"Failed to fetch upcoming deliveries: {e}", error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/deliveries/failed")
+async def get_failed_deliveries(limit: int = Query(50, ge=1, le=200)):
+    """Get failed email deliveries."""
+    if not config.supabase_configured:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+
+    try:
+        from backend.database.deliveries import DeliveryService
+        delivery_service = DeliveryService()
+        failed = await delivery_service.get_failed_deliveries(limit=limit)
+
+        result = []
+        for d in failed:
+            story = d.get("stories") or {}
+            result.append({
+                "id": d["id"],
+                "user_email": d["user_email"],
+                "story_title": story.get("title", "Untitled"),
+                "deliver_at": d.get("deliver_at"),
+                "error_message": d.get("error_message"),
+                "retry_count": d.get("retry_count", 0),
+                "updated_at": d.get("updated_at")
+            })
+
+        return {"failed_deliveries": result}
+    except Exception as e:
+        logger.error(f"Failed to fetch failed deliveries: {e}", error=str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
 
