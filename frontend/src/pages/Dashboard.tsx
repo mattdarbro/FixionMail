@@ -4,10 +4,34 @@
  * The main user dashboard showing recent stories, credits, and quick actions.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Story } from '../types/story';
+
+interface ActiveJob {
+  job_id: string;
+  status: string;
+  current_step?: string;
+  progress_percent: number;
+  genre?: string;
+  created_at: string;
+  started_at?: string;
+}
+
+interface NextDelivery {
+  delivery_id: string;
+  deliver_at: string;
+  timezone: string;
+  story_title?: string;
+  story_genre?: string;
+}
+
+interface DashboardStatus {
+  active_jobs: ActiveJob[];
+  next_delivery?: NextDelivery;
+  has_pending_story: boolean;
+}
 
 const GENRE_ICONS: Record<string, string> = {
   mystery: '🔍',
@@ -22,18 +46,59 @@ const GENRE_ICONS: Record<string, string> = {
   strange_fables: '🌀',
 };
 
+const STEP_LABELS: Record<string, string> = {
+  'pending': 'Queued',
+  'starting': 'Starting up',
+  'structure': 'Planning story structure',
+  'writing': 'Writing narrative',
+  'editing': 'Polishing prose',
+  'audio': 'Generating audio',
+  'image': 'Creating cover image',
+  'saving': 'Saving story',
+  'done': 'Complete',
+};
+
 export function DashboardPage() {
   const { user, session, signOut } = useAuth();
   const navigate = useNavigate();
   const [recentStories, setRecentStories] = useState<Story[]>([]);
   const [totalStories, setTotalStories] = useState(0);
   const [isLoadingStories, setIsLoadingStories] = useState(true);
+  const [status, setStatus] = useState<DashboardStatus | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const fetchStatus = useCallback(async () => {
+    if (!session?.access_token) return;
+
+    try {
+      const response = await fetch('/api/stories/status', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data: DashboardStatus = await response.json();
+        setStatus(data);
+      }
+    } catch {
+      // Silent fail
+    }
+  }, [session?.access_token]);
 
   useEffect(() => {
     if (session?.access_token) {
       fetchRecentStories();
+      fetchStatus();
+
+      // Poll for status updates every 10 seconds if there's an active job
+      const interval = setInterval(() => {
+        fetchStatus();
+      }, 10000);
+
+      return () => clearInterval(interval);
     }
-  }, [session]);
+  }, [session, fetchStatus]);
 
   const fetchRecentStories = async () => {
     if (!session?.access_token) return;
@@ -69,6 +134,50 @@ export function DashboardPage() {
     await signOut();
     navigate('/login');
   };
+
+  const handleGenerateStory = async () => {
+    if (!session?.access_token || isGenerating) return;
+
+    setIsGenerating(true);
+    try {
+      const response = await fetch('/api/stories/generate', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({}),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.detail || 'Failed to generate story');
+      }
+
+      // Refresh status to show the new job
+      await fetchStatus();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to generate story');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const formatDeliveryTime = (isoString: string, tz: string) => {
+    try {
+      const date = new Date(isoString);
+      return date.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+        timeZone: tz,
+      });
+    } catch {
+      return new Date(isoString).toLocaleTimeString();
+    }
+  };
+
+  const getActiveJob = () => status?.active_jobs?.[0];
 
   if (!user) {
     return (
@@ -119,17 +228,90 @@ export function DashboardPage() {
       </header>
 
       <main className="max-w-6xl mx-auto px-4 py-8">
-        {/* Welcome Section */}
-        <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
-          <div className="flex items-start gap-4">
-            <div className="text-4xl">👋</div>
-            <div>
-              <h2 className="text-2xl font-bold text-stone-800">Welcome Back!</h2>
-              <p className="text-stone-600 mt-1">
-                Your next story will arrive at {user.preferences?.delivery_time || '8:00 AM'}.
-                Currently reading: <strong>{user.current_genre || 'Mystery'}</strong> stories.
-              </p>
+        {/* Story Generation Status - Shows when there's an active job */}
+        {getActiveJob() && (
+          <div className="bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl shadow-lg p-6 mb-8 text-white">
+            <div className="flex items-center gap-4">
+              <div className="text-4xl animate-pulse">
+                {GENRE_ICONS[getActiveJob()?.genre || ''] || '✨'}
+              </div>
+              <div className="flex-1">
+                <h2 className="text-xl font-bold">Your story is being crafted!</h2>
+                <p className="text-blue-100 mt-1">
+                  {STEP_LABELS[getActiveJob()?.current_step || 'pending'] || getActiveJob()?.current_step || 'Processing...'}
+                </p>
+                {/* Progress bar */}
+                <div className="mt-3 bg-white/20 rounded-full h-2 overflow-hidden">
+                  <div
+                    className="bg-white h-full rounded-full transition-all duration-500"
+                    style={{ width: `${getActiveJob()?.progress_percent || 5}%` }}
+                  />
+                </div>
+                <p className="text-xs text-blue-200 mt-1">
+                  {getActiveJob()?.progress_percent || 0}% complete
+                </p>
+              </div>
             </div>
+          </div>
+        )}
+
+        {/* Next Scheduled Delivery - Shows when there's a pending delivery but no active job */}
+        {!getActiveJob() && status?.next_delivery && (
+          <div className="bg-gradient-to-r from-emerald-500 to-teal-600 rounded-2xl shadow-lg p-6 mb-8 text-white">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="text-4xl">📬</div>
+                <div>
+                  <h2 className="text-xl font-bold">Story ready for delivery!</h2>
+                  <p className="text-emerald-100 mt-1">
+                    "{status.next_delivery.story_title || 'Your story'}" will arrive at{' '}
+                    {formatDeliveryTime(status.next_delivery.deliver_at, status.next_delivery.timezone)}
+                  </p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-3xl font-bold">
+                  {formatDeliveryTime(status.next_delivery.deliver_at, status.next_delivery.timezone)}
+                </p>
+                <p className="text-xs text-emerald-200">scheduled delivery</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Welcome Section with Generate Button */}
+        <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-4">
+              <div className="text-4xl">👋</div>
+              <div>
+                <h2 className="text-2xl font-bold text-stone-800">Welcome Back!</h2>
+                <p className="text-stone-600 mt-1">
+                  {status?.has_pending_story ? (
+                    <>A story is on its way! </>
+                  ) : (
+                    <>Daily stories arrive at {user.preferences?.delivery_time || '8:00 AM'}. </>
+                  )}
+                  Currently reading: <strong className="capitalize">{user.current_genre || 'Mystery'}</strong> stories.
+                </p>
+              </div>
+            </div>
+            {!getActiveJob() && (
+              <button
+                onClick={handleGenerateStory}
+                disabled={isGenerating || user.credits < 1}
+                className="px-5 py-2.5 bg-amber-600 text-white rounded-lg font-medium hover:bg-amber-700 transition-colors disabled:bg-stone-300 disabled:cursor-not-allowed flex items-center gap-2 whitespace-nowrap"
+              >
+                {isGenerating ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>✨ Generate Story Now</>
+                )}
+              </button>
+            )}
           </div>
         </div>
 
