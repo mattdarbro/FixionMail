@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FixionMail Admin Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #0a0a0a;
+            color: #e0e0e0;
+            line-height: 1.6;
+        }
+        .container { max-width: 1600px; margin: 0 auto; padding: 20px; }
+        header {
+            background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+            padding: 20px 30px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        h1 { font-size: 1.8rem; }
+        .subtitle { opacity: 0.9; font-size: 0.95rem; }
+        .refresh-btn {
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        .refresh-btn:hover { background: rgba(255,255,255,0.3); }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 10px;
+            padding: 20px;
+        }
+        .stat-card.error { border-color: #dc2626; background: linear-gradient(135deg, #1a1a1a 0%, #2a1515 100%); }
+        .stat-card.warning { border-color: #f59e0b; background: linear-gradient(135deg, #1a1a1a 0%, #2a2515 100%); }
+        .stat-card.success { border-color: #10b981; background: linear-gradient(135deg, #1a1a1a 0%, #152a1f 100%); }
+        .stat-label { font-size: 0.8rem; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
+        .stat-value { font-size: 2rem; font-weight: 700; margin: 5px 0; }
+        .stat-detail { font-size: 0.85rem; color: #aaa; }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 20px;
+            background: #1a1a1a;
+            padding: 5px;
+            border-radius: 8px;
+            border: 1px solid #333;
+        }
+        .tab {
+            background: transparent;
+            border: none;
+            color: #888;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            transition: all 0.2s;
+        }
+        .tab:hover { color: #e0e0e0; background: #252525; }
+        .tab.active { color: white; background: #dc2626; }
+
+        /* Data Panel */
+        .data-panel {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 12px;
+            overflow: hidden;
+            display: none;
+        }
+        .data-panel.active { display: block; }
+        .panel-header {
+            padding: 15px 20px;
+            background: #252525;
+            border-bottom: 1px solid #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .panel-header h2 { font-size: 1.2rem; }
+        .panel-content { padding: 0; max-height: 600px; overflow-y: auto; }
+
+        /* Table Styles */
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #252525; }
+        th { background: #252525; color: #aaa; font-weight: 500; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.5px; position: sticky; top: 0; }
+        tr:hover { background: #222; }
+        td { font-size: 0.9rem; }
+
+        /* Status Badges */
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .badge-success { background: #065f46; color: #34d399; }
+        .badge-warning { background: #78350f; color: #fbbf24; }
+        .badge-error { background: #7f1d1d; color: #f87171; }
+        .badge-info { background: #1e3a5f; color: #60a5fa; }
+        .badge-pending { background: #374151; color: #9ca3af; }
+
+        /* Log Entry Styles */
+        .log-entry {
+            padding: 10px 15px;
+            border-bottom: 1px solid #252525;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.85rem;
+        }
+        .log-entry:hover { background: #222; }
+        .log-entry .timestamp { color: #666; margin-right: 10px; }
+        .log-entry .source { color: #60a5fa; margin-right: 10px; }
+        .log-entry.error { border-left: 3px solid #dc2626; }
+        .log-entry.warning { border-left: 3px solid #f59e0b; }
+        .log-entry.info { border-left: 3px solid #3b82f6; }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        .empty-state .icon { font-size: 3rem; margin-bottom: 10px; }
+
+        /* Loading */
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            color: #666;
+        }
+        .spinner {
+            width: 24px;
+            height: 24px;
+            border: 3px solid #333;
+            border-top-color: #dc2626;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Filter Controls */
+        .filter-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .filter-controls select, .filter-controls input {
+            background: #0a0a0a;
+            border: 1px solid #333;
+            color: #e0e0e0;
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+        }
+
+        /* Scheduled Story Highlight */
+        .scheduled-email {
+            font-weight: 600;
+            color: #60a5fa;
+        }
+        .scheduled-time {
+            font-weight: 600;
+            color: #10b981;
+        }
+        .due-soon {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        /* Error Message */
+        .error-message {
+            color: #f87171;
+            font-size: 0.8rem;
+            max-width: 300px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .error-message:hover {
+            white-space: normal;
+            overflow: visible;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div>
+                <h1>FixionMail Admin Dashboard</h1>
+                <p class="subtitle">System monitoring and management</p>
+            </div>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <span id="last-refresh" style="font-size: 0.8rem; opacity: 0.7;">Loading...</span>
+                <button class="refresh-btn" onclick="refreshAll()">Refresh</button>
+                <a href="/dev" style="color: white; text-decoration: none; font-size: 0.9rem;">Dev Dashboard</a>
+            </div>
+        </header>
+
+        <!-- Stats Overview -->
+        <div class="stats-grid" id="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Total Users</div>
+                <div class="stat-value" id="stat-users">-</div>
+                <div class="stat-detail" id="stat-users-detail">Loading...</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Stories Generated</div>
+                <div class="stat-value" id="stat-stories">-</div>
+                <div class="stat-detail" id="stat-stories-detail">Loading...</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Scheduled</div>
+                <div class="stat-value" id="stat-scheduled">-</div>
+                <div class="stat-detail" id="stat-scheduled-detail">Loading...</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Job Queue</div>
+                <div class="stat-value" id="stat-jobs">-</div>
+                <div class="stat-detail" id="stat-jobs-detail">Loading...</div>
+            </div>
+            <div class="stat-card error" id="errors-card">
+                <div class="stat-label">Errors</div>
+                <div class="stat-value" id="stat-errors">-</div>
+                <div class="stat-detail" id="stat-errors-detail">In log buffer</div>
+            </div>
+            <div class="stat-card warning" id="warnings-card">
+                <div class="stat-label">Warnings</div>
+                <div class="stat-value" id="stat-warnings">-</div>
+                <div class="stat-detail" id="stat-warnings-detail">In log buffer</div>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab active" data-tab="scheduled">Scheduled</button>
+            <button class="tab" data-tab="jobs">Job Queue</button>
+            <button class="tab" data-tab="stories">Stories</button>
+            <button class="tab" data-tab="users">Users</button>
+            <button class="tab" data-tab="failed">Failed</button>
+            <button class="tab" data-tab="logs">Logs</button>
+            <button class="tab" data-tab="system">System</button>
+        </div>
+
+        <!-- Scheduled Stories Panel -->
+        <div class="data-panel active" id="panel-scheduled">
+            <div class="panel-header">
+                <h2>Scheduled Story Deliveries</h2>
+                <div class="filter-controls">
+                    <select id="scheduled-status-filter" onchange="loadScheduled()">
+                        <option value="pending">Pending</option>
+                        <option value="generating">Generating</option>
+                        <option value="completed">Completed</option>
+                        <option value="failed">Failed</option>
+                        <option value="">All Statuses</option>
+                    </select>
+                </div>
+            </div>
+            <div class="panel-content" id="scheduled-content">
+                <div class="loading"><div class="spinner"></div>Loading scheduled stories...</div>
+            </div>
+        </div>
+
+        <!-- Job Queue Panel -->
+        <div class="data-panel" id="panel-jobs">
+            <div class="panel-header">
+                <h2>Job Queue</h2>
+                <div class="filter-controls">
+                    <select id="job-status-filter" onchange="loadJobs()">
+                        <option value="">All Statuses</option>
+                        <option value="pending">Pending</option>
+                        <option value="running">Running</option>
+                        <option value="completed">Completed</option>
+                        <option value="failed">Failed</option>
+                    </select>
+                </div>
+            </div>
+            <div class="panel-content" id="jobs-content">
+                <div class="loading"><div class="spinner"></div>Loading jobs...</div>
+            </div>
+        </div>
+
+        <!-- Stories Panel -->
+        <div class="data-panel" id="panel-stories">
+            <div class="panel-header">
+                <h2>Generated Stories</h2>
+                <div class="filter-controls">
+                    <select id="story-status-filter" onchange="loadStories()">
+                        <option value="">All Statuses</option>
+                        <option value="completed">Completed</option>
+                        <option value="pending">Pending</option>
+                        <option value="generating">Generating</option>
+                        <option value="failed">Failed</option>
+                        <option value="delivered">Delivered</option>
+                    </select>
+                </div>
+            </div>
+            <div class="panel-content" id="stories-content">
+                <div class="loading"><div class="spinner"></div>Loading stories...</div>
+            </div>
+        </div>
+
+        <!-- Users Panel -->
+        <div class="data-panel" id="panel-users">
+            <div class="panel-header">
+                <h2>Users</h2>
+                <div class="filter-controls">
+                    <select id="user-status-filter" onchange="loadUsers()">
+                        <option value="">All Statuses</option>
+                        <option value="trial">Trial</option>
+                        <option value="active">Active</option>
+                        <option value="cancelled">Cancelled</option>
+                        <option value="expired">Expired</option>
+                    </select>
+                </div>
+            </div>
+            <div class="panel-content" id="users-content">
+                <div class="loading"><div class="spinner"></div>Loading users...</div>
+            </div>
+        </div>
+
+        <!-- Failed Panel -->
+        <div class="data-panel" id="panel-failed">
+            <div class="panel-header">
+                <h2>Failed Generations</h2>
+            </div>
+            <div class="panel-content" id="failed-content">
+                <div class="loading"><div class="spinner"></div>Loading failed jobs...</div>
+            </div>
+        </div>
+
+        <!-- Logs Panel -->
+        <div class="data-panel" id="panel-logs">
+            <div class="panel-header">
+                <h2>System Logs</h2>
+                <div class="filter-controls">
+                    <select id="log-level-filter" onchange="loadLogs()">
+                        <option value="">All Levels</option>
+                        <option value="error">Errors</option>
+                        <option value="warning">Warnings</option>
+                        <option value="info">Info</option>
+                        <option value="debug">Debug</option>
+                    </select>
+                    <button onclick="clearLogs()" style="background: #dc2626; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">Clear Logs</button>
+                </div>
+            </div>
+            <div class="panel-content" id="logs-content">
+                <div class="loading"><div class="spinner"></div>Loading logs...</div>
+            </div>
+        </div>
+
+        <!-- System Panel -->
+        <div class="data-panel" id="panel-system">
+            <div class="panel-header">
+                <h2>System Information</h2>
+            </div>
+            <div class="panel-content" id="system-content" style="padding: 20px;">
+                <div class="loading"><div class="spinner"></div>Loading system info...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = window.location.origin;
+
+        // Tab switching
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.data-panel').forEach(p => p.classList.remove('active'));
+                tab.classList.add('active');
+                document.getElementById(`panel-${tab.dataset.tab}`).classList.add('active');
+
+                // Load data for the selected tab
+                switch(tab.dataset.tab) {
+                    case 'scheduled': loadScheduled(); break;
+                    case 'jobs': loadJobs(); break;
+                    case 'stories': loadStories(); break;
+                    case 'users': loadUsers(); break;
+                    case 'failed': loadFailed(); break;
+                    case 'logs': loadLogs(); break;
+                    case 'system': loadSystem(); break;
+                }
+            });
+        });
+
+        async function loadOverview() {
+            try {
+                const res = await fetch(`${API_URL}/api/admin/overview`);
+                const data = await res.json();
+
+                // Users
+                document.getElementById('stat-users').textContent = data.users.total;
+                document.getElementById('stat-users-detail').textContent =
+                    `${data.users.new_today} new today, ${data.users.active_today} active`;
+
+                // Stories
+                document.getElementById('stat-stories').textContent = data.stories.total;
+                document.getElementById('stat-stories-detail').textContent =
+                    `${data.stories.generated_today} today, ${data.stories.failed_today} failed`;
+
+                // Scheduled
+                document.getElementById('stat-scheduled').textContent = data.scheduled.pending;
+                document.getElementById('stat-scheduled-detail').textContent =
+                    `${data.scheduled.due_soon} due within 1hr`;
+
+                // Jobs
+                const jobsPending = data.jobs.pending + data.jobs.running;
+                document.getElementById('stat-jobs').textContent = jobsPending;
+                document.getElementById('stat-jobs-detail').textContent =
+                    `${data.jobs.completed_today} done, ${data.jobs.failed_today} failed today`;
+
+                // Logs
+                document.getElementById('stat-errors').textContent = data.logs.errors;
+                document.getElementById('stat-warnings').textContent = data.logs.warnings;
+
+                // Update card styling based on counts
+                const errorsCard = document.getElementById('errors-card');
+                const warningsCard = document.getElementById('warnings-card');
+                if (data.logs.errors > 0) errorsCard.classList.add('error');
+                else errorsCard.classList.remove('error');
+                if (data.logs.warnings > 0) warningsCard.classList.add('warning');
+                else warningsCard.classList.remove('warning');
+
+                document.getElementById('last-refresh').textContent =
+                    `Last refresh: ${new Date().toLocaleTimeString()}`;
+
+            } catch (e) {
+                console.error('Failed to load overview:', e);
+            }
+        }
+
+        async function loadScheduled() {
+            const content = document.getElementById('scheduled-content');
+            const status = document.getElementById('scheduled-status-filter').value;
+
+            content.innerHTML = '<div class="loading"><div class="spinner"></div>Loading...</div>';
+
+            try {
+                const url = status
+                    ? `${API_URL}/api/admin/scheduled?status=${status}`
+                    : `${API_URL}/api/admin/scheduled?status=pending`;
+                const res = await fetch(url);
+                const data = await res.json();
+
+                if (data.scheduled_stories.length === 0) {
+                    content.innerHTML = '<div class="empty-state"><div class="icon">📅</div>No scheduled stories found</div>';
+                    return;
+                }
+
+                const now = new Date();
+                const oneHour = 60 * 60 * 1000;
+
+                let html = `<table>
+                    <thead>
+                        <tr>
+                            <th>Scheduled For</th>
+                            <th>Email</th>
+                            <th>Status</th>
+                            <th>Attempts</th>
+                            <th>Error</th>
+                            <th>Created</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+                for (const item of data.scheduled_stories) {
+                    const scheduledDate = new Date(item.scheduled_for);
+                    const isDueSoon = (scheduledDate - now) < oneHour && (scheduledDate - now) > 0;
+                    const isPast = scheduledDate < now;
+
+                    const statusBadge = getStatusBadge(item.status);
+                    const dueSoonClass = isDueSoon ? 'due-soon' : '';
+                    const timeClass = isPast ? 'style="color: #f87171;"' : '';
+
+                    html += `<tr>
+                        <td class="${dueSoonClass}">
+                            <span class="scheduled-time" ${timeClass}>${formatDateTime(item.scheduled_for)}</span>
+                            ${isDueSoon ? '<br><span style="color: #f59e0b; font-size: 0.75rem;">Due soon!</span>' : ''}
+                            ${isPast && item.status === 'pending' ? '<br><span style="color: #f87171; font-size: 0.75rem;">Overdue</span>' : ''}
+                        </td>
+                        <td><span class="scheduled-email">${item.user_email || 'Unknown'}</span></td>
+                        <td>${statusBadge}</td>
+                        <td>${item.attempts || 0}</td>
+                        <td class="error-message">${item.error_message || '-'}</td>
+                        <td>${formatDateTime(item.created_at)}</td>
+                    </tr>`;
+                }
+
+                html += '</tbody></table>';
+                content.innerHTML = html;
+
+            } catch (e) {
+                content.innerHTML = `<div class="empty-state" style="color: #f87171;">Error loading data: ${e.message}</div>`;
+            }
+        }
+
+        async function loadJobs() {
+            const content = document.getElementById('jobs-content');
+            const status = document.getElementById('job-status-filter').value;
+
+            content.innerHTML = '<div class="loading"><div class="spinner"></div>Loading...</div>';
+
+            try {
+                const url = status
+                    ? `${API_URL}/api/admin/jobs?status=${status}`
+                    : `${API_URL}/api/admin/jobs`;
+                const res = await fetch(url);
+                const data = await res.json();
+
+                if (data.jobs.length === 0) {
+                    content.innerHTML = '<div class="empty-state"><div class="icon">📋</div>No jobs found</div>';
+                    return;
+                }
+
+                let html = `<table>
+                    <thead>
+                        <tr>
+                            <th>Job ID</th>
+                            <th>Email</th>
+                            <th>Status</th>
+                            <th>Step</th>
+                            <th>Progress</th>
+                            <th>Time</th>
+                            <th>Created</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+                for (const job of data.jobs) {
+                    const statusBadge = getStatusBadge(job.status);
+                    const progress = job.progress_percent || 0;
+                    const genTime = job.generation_time_seconds
+                        ? `${job.generation_time_seconds.toFixed(1)}s`
+                        : '-';
+
+                    html += `<tr>
+                        <td style="font-family: monospace; font-size: 0.8rem;">${job.job_id.substring(0, 8)}...</td>
+                        <td>${job.user_email}</td>
+                        <td>${statusBadge}</td>
+                        <td>${job.current_step || '-'}</td>
+                        <td>
+                            <div style="width: 100px; height: 8px; background: #333; border-radius: 4px; overflow: hidden;">
+                                <div style="width: ${progress}%; height: 100%; background: #10b981;"></div>
+                            </div>
+                            <span style="font-size: 0.75rem; color: #888;">${progress}%</span>
+                        </td>
+                        <td>${genTime}</td>
+                        <td>${formatDateTime(job.created_at)}</td>
+                    </tr>`;
+                }
+
+                html += '</tbody></table>';
+                content.innerHTML = html;
+
+            } catch (e) {
+                content.innerHTML = `<div class="empty-state" style="color: #f87171;">Error loading data: ${e.message}</div>`;
+            }
+        }
+
+        async function loadStories() {
+            const content = document.getElementById('stories-content');
+            const status = document.getElementById('story-status-filter').value;
+
+            content.innerHTML = '<div class="loading"><div class="spinner"></div>Loading...</div>';
+
+            try {
+                const url = status
+                    ? `${API_URL}/api/admin/stories?status=${status}`
+                    : `${API_URL}/api/admin/stories`;
+                const res = await fetch(url);
+                const data = await res.json();
+
+                if (data.stories.length === 0) {
+                    content.innerHTML = '<div class="empty-state"><div class="icon">📖</div>No stories found</div>';
+                    return;
+                }
+
+                let html = `<table>
+                    <thead>
+                        <tr>
+                            <th>Title</th>
+                            <th>Genre</th>
+                            <th>Words</th>
+                            <th>Model</th>
+                            <th>Status</th>
+                            <th>Rating</th>
+                            <th>Email Sent</th>
+                            <th>Created</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+                for (const story of data.stories) {
+                    const statusBadge = getStatusBadge(story.status);
+                    const rating = story.rating ? '⭐'.repeat(story.rating) : '-';
+                    const emailSent = story.email_sent ? '<span style="color: #10b981;">✓</span>' : '-';
+
+                    html += `<tr>
+                        <td>${story.title || 'Untitled'}</td>
+                        <td><span class="badge badge-info">${story.genre || '-'}</span></td>
+                        <td>${story.word_count || '-'}</td>
+                        <td>${story.model_used || '-'}</td>
+                        <td>${statusBadge}</td>
+                        <td>${rating}</td>
+                        <td>${emailSent}</td>
+                        <td>${formatDateTime(story.created_at)}</td>
+                    </tr>`;
+                }
+
+                html += '</tbody></table>';
+                content.innerHTML = html;
+
+            } catch (e) {
+                content.innerHTML = `<div class="empty-state" style="color: #f87171;">Error loading data: ${e.message}</div>`;
+            }
+        }
+
+        async function loadUsers() {
+            const content = document.getElementById('users-content');
+            const status = document.getElementById('user-status-filter').value;
+
+            content.innerHTML = '<div class="loading"><div class="spinner"></div>Loading...</div>';
+
+            try {
+                const url = status
+                    ? `${API_URL}/api/admin/users?status=${status}`
+                    : `${API_URL}/api/admin/users`;
+                const res = await fetch(url);
+                const data = await res.json();
+
+                if (data.users.length === 0) {
+                    content.innerHTML = '<div class="empty-state"><div class="icon">👥</div>No users found</div>';
+                    return;
+                }
+
+                let html = `<table>
+                    <thead>
+                        <tr>
+                            <th>Email</th>
+                            <th>Subscription</th>
+                            <th>Credits</th>
+                            <th>Total Used</th>
+                            <th>Genre</th>
+                            <th>Onboarding</th>
+                            <th>Last Story</th>
+                            <th>Joined</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+                for (const user of data.users) {
+                    const subBadge = getSubscriptionBadge(user.subscription_status, user.subscription_tier);
+                    const onboarding = user.onboarding_completed
+                        ? '<span style="color: #10b981;">Complete</span>'
+                        : '<span style="color: #f59e0b;">Pending</span>';
+
+                    html += `<tr>
+                        <td>${user.email}</td>
+                        <td>${subBadge}</td>
+                        <td>${user.credits || 0}</td>
+                        <td>${user.credits_used_total || 0}</td>
+                        <td>${user.current_genre || '-'}</td>
+                        <td>${onboarding}</td>
+                        <td>${user.last_story_at ? formatDateTime(user.last_story_at) : 'Never'}</td>
+                        <td>${formatDateTime(user.created_at)}</td>
+                    </tr>`;
+                }
+
+                html += '</tbody></table>';
+                content.innerHTML = html;
+
+            } catch (e) {
+                content.innerHTML = `<div class="empty-state" style="color: #f87171;">Error loading data: ${e.message}</div>`;
+            }
+        }
+
+        async function loadFailed() {
+            const content = document.getElementById('failed-content');
+            content.innerHTML = '<div class="loading"><div class="spinner"></div>Loading...</div>';
+
+            try {
+                const res = await fetch(`${API_URL}/api/admin/jobs/failed`);
+                const data = await res.json();
+
+                if (data.failed_jobs.length === 0) {
+                    content.innerHTML = '<div class="empty-state"><div class="icon">✅</div>No failed jobs - everything is working!</div>';
+                    return;
+                }
+
+                let html = `<table>
+                    <thead>
+                        <tr>
+                            <th>Job ID</th>
+                            <th>Email</th>
+                            <th>Failed At Step</th>
+                            <th>Error Message</th>
+                            <th>Retries</th>
+                            <th>Failed At</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+                for (const job of data.failed_jobs) {
+                    html += `<tr>
+                        <td style="font-family: monospace; font-size: 0.8rem;">${job.job_id.substring(0, 8)}...</td>
+                        <td>${job.user_email}</td>
+                        <td><span class="badge badge-error">${job.failed_at_step || 'unknown'}</span></td>
+                        <td class="error-message" title="${job.error_message || ''}">${job.error_message || '-'}</td>
+                        <td>${job.retry_count || 0}</td>
+                        <td>${formatDateTime(job.completed_at)}</td>
+                    </tr>`;
+                }
+
+                html += '</tbody></table>';
+                content.innerHTML = html;
+
+            } catch (e) {
+                content.innerHTML = `<div class="empty-state" style="color: #f87171;">Error loading data: ${e.message}</div>`;
+            }
+        }
+
+        async function loadLogs() {
+            const content = document.getElementById('logs-content');
+            const level = document.getElementById('log-level-filter').value;
+
+            content.innerHTML = '<div class="loading"><div class="spinner"></div>Loading...</div>';
+
+            try {
+                const url = level
+                    ? `${API_URL}/api/admin/logs?level=${level}`
+                    : `${API_URL}/api/admin/logs`;
+                const res = await fetch(url);
+                const data = await res.json();
+
+                if (data.logs.length === 0) {
+                    content.innerHTML = '<div class="empty-state"><div class="icon">📝</div>No logs found</div>';
+                    return;
+                }
+
+                let html = '';
+                for (const log of data.logs) {
+                    const levelClass = log.level === 'error' || log.level === 'critical' ? 'error'
+                        : log.level === 'warning' ? 'warning'
+                        : 'info';
+
+                    html += `<div class="log-entry ${levelClass}">
+                        <span class="timestamp">${formatDateTime(log.timestamp)}</span>
+                        <span class="source">[${log.source}]</span>
+                        <span class="badge badge-${levelClass === 'info' ? 'info' : levelClass}">${log.level.toUpperCase()}</span>
+                        ${log.message}
+                        ${log.metadata && Object.keys(log.metadata).length > 0
+                            ? `<span style="color: #666; font-size: 0.8rem;"> | ${JSON.stringify(log.metadata)}</span>`
+                            : ''}
+                    </div>`;
+                }
+
+                content.innerHTML = html;
+
+            } catch (e) {
+                content.innerHTML = `<div class="empty-state" style="color: #f87171;">Error loading data: ${e.message}</div>`;
+            }
+        }
+
+        async function loadSystem() {
+            const content = document.getElementById('system-content');
+            content.innerHTML = '<div class="loading"><div class="spinner"></div>Loading...</div>';
+
+            try {
+                const res = await fetch(`${API_URL}/api/admin/system`);
+                const data = await res.json();
+
+                let html = `
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+                        <div class="stat-card">
+                            <h3 style="color: #667eea; margin-bottom: 15px;">Environment</h3>
+                            <p><strong>Python:</strong> ${data.python_version}</p>
+                            <p><strong>Platform:</strong> ${data.platform}</p>
+                            <p><strong>Environment:</strong> ${data.environment}</p>
+                            <p><strong>Debug Mode:</strong> ${data.debug_mode ? 'Yes' : 'No'}</p>
+                        </div>
+
+                        <div class="stat-card">
+                            <h3 style="color: #667eea; margin-bottom: 15px;">Configuration</h3>
+                            <p><strong>Supabase:</strong> ${data.config.supabase_configured ? '✅ Connected' : '❌ Not configured'}</p>
+                            <p><strong>Stripe:</strong> ${data.config.stripe_configured ? '✅ Connected' : '❌ Not configured'}</p>
+                            <p><strong>Media Generation:</strong> ${data.config.media_generation_enabled ? '✅ Enabled' : '❌ Disabled'}</p>
+                            <p><strong>Credit System:</strong> ${data.config.credit_system_enabled ? '✅ Enabled' : '❌ Disabled'}</p>
+                            <p><strong>Model:</strong> ${data.config.model}</p>
+                        </div>
+
+                        <div class="stat-card">
+                            <h3 style="color: #667eea; margin-bottom: 15px;">API Keys</h3>
+                            <p><strong>Anthropic:</strong> ${data.api_keys.anthropic ? '✅ Set' : '❌ Missing'}</p>
+                            <p><strong>OpenAI:</strong> ${data.api_keys.openai ? '✅ Set' : '❌ Missing'}</p>
+                            <p><strong>Replicate:</strong> ${data.api_keys.replicate ? '✅ Set' : '❌ Missing'}</p>
+                            <p><strong>Resend:</strong> ${data.api_keys.resend ? '✅ Set' : '❌ Missing'}</p>
+                        </div>
+
+                        ${data.memory ? `
+                        <div class="stat-card">
+                            <h3 style="color: #667eea; margin-bottom: 15px;">Resources</h3>
+                            <p><strong>CPU:</strong> ${data.cpu_percent}%</p>
+                            <p><strong>Memory:</strong> ${data.memory.used_gb}GB / ${data.memory.total_gb}GB (${data.memory.percent}%)</p>
+                            <p><strong>Disk:</strong> ${data.disk.used_gb}GB / ${data.disk.total_gb}GB (${data.disk.percent}%)</p>
+                        </div>
+                        ` : ''}
+                    </div>
+                `;
+
+                content.innerHTML = html;
+
+            } catch (e) {
+                content.innerHTML = `<div class="empty-state" style="color: #f87171;">Error loading data: ${e.message}</div>`;
+            }
+        }
+
+        async function clearLogs() {
+            if (!confirm('Are you sure you want to clear all logs?')) return;
+
+            try {
+                await fetch(`${API_URL}/api/admin/logs/clear`, { method: 'POST' });
+                loadLogs();
+                loadOverview();
+            } catch (e) {
+                alert('Failed to clear logs: ' + e.message);
+            }
+        }
+
+        function refreshAll() {
+            loadOverview();
+            // Refresh the current active tab
+            const activeTab = document.querySelector('.tab.active');
+            if (activeTab) {
+                switch(activeTab.dataset.tab) {
+                    case 'scheduled': loadScheduled(); break;
+                    case 'jobs': loadJobs(); break;
+                    case 'stories': loadStories(); break;
+                    case 'users': loadUsers(); break;
+                    case 'failed': loadFailed(); break;
+                    case 'logs': loadLogs(); break;
+                    case 'system': loadSystem(); break;
+                }
+            }
+        }
+
+        function formatDateTime(isoString) {
+            if (!isoString) return '-';
+            const date = new Date(isoString);
+            return date.toLocaleString();
+        }
+
+        function getStatusBadge(status) {
+            const badges = {
+                pending: '<span class="badge badge-pending">Pending</span>',
+                running: '<span class="badge badge-info">Running</span>',
+                generating: '<span class="badge badge-info">Generating</span>',
+                completed: '<span class="badge badge-success">Completed</span>',
+                delivered: '<span class="badge badge-success">Delivered</span>',
+                failed: '<span class="badge badge-error">Failed</span>',
+                cancelled: '<span class="badge badge-warning">Cancelled</span>'
+            };
+            return badges[status] || `<span class="badge badge-pending">${status}</span>`;
+        }
+
+        function getSubscriptionBadge(status, tier) {
+            const tierLabel = tier ? ` (${tier})` : '';
+            const badges = {
+                trial: `<span class="badge badge-warning">Trial${tierLabel}</span>`,
+                active: `<span class="badge badge-success">Active${tierLabel}</span>`,
+                cancelled: `<span class="badge badge-error">Cancelled${tierLabel}</span>`,
+                expired: `<span class="badge badge-error">Expired${tierLabel}</span>`,
+                past_due: `<span class="badge badge-warning">Past Due${tierLabel}</span>`
+            };
+            return badges[status] || `<span class="badge badge-pending">${status}${tierLabel}</span>`;
+        }
+
+        // Initial load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadOverview();
+            loadScheduled();
+
+            // Auto-refresh every 30 seconds
+            setInterval(refreshAll, 30000);
+        });
+    </script>
+</body>
+</html>
