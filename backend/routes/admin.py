@@ -312,42 +312,83 @@ async def get_failed_stories(
 @router.get("/scheduled")
 async def get_scheduled_stories(
     limit: int = Query(50, ge=1, le=200),
-    status: Optional[str] = Query(None, description="Filter by status (pending, generating, completed, failed, cancelled)")
+    status: Optional[str] = Query(None, description="Filter by status (pending, running, completed, failed)")
 ):
     """
-    Get scheduled stories queue.
+    Get scheduled/queued stories from the job queue.
+
+    Note: The scheduler uses SQLite job queue, not Supabase scheduled_stories table.
+    This endpoint shows pending and recent jobs from the actual job queue.
     """
-    if not config.supabase_configured:
-        raise HTTPException(status_code=503, detail="Supabase not configured")
-
     try:
-        from backend.database.client import get_supabase_admin_client
-        client = get_supabase_admin_client()
+        from backend.jobs.database import StoryJobDatabase
+        job_db = StoryJobDatabase()
+        await job_db.connect()
 
-        query = client.table("scheduled_stories").select(
-            "id, user_id, scheduled_for, status, story_id, error_message, "
-            "attempts, last_attempt_at, created_at"
-        ).order("scheduled_for", desc=False).limit(limit)
+        conn = job_db._conn
+        scheduled = []
 
-        if status:
-            query = query.eq("status", status)
-        else:
-            # Default to pending only
-            query = query.eq("status", "pending")
+        if conn:
+            # Get jobs - default to pending/running if no status specified
+            if status:
+                cursor = await conn.execute("""
+                    SELECT job_id, status, user_email, story_bible, settings,
+                           current_step, progress_percent, error_message,
+                           created_at, started_at, completed_at, retry_count
+                    FROM story_jobs
+                    WHERE status = ?
+                    ORDER BY created_at DESC
+                    LIMIT ?
+                """, (status, limit))
+            else:
+                # Show pending and running by default
+                cursor = await conn.execute("""
+                    SELECT job_id, status, user_email, story_bible, settings,
+                           current_step, progress_percent, error_message,
+                           created_at, started_at, completed_at, retry_count
+                    FROM story_jobs
+                    WHERE status IN ('pending', 'running')
+                    ORDER BY created_at ASC
+                    LIMIT ?
+                """, (limit,))
 
-        result = query.execute()
+            rows = await cursor.fetchall()
+            import json
+            for row in rows:
+                # Parse settings to get delivery info
+                settings = {}
+                try:
+                    if row[4]:
+                        settings = json.loads(row[4])
+                except:
+                    pass
 
-        # Enrich with user emails
-        user_ids = list(set(s["user_id"] for s in result.data if s.get("user_id")))
-        user_emails = {}
-        if user_ids:
-            users = client.table("users").select("id, email").in_("id", user_ids).execute()
-            user_emails = {u["id"]: u["email"] for u in users.data}
+                # Parse story_bible to get genre
+                bible = {}
+                try:
+                    if row[3]:
+                        bible = json.loads(row[3])
+                except:
+                    pass
 
-        for story in result.data:
-            story["user_email"] = user_emails.get(story.get("user_id"), "unknown")
+                scheduled.append({
+                    "id": row[0],
+                    "status": row[1],
+                    "user_email": row[2],
+                    "genre": bible.get("genre", "unknown"),
+                    "current_step": row[5],
+                    "progress_percent": row[6],
+                    "error_message": row[7],
+                    "created_at": row[8],
+                    "started_at": row[9],
+                    "completed_at": row[10],
+                    "attempts": row[11] or 0,
+                    # Use created_at as scheduled_for since jobs are created at schedule time
+                    "scheduled_for": row[8]
+                })
 
-        return {"scheduled_stories": result.data}
+        await job_db.close()
+        return {"scheduled_stories": scheduled}
     except Exception as e:
         logger.error(f"Failed to fetch scheduled stories: {e}", error=str(e))
         raise HTTPException(status_code=500, detail=str(e))

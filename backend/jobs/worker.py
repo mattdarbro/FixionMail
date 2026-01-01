@@ -181,6 +181,48 @@ class StoryWorker:
             if not email_sent:
                 logger.warning(f"Email failed to send but story was generated", job_id=job_id, email=user_email)
 
+            # Save story to Supabase database
+            story_id = None
+            try:
+                from backend.database.stories import StoryService
+                from backend.database.users import UserService
+                from backend.config import config
+
+                if config.supabase_configured:
+                    # Look up user by email
+                    user_service = UserService()
+                    user = await user_service.get_by_email(user_email)
+
+                    if user:
+                        story_service = StoryService()
+                        saved_story = await story_service.create(
+                            user_id=user["id"],
+                            title=story["title"],
+                            narrative=story["narrative"],
+                            genre=story["genre"],
+                            story_bible=story_bible,
+                            model_used=writer_model,
+                            word_count=story.get("word_count"),
+                            beat_structure=story_bible.get("beat_structure"),
+                            audio_url=story.get("audio_url"),
+                            image_url=story.get("cover_image_url"),
+                            credits_used=1 if user_tier != "free" else 0,
+                        )
+                        story_id = saved_story.get("id")
+
+                        # Mark as delivered if email sent
+                        if email_sent:
+                            await story_service.mark_delivered(story_id)
+
+                        logger.info(f"Story saved to Supabase", story_id=story_id, user_id=user["id"])
+                    else:
+                        logger.warning(f"User not found in Supabase, story not saved", email=user_email)
+                else:
+                    logger.warning("Supabase not configured, story not saved to database")
+            except Exception as save_error:
+                logger.error(f"Failed to save story to Supabase: {save_error}", error=str(save_error))
+                # Don't fail the job - story was generated and emailed successfully
+
             # Calculate total time
             generation_time = time.time() - start_time
 
@@ -189,6 +231,7 @@ class StoryWorker:
                 job_id,
                 result={
                     "story": story,
+                    "story_id": story_id,
                     "metadata": result.get("metadata", {}),
                     "email_sent": email_sent
                 },
@@ -197,7 +240,7 @@ class StoryWorker:
 
             logger.info(f"Job completed", job_id=job_id, title=story['title'],
                        word_count=story['word_count'], time_seconds=round(generation_time, 1),
-                       email_sent=email_sent)
+                       email_sent=email_sent, story_id=story_id)
 
         except Exception as e:
             error_msg = str(e)
