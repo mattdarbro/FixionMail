@@ -961,18 +961,19 @@ async def generate_story_for_user(user_id: str):
             scheduler = DailyStoryScheduler()
             await scheduler.initialize()
 
-        # Queue the story for this user
-        await scheduler._queue_story_for_user(user)
+        # Queue the story for this user with immediate delivery
+        # (sends email as soon as story is generated, not at scheduled time)
+        await scheduler._queue_story_for_user(user, immediate_delivery=True)
 
         logger.info(
-            "Admin triggered manual story generation",
+            "Admin triggered manual story generation (immediate delivery)",
             user_id=user_id,
             email=user.get("email")
         )
 
         return {
             "status": "queued",
-            "message": f"Story generation queued for {user.get('email')}",
+            "message": f"Story generation queued for {user.get('email')} - will be emailed immediately upon completion",
             "user_id": user_id
         }
 
