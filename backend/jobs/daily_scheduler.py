@@ -182,6 +182,8 @@ class DailyStoryScheduler:
 
             for user in users:
                 try:
+                    user_id = user.get("id")
+
                     # Skip if no credits
                     credits = user.get("credits", 0)
                     if credits < 1:
@@ -189,6 +191,16 @@ class DailyStoryScheduler:
 
                     # Skip if already received story today
                     if self._has_story_today(user):
+                        continue
+
+                    # Skip if user already has a pending/running job
+                    active_jobs = await self.job_service.get_user_active_jobs(user_id, limit=1)
+                    if active_jobs:
+                        logger.debug(
+                            "Skipping user - already has active job",
+                            email=user.get('email'),
+                            job_id=active_jobs[0].get('job_id')
+                        )
                         continue
 
                     # Get delivery preferences
