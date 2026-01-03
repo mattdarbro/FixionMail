@@ -52,7 +52,7 @@ class DailyStoryScheduler:
         self,
         check_interval_seconds: int = 60,  # Check every minute
         generation_lead_minutes: int = 30,  # Start generating 30 min before delivery
-        delivery_window_minutes: int = 5,   # 5-minute window to catch the trigger
+        delivery_window_minutes: int = 60,  # 60-minute window to catch the trigger
     ):
         self.check_interval = check_interval_seconds
         self.generation_lead = generation_lead_minutes
