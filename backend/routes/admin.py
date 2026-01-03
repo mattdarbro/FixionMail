@@ -731,6 +731,150 @@ async def clear_logs():
     return {"status": "cleared"}
 
 
+# ===== Scheduler Status =====
+
+@router.get("/scheduler/status")
+async def get_scheduler_status():
+    """
+    Get the status of the daily story scheduler.
+
+    Shows scheduler health, next check time, and upcoming user deliveries.
+    """
+    from backend.jobs.daily_scheduler import get_daily_scheduler
+    from zoneinfo import ZoneInfo
+
+    status = {
+        "scheduler_running": False,
+        "check_interval_seconds": 60,
+        "generation_lead_minutes": 30,
+        "next_deliveries": [],
+        "recent_failures": {
+            "jobs": 0,
+            "deliveries": 0
+        },
+        "alerts": []
+    }
+
+    # Check if scheduler is running
+    scheduler = get_daily_scheduler()
+    if scheduler:
+        status["scheduler_running"] = scheduler.scheduler.running if scheduler.scheduler else False
+        status["check_interval_seconds"] = scheduler.check_interval
+        status["generation_lead_minutes"] = scheduler.generation_lead
+
+    # Get upcoming user deliveries based on their preferences
+    if config.supabase_configured:
+        try:
+            from backend.database.client import get_supabase_admin_client
+            client = get_supabase_admin_client()
+
+            # Get active users with their delivery preferences
+            users_result = client.table("users").select(
+                "id, email, preferences, current_genre, credits, last_story_at"
+            ).eq("onboarding_completed", True).gt("credits", 0).limit(50).execute()
+
+            now_utc = datetime.now(timezone.utc)
+            upcoming = []
+
+            for user in users_result.data or []:
+                prefs = user.get("preferences", {})
+                delivery_time = prefs.get("delivery_time", "08:00")
+                user_tz_str = prefs.get("timezone", "UTC")
+
+                try:
+                    user_tz = ZoneInfo(user_tz_str)
+                except Exception:
+                    user_tz = ZoneInfo("UTC")
+
+                # Parse delivery time
+                try:
+                    hour, minute = map(int, delivery_time.split(":"))
+                except (ValueError, AttributeError):
+                    hour, minute = 8, 0
+
+                # Calculate next delivery time in user's timezone
+                user_now = now_utc.astimezone(user_tz)
+                next_delivery = user_now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+
+                # If already passed today, it's tomorrow
+                if next_delivery <= user_now:
+                    next_delivery = next_delivery + timedelta(days=1)
+
+                # Convert back to UTC for display
+                next_delivery_utc = next_delivery.astimezone(timezone.utc)
+
+                # Check if already got story today
+                last_story = user.get("last_story_at")
+                got_story_today = False
+                if last_story:
+                    try:
+                        if isinstance(last_story, str):
+                            last_story_dt = datetime.fromisoformat(last_story.replace("Z", "+00:00"))
+                        else:
+                            last_story_dt = last_story
+                        last_story_user_tz = last_story_dt.astimezone(user_tz)
+                        got_story_today = last_story_user_tz.date() == user_now.date()
+                    except Exception:
+                        pass
+
+                upcoming.append({
+                    "email": user["email"],
+                    "delivery_time": delivery_time,
+                    "timezone": user_tz_str,
+                    "next_delivery_utc": next_delivery_utc.isoformat(),
+                    "hours_until": round((next_delivery_utc - now_utc).total_seconds() / 3600, 1),
+                    "genre": user.get("current_genre", "mystery"),
+                    "credits": user.get("credits", 0),
+                    "got_story_today": got_story_today
+                })
+
+            # Sort by next delivery time
+            upcoming.sort(key=lambda x: x["next_delivery_utc"])
+            status["next_deliveries"] = upcoming[:20]  # Top 20
+
+            # Get recent failure counts (last 24 hours)
+            yesterday = (now_utc - timedelta(hours=24)).isoformat()
+
+            failed_jobs = client.table("story_jobs").select("id", count="exact").eq(
+                "status", "failed"
+            ).gte("completed_at", yesterday).execute()
+            status["recent_failures"]["jobs"] = failed_jobs.count or 0
+
+            # Failed deliveries
+            from backend.database.deliveries import DeliveryService
+            delivery_service = DeliveryService()
+            failed_deliveries = await delivery_service.get_failed_deliveries(limit=100)
+            status["recent_failures"]["deliveries"] = len(failed_deliveries)
+
+            # Generate alerts
+            if status["recent_failures"]["jobs"] > 0:
+                status["alerts"].append({
+                    "level": "error",
+                    "message": f"{status['recent_failures']['jobs']} story generation(s) failed in the last 24 hours"
+                })
+
+            if status["recent_failures"]["deliveries"] > 0:
+                status["alerts"].append({
+                    "level": "error",
+                    "message": f"{status['recent_failures']['deliveries']} email delivery(ies) have failed"
+                })
+
+            if not status["scheduler_running"]:
+                status["alerts"].append({
+                    "level": "warning",
+                    "message": "Daily scheduler is not running! Stories will not be generated automatically."
+                })
+
+        except Exception as e:
+            logger.error(f"Failed to fetch scheduler status: {e}", error=str(e))
+            status["alerts"].append({
+                "level": "error",
+                "message": f"Error fetching scheduler data: {str(e)}"
+            })
+
+    return status
+
+
 # ===== Manual Story Generation =====
 
 @router.post("/users/{user_id}/generate-story")

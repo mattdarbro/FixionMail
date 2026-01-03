@@ -226,6 +226,70 @@
             background: #6b7280;
             pointer-events: none;
         }
+
+        /* Alert Banner */
+        .alerts-container {
+            margin-bottom: 20px;
+        }
+        .alert-banner {
+            padding: 12px 20px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            animation: slideIn 0.3s ease;
+        }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .alert-banner.error {
+            background: linear-gradient(135deg, #7f1d1d 0%, #991b1b 100%);
+            border: 1px solid #dc2626;
+        }
+        .alert-banner.warning {
+            background: linear-gradient(135deg, #78350f 0%, #92400e 100%);
+            border: 1px solid #f59e0b;
+        }
+        .alert-banner .alert-icon {
+            font-size: 1.2rem;
+        }
+        .alert-banner .alert-message {
+            flex: 1;
+        }
+        .alert-banner .alert-action {
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white;
+            padding: 5px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+        .alert-banner .alert-action:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        /* Scheduler Status */
+        .scheduler-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+        }
+        .scheduler-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            animation: pulse-dot 2s infinite;
+        }
+        .scheduler-dot.running { background: #10b981; }
+        .scheduler-dot.stopped { background: #dc2626; animation: none; }
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
     </style>
 </head>
 <body>
@@ -241,6 +305,9 @@
                 <a href="/dev" style="color: white; text-decoration: none; font-size: 0.9rem;">Dev Dashboard</a>
             </div>
         </header>
+
+        <!-- Alerts Container -->
+        <div class="alerts-container" id="alerts-container"></div>
 
         <!-- Stats Overview -->
         <div class="stats-grid" id="stats-grid">
@@ -279,6 +346,7 @@
         <!-- Tabs -->
         <div class="tabs">
             <button class="tab active" data-tab="deliveries">Deliveries</button>
+            <button class="tab" data-tab="scheduler">Scheduler</button>
             <button class="tab" data-tab="jobs">Generation Queue</button>
             <button class="tab" data-tab="stories">Stories</button>
             <button class="tab" data-tab="users">Users</button>
@@ -303,6 +371,20 @@
             </div>
             <div class="panel-content" id="deliveries-content">
                 <div class="loading"><div class="spinner"></div>Loading deliveries...</div>
+            </div>
+        </div>
+
+        <!-- Scheduler Panel -->
+        <div class="data-panel" id="panel-scheduler">
+            <div class="panel-header">
+                <h2>Daily Story Scheduler</h2>
+                <div class="scheduler-status" id="scheduler-status">
+                    <span class="scheduler-dot stopped"></span>
+                    <span>Loading...</span>
+                </div>
+            </div>
+            <div class="panel-content" id="scheduler-content" style="padding: 20px;">
+                <div class="loading"><div class="spinner"></div>Loading scheduler status...</div>
             </div>
         </div>
 
@@ -418,6 +500,7 @@
 
                 switch(tab.dataset.tab) {
                     case 'deliveries': loadDeliveries(); break;
+                    case 'scheduler': loadScheduler(); break;
                     case 'jobs': loadJobs(); break;
                     case 'stories': loadStories(); break;
                     case 'users': loadUsers(); break;
@@ -465,8 +548,139 @@
                 document.getElementById('last-refresh').textContent =
                     `Last refresh: ${new Date().toLocaleTimeString()}`;
 
+                // Also load alerts from scheduler status
+                loadAlerts();
+
             } catch (e) {
                 console.error('Failed to load overview:', e);
+            }
+        }
+
+        async function loadAlerts() {
+            try {
+                const res = await fetch(`${API_URL}/api/admin/scheduler/status`);
+                const data = await res.json();
+
+                const container = document.getElementById('alerts-container');
+                const alerts = data.alerts || [];
+
+                if (alerts.length === 0) {
+                    container.innerHTML = '';
+                    return;
+                }
+
+                let html = '';
+                for (const alert of alerts) {
+                    const icon = alert.level === 'error' ? '🚨' : '⚠️';
+                    const actionBtn = alert.level === 'error'
+                        ? '<button class="alert-action" onclick="document.querySelector(\'[data-tab=failed]\').click()">View Failed</button>'
+                        : '';
+
+                    html += `
+                        <div class="alert-banner ${alert.level}">
+                            <span class="alert-icon">${icon}</span>
+                            <span class="alert-message">${alert.message}</span>
+                            ${actionBtn}
+                        </div>
+                    `;
+                }
+
+                container.innerHTML = html;
+
+            } catch (e) {
+                console.error('Failed to load alerts:', e);
+            }
+        }
+
+        async function loadScheduler() {
+            const content = document.getElementById('scheduler-content');
+            const statusEl = document.getElementById('scheduler-status');
+            content.innerHTML = '<div class="loading"><div class="spinner"></div>Loading...</div>';
+
+            try {
+                const res = await fetch(`${API_URL}/api/admin/scheduler/status`);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const data = await res.json();
+
+                // Update scheduler status indicator
+                const running = data.scheduler_running;
+                statusEl.innerHTML = `
+                    <span class="scheduler-dot ${running ? 'running' : 'stopped'}"></span>
+                    <span>${running ? 'Running' : 'Stopped'}</span>
+                `;
+
+                // Build content
+                let html = `
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+                        <div class="stat-card ${running ? 'success' : 'error'}">
+                            <h3 style="margin-bottom: 15px;">Scheduler Status</h3>
+                            <p><strong>Status:</strong> ${running ? '✅ Running' : '❌ Stopped'}</p>
+                            <p><strong>Check Interval:</strong> Every ${data.check_interval_seconds} seconds</p>
+                            <p><strong>Generation Lead Time:</strong> ${data.generation_lead_minutes} minutes before delivery</p>
+                            <p style="margin-top: 10px; font-size: 0.85rem; color: #888;">
+                                The scheduler checks every minute for users whose delivery time is approaching,
+                                then queues story generation ${data.generation_lead_minutes} minutes before their preferred time.
+                            </p>
+                        </div>
+
+                        <div class="stat-card ${data.recent_failures.jobs > 0 || data.recent_failures.deliveries > 0 ? 'error' : 'success'}">
+                            <h3 style="margin-bottom: 15px;">Recent Failures (24h)</h3>
+                            <p><strong>Failed Generations:</strong> ${data.recent_failures.jobs}</p>
+                            <p><strong>Failed Deliveries:</strong> ${data.recent_failures.deliveries}</p>
+                            ${data.recent_failures.jobs > 0 || data.recent_failures.deliveries > 0
+                                ? '<p style="margin-top: 10px;"><button onclick="document.querySelector(\'[data-tab=failed]\').click()" style="background: #dc2626; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer;">View Failures</button></p>'
+                                : '<p style="margin-top: 10px; color: #10b981;">✓ No failures in the last 24 hours</p>'}
+                        </div>
+                    </div>
+
+                    <h3 style="margin: 30px 0 15px; color: #60a5fa;">Upcoming Scheduled Deliveries</h3>
+                    <p style="color: #888; margin-bottom: 15px; font-size: 0.9rem;">
+                        These users have stories scheduled based on their delivery time preferences.
+                        Stories will be generated ${data.generation_lead_minutes} minutes before delivery time.
+                    </p>
+                `;
+
+                if (data.next_deliveries && data.next_deliveries.length > 0) {
+                    html += `<table>
+                        <thead>
+                            <tr>
+                                <th>Email</th>
+                                <th>Delivery Time</th>
+                                <th>Timezone</th>
+                                <th>Hours Until</th>
+                                <th>Genre</th>
+                                <th>Credits</th>
+                                <th>Today's Story</th>
+                            </tr>
+                        </thead>
+                        <tbody>`;
+
+                    for (const user of data.next_deliveries) {
+                        const hoursClass = user.hours_until <= 1 ? 'due-soon' : '';
+                        const gotStory = user.got_story_today
+                            ? '<span style="color: #10b981;">✓ Received</span>'
+                            : '<span style="color: #f59e0b;">Pending</span>';
+
+                        html += `<tr>
+                            <td>${user.email}</td>
+                            <td><strong>${user.delivery_time}</strong></td>
+                            <td>${user.timezone}</td>
+                            <td class="${hoursClass}">${user.hours_until}h</td>
+                            <td><span class="badge badge-info">${user.genre}</span></td>
+                            <td>${user.credits}</td>
+                            <td>${gotStory}</td>
+                        </tr>`;
+                    }
+
+                    html += '</tbody></table>';
+                } else {
+                    html += '<div class="empty-state"><div class="icon">📅</div>No upcoming deliveries scheduled</div>';
+                }
+
+                content.innerHTML = html;
+
+            } catch (e) {
+                content.innerHTML = `<div class="empty-state" style="color: #f87171;">Error loading scheduler status: ${e.message}</div>`;
             }
         }
 
@@ -923,6 +1137,7 @@
             if (activeTab) {
                 switch(activeTab.dataset.tab) {
                     case 'deliveries': loadDeliveries(); break;
+                    case 'scheduler': loadScheduler(); break;
                     case 'jobs': loadJobs(); break;
                     case 'stories': loadStories(); break;
                     case 'users': loadUsers(); break;
