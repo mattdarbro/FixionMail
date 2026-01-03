@@ -729,3 +729,67 @@ async def clear_logs():
     log_buffer.clear()
     logger.info("Log buffer cleared by admin")
     return {"status": "cleared"}
+
+
+# ===== Manual Story Generation =====
+
+@router.post("/users/{user_id}/generate-story")
+async def generate_story_for_user(user_id: str):
+    """
+    Manually trigger story generation for a user.
+
+    Useful for recovering from failed scheduled deliveries or
+    testing story generation for specific users.
+    """
+    if not config.supabase_configured:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+
+    try:
+        from backend.database.client import get_supabase_admin_client
+        from backend.jobs.daily_scheduler import get_daily_scheduler
+
+        client = get_supabase_admin_client()
+
+        # Get user details
+        user_result = client.table("users").select("*").eq("id", user_id).single().execute()
+        if not user_result.data:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        user = user_result.data
+
+        # Check if user has credits
+        credits = user.get("credits", 0)
+        if credits < 1:
+            raise HTTPException(
+                status_code=400,
+                detail=f"User has insufficient credits ({credits}). Add credits first."
+            )
+
+        # Get the scheduler instance
+        scheduler = get_daily_scheduler()
+        if not scheduler:
+            # Initialize a temporary scheduler if not running
+            from backend.jobs.daily_scheduler import DailyStoryScheduler
+            scheduler = DailyStoryScheduler()
+            await scheduler.initialize()
+
+        # Queue the story for this user
+        await scheduler._queue_story_for_user(user)
+
+        logger.info(
+            "Admin triggered manual story generation",
+            user_id=user_id,
+            email=user.get("email")
+        )
+
+        return {
+            "status": "queued",
+            "message": f"Story generation queued for {user.get('email')}",
+            "user_id": user_id
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to trigger manual story generation: {e}", user_id=user_id, error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))

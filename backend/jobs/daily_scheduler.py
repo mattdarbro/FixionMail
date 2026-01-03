@@ -235,6 +235,10 @@ class DailyStoryScheduler:
         prefs = user.get("preferences", {})
         subscription_status = user.get("subscription_status", "trial")
 
+        # Extract delivery preferences from user preferences
+        user_delivery_time = prefs.get("delivery_time", "08:00")
+        user_timezone = prefs.get("timezone", "UTC")
+
         # Determine user tier and model settings
         is_premium = subscription_status == "active"
         user_tier = "premium" if is_premium else "free"
@@ -249,7 +253,7 @@ class DailyStoryScheduler:
             "tts_voice": prefs.get("voice_id", "nova"),
             "dev_mode": False,  # Production mode
             # Delivery preferences for scheduling email
-            "delivery_time": delivery_time,
+            "delivery_time": user_delivery_time,
             "timezone": user_timezone,
         }
 
