@@ -200,6 +200,32 @@
             white-space: normal;
             overflow: visible;
         }
+
+        /* Action Buttons */
+        .action-btn {
+            padding: 5px 10px;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        .action-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+        .generate-btn {
+            background: #10b981;
+            color: white;
+        }
+        .generate-btn:hover:not(:disabled) {
+            background: #059669;
+        }
+        .generate-btn.loading {
+            background: #6b7280;
+            pointer-events: none;
+        }
     </style>
 </head>
 <body>
@@ -656,6 +682,7 @@
                             <th>Onboarding</th>
                             <th>Last Story</th>
                             <th>Joined</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>`;
@@ -665,6 +692,7 @@
                     const onboarding = user.onboarding_completed
                         ? '<span style="color: #10b981;">✓</span>'
                         : '<span style="color: #f59e0b;">Pending</span>';
+                    const canGenerateStory = (user.credits || 0) >= 1 && user.onboarding_completed;
 
                     html += `<tr>
                         <td>${user.email}</td>
@@ -675,6 +703,16 @@
                         <td>${onboarding}</td>
                         <td>${user.last_story_at ? formatDateTime(user.last_story_at) : 'Never'}</td>
                         <td>${formatDateTime(user.created_at)}</td>
+                        <td>
+                            <button
+                                onclick="generateStoryForUser('${user.id}', '${user.email}')"
+                                class="action-btn generate-btn"
+                                ${canGenerateStory ? '' : 'disabled'}
+                                title="${canGenerateStory ? 'Generate a story for this user' : 'User needs credits and completed onboarding'}"
+                            >
+                                Generate Story
+                            </button>
+                        </td>
                     </tr>`;
                 }
 
@@ -933,6 +971,59 @@
                 past_due: `<span class="badge badge-warning">Past Due${tierLabel}</span>`
             };
             return badges[status] || `<span class="badge badge-pending">${status}${tierLabel}</span>`;
+        }
+
+        async function generateStoryForUser(userId, email) {
+            if (!confirm(`Generate a story for ${email}?\n\nThis will queue a new story generation job and consume 1 credit.`)) {
+                return;
+            }
+
+            // Find and disable the button
+            const buttons = document.querySelectorAll('.generate-btn');
+            let targetBtn = null;
+            buttons.forEach(btn => {
+                if (btn.onclick && btn.onclick.toString().includes(userId)) {
+                    targetBtn = btn;
+                }
+            });
+
+            // Find the button more reliably
+            const allBtns = document.querySelectorAll(`button[onclick*="${userId}"]`);
+            if (allBtns.length > 0) {
+                targetBtn = allBtns[0];
+            }
+
+            if (targetBtn) {
+                targetBtn.classList.add('loading');
+                targetBtn.textContent = 'Queueing...';
+            }
+
+            try {
+                const res = await fetch(`${API_URL}/api/admin/users/${userId}/generate-story`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    throw new Error(data.detail || `HTTP ${res.status}`);
+                }
+
+                alert(`Success!\n\n${data.message}\n\nCheck the Generation Queue tab to monitor progress.`);
+
+                // Refresh the users list and overview
+                loadUsers();
+                loadOverview();
+
+            } catch (e) {
+                alert(`Failed to generate story: ${e.message}`);
+
+                if (targetBtn) {
+                    targetBtn.classList.remove('loading');
+                    targetBtn.textContent = 'Generate Story';
+                }
+            }
         }
 
         // Initial load
