@@ -120,6 +120,7 @@ class StoryWorker:
             # Get delivery preferences from settings (set by DailyStoryScheduler)
             delivery_time = settings.get("delivery_time", "08:00")
             user_timezone = settings.get("timezone", "UTC")
+            immediate_delivery = settings.get("immediate_delivery", False)
 
             from backend.storyteller.standalone_generation import generate_standalone_story
 
@@ -211,10 +212,21 @@ class StoryWorker:
                             progress_percent=95
                         )
 
-                        deliver_at = self._calculate_delivery_time(
-                            delivery_time=delivery_time,
-                            user_timezone=user_timezone
-                        )
+                        # Calculate delivery time
+                        if immediate_delivery:
+                            # For manual admin triggers, send immediately
+                            deliver_at = datetime.now(timezone.utc)
+                            logger.info(
+                                "Immediate delivery requested (admin trigger)",
+                                story_id=story_id,
+                                email=user_email
+                            )
+                        else:
+                            # Normal flow: schedule for user's preferred time
+                            deliver_at = self._calculate_delivery_time(
+                                delivery_time=delivery_time,
+                                user_timezone=user_timezone
+                            )
 
                         delivery_service = DeliveryService()
                         await delivery_service.schedule_delivery(
@@ -230,7 +242,8 @@ class StoryWorker:
                             f"Story saved and delivery scheduled",
                             story_id=story_id,
                             deliver_at=deliver_at.isoformat(),
-                            timezone=user_timezone
+                            timezone=user_timezone,
+                            immediate=immediate_delivery
                         )
                     else:
                         logger.warning(f"User not found, story not saved", email=user_email)

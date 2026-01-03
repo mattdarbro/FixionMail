@@ -221,6 +221,40 @@ class JobQueueService:
         )
         return db_result.data[0] if db_result.data else None
 
+    async def abort_job(
+        self,
+        job_id: str,
+        reason: str = "Aborted by admin"
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Abort a pending or running job.
+
+        Only pending/running jobs can be aborted.
+        Returns the updated job or None if job not found or already completed/failed.
+        """
+        # First check if job exists and is abortable
+        job = await self.get_job_by_id(job_id)
+        if not job:
+            return None
+
+        if job["status"] not in [JobStatus.PENDING.value, JobStatus.RUNNING.value]:
+            return None  # Can't abort completed/failed jobs
+
+        update_data = {
+            "status": JobStatus.FAILED.value,
+            "error_message": reason,
+            "completed_at": datetime.now(timezone.utc).isoformat(),
+            "current_step": "aborted",
+        }
+
+        result = (
+            self.client.table("story_jobs")
+            .update(update_data)
+            .eq("job_id", job_id)
+            .execute()
+        )
+        return result.data[0] if result.data else None
+
     async def mark_failed(
         self,
         job_id: str,

@@ -218,8 +218,16 @@ class DailyStoryScheduler:
         finally:
             self._is_checking = False
 
-    async def _queue_story_for_user(self, user: Dict[str, Any]):
-        """Queue a story generation job for a user."""
+    async def _queue_story_for_user(self, user: Dict[str, Any], immediate_delivery: bool = False):
+        """
+        Queue a story generation job for a user.
+
+        Args:
+            user: User data dictionary
+            immediate_delivery: If True, story will be emailed immediately upon generation
+                               instead of waiting for user's scheduled delivery time.
+                               Used for manual admin triggers to help users who missed their story.
+        """
         user_id = user["id"]
         user_email = user["email"]
 
@@ -255,6 +263,8 @@ class DailyStoryScheduler:
             # Delivery preferences for scheduling email
             "delivery_time": user_delivery_time,
             "timezone": user_timezone,
+            # If True, email is sent immediately after generation (for manual admin triggers)
+            "immediate_delivery": immediate_delivery,
         }
 
         # Create job

@@ -409,6 +409,47 @@ async def get_jobs(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/jobs/{job_id}/abort")
+async def abort_job(job_id: str):
+    """
+    Abort a pending or running job.
+
+    Useful for cancelling stuck jobs or unwanted story generations.
+    Only pending and running jobs can be aborted.
+    """
+    if not config.supabase_configured:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+
+    try:
+        from backend.database.jobs import JobQueueService
+        job_service = JobQueueService()
+
+        result = await job_service.abort_job(
+            job_id=job_id,
+            reason="Aborted by admin"
+        )
+
+        if result is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Job not found or cannot be aborted (already completed/failed)"
+            )
+
+        logger.info("Admin aborted job", job_id=job_id)
+
+        return {
+            "status": "aborted",
+            "message": f"Job {job_id} has been aborted",
+            "job_id": job_id
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to abort job: {e}", job_id=job_id, error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/jobs/failed")
 async def get_failed_jobs(limit: int = Query(50, ge=1, le=200)):
     """Get failed jobs with error details."""
@@ -674,7 +715,6 @@ async def get_warning_logs(limit: int = Query(50, ge=1, le=200)):
 async def get_system_info():
     """Get system information and health status."""
     import platform
-    import psutil
 
     # Basic system info
     info = {
@@ -685,8 +725,9 @@ async def get_system_info():
         "timestamp": datetime.now(timezone.utc).isoformat()
     }
 
-    # Resource usage
+    # Resource usage (psutil is optional - may not be installed in production)
     try:
+        import psutil
         info["cpu_percent"] = psutil.cpu_percent()
         info["memory"] = {
             "total_gb": round(psutil.virtual_memory().total / (1024**3), 2),
@@ -698,8 +739,11 @@ async def get_system_info():
             "used_gb": round(psutil.disk_usage('/').used / (1024**3), 2),
             "percent": psutil.disk_usage('/').percent
         }
+    except ImportError:
+        # psutil not installed - skip resource metrics
+        pass
     except Exception:
-        pass  # psutil may not be available
+        pass  # Other errors (permissions, etc.)
 
     # Configuration status
     info["config"] = {
@@ -729,6 +773,150 @@ async def clear_logs():
     log_buffer.clear()
     logger.info("Log buffer cleared by admin")
     return {"status": "cleared"}
+
+
+# ===== Scheduler Status =====
+
+@router.get("/scheduler/status")
+async def get_scheduler_status():
+    """
+    Get the status of the daily story scheduler.
+
+    Shows scheduler health, next check time, and upcoming user deliveries.
+    """
+    from backend.jobs.daily_scheduler import get_daily_scheduler
+    from zoneinfo import ZoneInfo
+
+    status = {
+        "scheduler_running": False,
+        "check_interval_seconds": 60,
+        "generation_lead_minutes": 30,
+        "next_deliveries": [],
+        "recent_failures": {
+            "jobs": 0,
+            "deliveries": 0
+        },
+        "alerts": []
+    }
+
+    # Check if scheduler is running
+    scheduler = get_daily_scheduler()
+    if scheduler:
+        status["scheduler_running"] = scheduler.scheduler.running if scheduler.scheduler else False
+        status["check_interval_seconds"] = scheduler.check_interval
+        status["generation_lead_minutes"] = scheduler.generation_lead
+
+    # Get upcoming user deliveries based on their preferences
+    if config.supabase_configured:
+        try:
+            from backend.database.client import get_supabase_admin_client
+            client = get_supabase_admin_client()
+
+            # Get active users with their delivery preferences
+            users_result = client.table("users").select(
+                "id, email, preferences, current_genre, credits, last_story_at"
+            ).eq("onboarding_completed", True).gt("credits", 0).limit(50).execute()
+
+            now_utc = datetime.now(timezone.utc)
+            upcoming = []
+
+            for user in users_result.data or []:
+                prefs = user.get("preferences", {})
+                delivery_time = prefs.get("delivery_time", "08:00")
+                user_tz_str = prefs.get("timezone", "UTC")
+
+                try:
+                    user_tz = ZoneInfo(user_tz_str)
+                except Exception:
+                    user_tz = ZoneInfo("UTC")
+
+                # Parse delivery time
+                try:
+                    hour, minute = map(int, delivery_time.split(":"))
+                except (ValueError, AttributeError):
+                    hour, minute = 8, 0
+
+                # Calculate next delivery time in user's timezone
+                user_now = now_utc.astimezone(user_tz)
+                next_delivery = user_now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+
+                # If already passed today, it's tomorrow
+                if next_delivery <= user_now:
+                    next_delivery = next_delivery + timedelta(days=1)
+
+                # Convert back to UTC for display
+                next_delivery_utc = next_delivery.astimezone(timezone.utc)
+
+                # Check if already got story today
+                last_story = user.get("last_story_at")
+                got_story_today = False
+                if last_story:
+                    try:
+                        if isinstance(last_story, str):
+                            last_story_dt = datetime.fromisoformat(last_story.replace("Z", "+00:00"))
+                        else:
+                            last_story_dt = last_story
+                        last_story_user_tz = last_story_dt.astimezone(user_tz)
+                        got_story_today = last_story_user_tz.date() == user_now.date()
+                    except Exception:
+                        pass
+
+                upcoming.append({
+                    "email": user["email"],
+                    "delivery_time": delivery_time,
+                    "timezone": user_tz_str,
+                    "next_delivery_utc": next_delivery_utc.isoformat(),
+                    "hours_until": round((next_delivery_utc - now_utc).total_seconds() / 3600, 1),
+                    "genre": user.get("current_genre", "mystery"),
+                    "credits": user.get("credits", 0),
+                    "got_story_today": got_story_today
+                })
+
+            # Sort by next delivery time
+            upcoming.sort(key=lambda x: x["next_delivery_utc"])
+            status["next_deliveries"] = upcoming[:20]  # Top 20
+
+            # Get recent failure counts (last 24 hours)
+            yesterday = (now_utc - timedelta(hours=24)).isoformat()
+
+            failed_jobs = client.table("story_jobs").select("id", count="exact").eq(
+                "status", "failed"
+            ).gte("completed_at", yesterday).execute()
+            status["recent_failures"]["jobs"] = failed_jobs.count or 0
+
+            # Failed deliveries
+            from backend.database.deliveries import DeliveryService
+            delivery_service = DeliveryService()
+            failed_deliveries = await delivery_service.get_failed_deliveries(limit=100)
+            status["recent_failures"]["deliveries"] = len(failed_deliveries)
+
+            # Generate alerts
+            if status["recent_failures"]["jobs"] > 0:
+                status["alerts"].append({
+                    "level": "error",
+                    "message": f"{status['recent_failures']['jobs']} story generation(s) failed in the last 24 hours"
+                })
+
+            if status["recent_failures"]["deliveries"] > 0:
+                status["alerts"].append({
+                    "level": "error",
+                    "message": f"{status['recent_failures']['deliveries']} email delivery(ies) have failed"
+                })
+
+            if not status["scheduler_running"]:
+                status["alerts"].append({
+                    "level": "warning",
+                    "message": "Daily scheduler is not running! Stories will not be generated automatically."
+                })
+
+        except Exception as e:
+            logger.error(f"Failed to fetch scheduler status: {e}", error=str(e))
+            status["alerts"].append({
+                "level": "error",
+                "message": f"Error fetching scheduler data: {str(e)}"
+            })
+
+    return status
 
 
 # ===== Manual Story Generation =====
@@ -773,18 +961,19 @@ async def generate_story_for_user(user_id: str):
             scheduler = DailyStoryScheduler()
             await scheduler.initialize()
 
-        # Queue the story for this user
-        await scheduler._queue_story_for_user(user)
+        # Queue the story for this user with immediate delivery
+        # (sends email as soon as story is generated, not at scheduled time)
+        await scheduler._queue_story_for_user(user, immediate_delivery=True)
 
         logger.info(
-            "Admin triggered manual story generation",
+            "Admin triggered manual story generation (immediate delivery)",
             user_id=user_id,
             email=user.get("email")
         )
 
         return {
             "status": "queued",
-            "message": f"Story generation queued for {user.get('email')}",
+            "message": f"Story generation queued for {user.get('email')} - will be emailed immediately upon completion",
             "user_id": user_id
         }
 
