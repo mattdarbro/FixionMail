@@ -715,7 +715,6 @@ async def get_warning_logs(limit: int = Query(50, ge=1, le=200)):
 async def get_system_info():
     """Get system information and health status."""
     import platform
-    import psutil
 
     # Basic system info
     info = {
@@ -726,8 +725,9 @@ async def get_system_info():
         "timestamp": datetime.now(timezone.utc).isoformat()
     }
 
-    # Resource usage
+    # Resource usage (psutil is optional - may not be installed in production)
     try:
+        import psutil
         info["cpu_percent"] = psutil.cpu_percent()
         info["memory"] = {
             "total_gb": round(psutil.virtual_memory().total / (1024**3), 2),
@@ -739,8 +739,11 @@ async def get_system_info():
             "used_gb": round(psutil.disk_usage('/').used / (1024**3), 2),
             "percent": psutil.disk_usage('/').percent
         }
+    except ImportError:
+        # psutil not installed - skip resource metrics
+        pass
     except Exception:
-        pass  # psutil may not be available
+        pass  # Other errors (permissions, etc.)
 
     # Configuration status
     info["config"] = {
