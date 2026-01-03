@@ -226,6 +226,17 @@
             background: #6b7280;
             pointer-events: none;
         }
+        .abort-btn {
+            background: #dc2626;
+            color: white;
+        }
+        .abort-btn:hover:not(:disabled) {
+            background: #b91c1c;
+        }
+        .abort-btn.loading {
+            background: #6b7280;
+            pointer-events: none;
+        }
 
         /* Alert Banner */
         .alerts-container {
@@ -772,6 +783,7 @@
                             <th>Progress</th>
                             <th>Gen Time</th>
                             <th>Created</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>`;
@@ -782,9 +794,12 @@
                     const genTime = job.generation_time_seconds
                         ? `${job.generation_time_seconds.toFixed(1)}s`
                         : '-';
+                    const canAbort = job.status === 'pending' || job.status === 'running';
+                    const isStale = job.status === 'running' && job.started_at &&
+                        (new Date() - new Date(job.started_at)) > 10 * 60 * 1000; // 10 minutes
 
-                    html += `<tr>
-                        <td style="font-family: monospace; font-size: 0.8rem;">${job.job_id.substring(0, 12)}...</td>
+                    html += `<tr ${isStale ? 'style="background: rgba(220, 38, 38, 0.1);"' : ''}>
+                        <td style="font-family: monospace; font-size: 0.8rem;" title="${job.job_id}">${job.job_id.substring(0, 12)}...</td>
                         <td>${job.user_email}</td>
                         <td>${statusBadge}</td>
                         <td>${job.current_step || '-'}</td>
@@ -796,6 +811,17 @@
                         </td>
                         <td>${genTime}</td>
                         <td>${formatDateTime(job.created_at)}</td>
+                        <td>
+                            ${canAbort ? `
+                                <button
+                                    onclick="abortJob('${job.job_id}')"
+                                    class="action-btn abort-btn"
+                                    title="${isStale ? 'This job appears stuck (running > 10 min)' : 'Abort this job'}"
+                                >
+                                    ${isStale ? '⚠️ Abort' : 'Abort'}
+                                </button>
+                            ` : '-'}
+                        </td>
                     </tr>`;
                 }
 
@@ -1186,6 +1212,46 @@
                 past_due: `<span class="badge badge-warning">Past Due${tierLabel}</span>`
             };
             return badges[status] || `<span class="badge badge-pending">${status}${tierLabel}</span>`;
+        }
+
+        async function abortJob(jobId) {
+            if (!confirm(`Abort job ${jobId.substring(0, 12)}...?\n\nThis will cancel the story generation. The job cannot be resumed.`)) {
+                return;
+            }
+
+            // Find and disable the button
+            const btn = document.querySelector(`button[onclick*="${jobId}"]`);
+            if (btn) {
+                btn.classList.add('loading');
+                btn.textContent = 'Aborting...';
+            }
+
+            try {
+                const res = await fetch(`${API_URL}/api/admin/jobs/${jobId}/abort`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    throw new Error(data.detail || `HTTP ${res.status}`);
+                }
+
+                alert(`Job aborted successfully.`);
+
+                // Refresh the jobs list
+                loadJobs();
+                loadOverview();
+
+            } catch (e) {
+                alert(`Failed to abort job: ${e.message}`);
+
+                if (btn) {
+                    btn.classList.remove('loading');
+                    btn.textContent = 'Abort';
+                }
+            }
         }
 
         async function generateStoryForUser(userId, email) {

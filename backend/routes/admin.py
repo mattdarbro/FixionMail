@@ -409,6 +409,47 @@ async def get_jobs(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/jobs/{job_id}/abort")
+async def abort_job(job_id: str):
+    """
+    Abort a pending or running job.
+
+    Useful for cancelling stuck jobs or unwanted story generations.
+    Only pending and running jobs can be aborted.
+    """
+    if not config.supabase_configured:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+
+    try:
+        from backend.database.jobs import JobQueueService
+        job_service = JobQueueService()
+
+        result = await job_service.abort_job(
+            job_id=job_id,
+            reason="Aborted by admin"
+        )
+
+        if result is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Job not found or cannot be aborted (already completed/failed)"
+            )
+
+        logger.info("Admin aborted job", job_id=job_id)
+
+        return {
+            "status": "aborted",
+            "message": f"Job {job_id} has been aborted",
+            "job_id": job_id
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to abort job: {e}", job_id=job_id, error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/jobs/failed")
 async def get_failed_jobs(limit: int = Query(50, ge=1, le=200)):
     """Get failed jobs with error details."""
