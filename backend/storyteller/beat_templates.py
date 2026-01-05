@@ -1416,6 +1416,153 @@ TRUBY_BEATS_PREMIUM = BeatTemplate(
 )
 
 
+# Bond Beats (Static Protagonist Structure)
+# Unlike Hero's Journey, the protagonist DOES NOT change - the world changes around them
+BOND_BEATS_SHORT = BeatTemplate(
+    name="bond_beats_short",
+    genre="universal",
+    total_words=1800,
+    description="Static protagonist structure - hero influences and changes the world while remaining unchanged",
+    beats=[
+        {
+            "beat_number": 1,
+            "beat_name": "charismatic_opener",
+            "word_target": 250,
+            "description": "Charismatic Opener: Showcase defining trait in bold standalone action",
+            "guidance": "Start in the middle of action. No context needed. Show protagonist's signature skills - charm, cunning, competence. Exotic location, beautiful things, tension. Hook the reader immediately. The protagonist is STATIC - they will not change."
+        },
+        {
+            "beat_number": 2,
+            "beat_name": "world_and_challenge",
+            "word_target": 300,
+            "description": "World Introduction + Challenge: Establish world and introduce the threat",
+            "guidance": "Mix introductions with action (double scene technique). Show allies and reputation. Introduce villain's power and dastardly nature. Use exposition through action, not info dumps. Stakes become clear."
+        },
+        {
+            "beat_number": 3,
+            "beat_name": "first_influence",
+            "word_target": 350,
+            "description": "First Influence: Protagonist begins reshaping their world",
+            "guidance": "Show relationships with allies. Introduce key tools or allies that will matter later. Meet the secondary character who WILL change (the 'Bond Girl' archetype). Tension and temptation mixed. Protagonist is controlled by external forces but remains unchanged internally."
+        },
+        {
+            "beat_number": 4,
+            "beat_name": "escalating_stakes",
+            "word_target": 400,
+            "description": "Escalating Stakes + Midpoint Spectacle: Back-and-forth victories and defeats",
+            "guidance": "Protagonist watches villain secretly. Not all is revealed. Up and down tension. Use tech or skills but not everything works. Major set piece that showcases protagonist's dominance. Villain's exotic threat revealed. Multiple scenes doing 2-3 things at once."
+        },
+        {
+            "beat_number": 5,
+            "beat_name": "charm_and_pushback",
+            "word_target": 300,
+            "description": "Charm Offensive + Antagonist's Pushback: Protagonist uses charm, then gets trapped",
+            "guidance": "Protagonist sweet-talks their way through setbacks. The secondary character begins to change due to protagonist's influence. Then villain outmaneuvers and traps protagonist. Things look impossible. Short-lived wins followed by lows."
+        },
+        {
+            "beat_number": 6,
+            "beat_name": "climax_and_world_changed",
+            "word_target": 200,
+            "description": "Rally, Climax, World Changed: Escape, defeat villain, world is transformed",
+            "guidance": "Protagonist escapes using core traits. Rally allies. Fight the #2 villain (not the mastermind) first. High stakes showdown. Villain's world unravels. Protagonist UNCHANGED but world/allies transformed. End with signature flourish."
+        }
+    ]
+)
+
+BOND_BEATS_PREMIUM = BeatTemplate(
+    name="bond_beats_premium",
+    genre="universal",
+    total_words=4500,
+    description="Full static protagonist structure - hero influences and changes the world while remaining unchanged",
+    beats=[
+        {
+            "beat_number": 1,
+            "beat_name": "charismatic_opener",
+            "word_target": 350,
+            "description": "Charismatic Opener (0-5%): Showcase defining trait in bold standalone action",
+            "guidance": "Start in the middle of a mission, no context. Highlight protagonist's skills and personality through action. Exotic places, beautiful things, and tension mixed together. Good guy vs bad guy is obvious without explanation. Somewhat brutal to show stakes. The protagonist is STATIC and will never change throughout the story."
+        },
+        {
+            "beat_number": 2,
+            "beat_name": "world_introduction",
+            "word_target": 350,
+            "description": "World Introduction (5-10%): Establish world, allies, and villain",
+            "guidance": "Mix introductions and exposition in a fun environment. Use double scene technique - action + exposition + character simultaneously. Show villain's devilish nature and protagonist's cunning. Establish the authority figures who control the protagonist. Early hints of betrayal add mystery."
+        },
+        {
+            "beat_number": 3,
+            "beat_name": "challenge_emerges",
+            "word_target": 350,
+            "description": "Challenge Emerges (10-15%): The threat becomes clear",
+            "guidance": "Introduce a second threat or henchman who initially bests or challenges the protagonist. Focus on the villain's dastardly deeds. Multiple plot threads can interweave - moral dilemma, mission stakes, media/public pressure. External stakes the protagonist will address."
+        },
+        {
+            "beat_number": 4,
+            "beat_name": "first_influence",
+            "word_target": 500,
+            "description": "First Influence (15-25%): Protagonist reshapes their world",
+            "guidance": "Show protagonist's relationships - authority figures, allies, tech quartermaster. Introduce tools that will save lives later. Meet the secondary character who changes (the transforming ally). Tension and temptation, good and bad mixed. Protagonist remains static even in danger. Exotic places and opulence keep it fun."
+        },
+        {
+            "beat_number": 5,
+            "beat_name": "escalating_stakes",
+            "word_target": 500,
+            "description": "Escalating Stakes (25-35%): Back-and-forth victories and defeats",
+            "guidance": "Protagonist watches villain secretly. Slow reveal of the plot as protagonist figures it out. Tech works but not perfectly - ups and downs. Unexpected dangers. Secondary character's backstory and why they might change. Multiple use scenes - 2-3 things happening at once. Stakes raise continuously."
+        },
+        {
+            "beat_number": 6,
+            "beat_name": "midpoint_spectacle",
+            "word_target": 600,
+            "description": "Midpoint Spectacle (35-50%): Major set piece showcasing dominance",
+            "guidance": "Peak moment of influence. Exotic threat setup by villain. Neither protagonist nor villain is swayed - the tension builds. Multiple secondary characters in play. Meet more allies. Keep interesting places and things. Could reveal the villain's grand plan. Tense and slow at times, then bursts of action."
+        },
+        {
+            "beat_number": 7,
+            "beat_name": "secondary_impact",
+            "word_target": 450,
+            "description": "Secondary Impact (50-60%): Allies change, complications arise",
+            "guidance": "Backstory for secondary character and why they're changing. Villain demonstrates supreme power but protagonist finds a way out. Setbacks and victories back and forth. Secondary character is comforted or influenced by protagonist. The point is to highlight the unchanging nature of protagonist against a changing world."
+        },
+        {
+            "beat_number": 8,
+            "beat_name": "charm_offensive",
+            "word_target": 400,
+            "description": "Charm Offensive (60-70%): Protagonist uses charm to navigate setbacks",
+            "guidance": "Protagonist overhears more of villain's power. Stakes raised again. Secondary character swayed to protagonist's side. Protagonist doesn't change but secondary character does. Charm and wit win the day in key moments."
+        },
+        {
+            "beat_number": 9,
+            "beat_name": "antagonist_pushback",
+            "word_target": 400,
+            "description": "Antagonist's Pushback (70-80%): Villain traps or outmaneuvers protagonist",
+            "guidance": "Villain appears to be winning but protagonist is still in the game. Slow reveal of villain's full plan. Love/truth moment possible. Betrayal. From highs to lows in rapid succession. Short-lived wins. Villain's own people may turn on each other."
+        },
+        {
+            "beat_number": 10,
+            "beat_name": "protagonist_rally",
+            "word_target": 350,
+            "description": "Protagonist's Rally (80-90%): Escape and counterattack",
+            "guidance": "Protagonist sways final ally to their side. Uses core traits to escape. Small action set in motion earlier pays off. The impossibility of winning becomes more apparent - they make it seem impossible. Things are not what they seem. Rally the troops."
+        },
+        {
+            "beat_number": 11,
+            "beat_name": "climactic_impact",
+            "word_target": 400,
+            "description": "Climactic Impact (90-95%): High-stakes showdown",
+            "guidance": "Villain's world unravels. Fight the #2 henchman, not the mastermind directly. Countdown tension (literal or metaphorical). Protagonist must use all skills. Evil of villains starts to destroy themselves. Multiple threads resolve. Pure skill wins in the end."
+        },
+        {
+            "beat_number": 12,
+            "beat_name": "world_changed",
+            "word_target": 350,
+            "description": "World Changed (95-100%): Resolution with protagonist unchanged",
+            "guidance": "Protagonist reflects on unchanged nature while world shows lasting change. Secondary character is transformed. Protagonist goes on to another adventure. End with signature flourish or witty line. Affirm the static nature - they were always this skilled, this charming, this unflappable."
+        }
+    ]
+)
+
+
 # ===== BEAT STRUCTURE REGISTRY =====
 # These are the selectable story structures
 
@@ -1455,6 +1602,15 @@ BEAT_STRUCTURES = {
         "best_for": ["All genres", "Genre-specific conventions", "Reader expectations"],
         "short_template": None,  # Uses genre-specific templates
         "premium_template": None  # Uses genre-specific templates
+    },
+    "bond_beats": {
+        "id": "bond_beats",
+        "name": "Bond Beats (Static Protagonist)",
+        "author": "Matt Darbro / FixionMail",
+        "description": "Static protagonist structure where the hero influences and changes the world while remaining unchanged themselves. Perfect for competent, unflappable protagonists.",
+        "best_for": ["Spy", "Action", "Thriller", "Competence porn", "Heist"],
+        "short_template": BOND_BEATS_SHORT,
+        "premium_template": BOND_BEATS_PREMIUM
     }
 }
 
