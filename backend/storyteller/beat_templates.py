@@ -1701,6 +1701,123 @@ def get_structure_template(structure_id: str, tier: str = "free") -> BeatTemplat
         return structure.get("short_template")
 
 
+# Genre to structure affinity mapping
+# Higher weight = better fit for that genre
+GENRE_STRUCTURE_AFFINITY = {
+    "sci-fi": {"heros_journey": 3, "save_the_cat": 2, "bond_beats": 2, "truby_beats": 1},
+    "scifi": {"heros_journey": 3, "save_the_cat": 2, "bond_beats": 2, "truby_beats": 1},
+    "fantasy": {"heros_journey": 4, "save_the_cat": 2, "truby_beats": 1, "bond_beats": 1},
+    "mystery": {"truby_beats": 3, "save_the_cat": 2, "bond_beats": 2, "heros_journey": 1},
+    "thriller": {"bond_beats": 4, "save_the_cat": 2, "truby_beats": 2, "heros_journey": 1},
+    "romance": {"save_the_cat": 3, "truby_beats": 3, "heros_journey": 1, "bond_beats": 1},
+    "horror": {"truby_beats": 3, "save_the_cat": 2, "heros_journey": 2, "bond_beats": 1},
+    "drama": {"truby_beats": 4, "save_the_cat": 2, "heros_journey": 1, "bond_beats": 1},
+    "action": {"bond_beats": 4, "save_the_cat": 3, "heros_journey": 2, "truby_beats": 1},
+    "western": {"heros_journey": 3, "truby_beats": 2, "save_the_cat": 2, "bond_beats": 2},
+    "historical": {"truby_beats": 3, "heros_journey": 2, "save_the_cat": 2, "bond_beats": 1},
+    "sitcom": {"save_the_cat": 4, "truby_beats": 1, "bond_beats": 1, "heros_journey": 1},
+    "comedy": {"save_the_cat": 4, "truby_beats": 1, "bond_beats": 1, "heros_journey": 1},
+}
+
+
+def select_varied_structure(
+    genre: str,
+    recent_structures: List[str] = None,
+    exclude_classic: bool = True
+) -> str:
+    """
+    Select a beat structure that provides variety.
+
+    Avoids recently used structures and weights by genre affinity.
+
+    Args:
+        genre: Current story genre
+        recent_structures: List of recently used structure IDs (most recent last)
+        exclude_classic: If True, don't return "classic" (use genre-specific instead)
+
+    Returns:
+        Structure ID (e.g., "bond_beats", "heros_journey")
+    """
+    import random
+
+    recent_structures = recent_structures or []
+
+    # Get all available structures (excluding classic if requested)
+    available = [sid for sid in BEAT_STRUCTURES.keys() if not (exclude_classic and sid == "classic")]
+
+    # Remove structures used in the last 2 stories (to ensure variety)
+    recently_used = set(recent_structures[-2:]) if recent_structures else set()
+    candidates = [s for s in available if s not in recently_used]
+
+    # If all structures were recently used, use all of them
+    if not candidates:
+        candidates = available
+
+    # Get genre affinity weights
+    genre_lower = genre.lower().replace("-", "").replace("_", "")
+    affinity = GENRE_STRUCTURE_AFFINITY.get(genre_lower, {})
+
+    # Build weighted list
+    weighted_candidates = []
+    for structure_id in candidates:
+        weight = affinity.get(structure_id, 1)  # Default weight of 1
+        weighted_candidates.extend([structure_id] * weight)
+
+    # Random selection from weighted list
+    if weighted_candidates:
+        selected = random.choice(weighted_candidates)
+    else:
+        selected = random.choice(candidates) if candidates else "save_the_cat"
+
+    return selected
+
+
+def get_structure_for_story(
+    story_bible: Dict[str, Any],
+    tier: str = "free"
+) -> tuple[str, BeatTemplate]:
+    """
+    Get the best beat structure for a story, considering variety.
+
+    If user has set a specific beat_structure, use that.
+    Otherwise, auto-select for variety based on recent history.
+
+    Args:
+        story_bible: User's story bible with history
+        tier: User tier (free or premium)
+
+    Returns:
+        Tuple of (structure_id, BeatTemplate)
+    """
+    genre = story_bible.get("genre", "sci-fi")
+    user_structure = story_bible.get("beat_structure")
+
+    # If user explicitly set a structure (not "auto" or "classic"), use it
+    if user_structure and user_structure not in ("auto", "classic", ""):
+        template = get_structure_template(user_structure, tier)
+        if template:
+            return (user_structure, template)
+
+    # Auto-select for variety
+    story_history = story_bible.get("story_history", {})
+    recent_structures = story_history.get("recent_beat_structures", [])
+
+    selected_id = select_varied_structure(
+        genre=genre,
+        recent_structures=recent_structures,
+        exclude_classic=True
+    )
+
+    template = get_structure_template(selected_id, tier)
+
+    # Fall back to genre template if structure template not available
+    if not template:
+        template = get_template(genre, tier)
+        return ("classic", template)
+
+    return (selected_id, template)
+
+
 # ===== TEMPLATE REGISTRY =====
 
 TEMPLATES = {

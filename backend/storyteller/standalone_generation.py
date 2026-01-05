@@ -16,7 +16,7 @@ from datetime import datetime
 from langchain_core.messages import HumanMessage
 from langchain_anthropic import ChatAnthropic
 from backend.config import config
-from backend.storyteller.beat_templates import get_template, get_structure_template
+from backend.storyteller.beat_templates import get_template, get_structure_template, get_structure_for_story
 from backend.storyteller.bible_enhancement import should_use_cliffhanger, should_include_cameo
 from backend.storyteller.name_registry import (
     get_excluded_names,
@@ -431,23 +431,28 @@ async def generate_standalone_story(
     print(f"{'='*70}")
 
     try:
-        # Step 1: Select beat template
+        # Step 1: Select beat template with automatic variety
         genre = story_bible.get("genre", "scifi")
-        beat_structure = story_bible.get("beat_structure", "classic")
+        beat_structure = story_bible.get("beat_structure", "auto")
 
-        # Check if using a named story structure (Save the Cat, Hero's Journey, etc.)
-        if beat_structure and beat_structure != "classic":
+        # Use automatic structure selection for variety unless user explicitly chose one
+        if beat_structure in ("auto", "classic", "", None):
+            # Auto-select structure based on recent history and genre affinity
+            selected_structure, template = get_structure_for_story(story_bible, user_tier)
+            print(f"\n✓ Auto-selected story structure: {selected_structure}")
+            # Store the selected structure in bible for history tracking
+            story_bible["beat_structure"] = selected_structure
+        else:
+            # User explicitly chose a structure
             template = get_structure_template(beat_structure, user_tier)
             if template:
-                print(f"\n✓ Using story structure: {beat_structure}")
+                selected_structure = beat_structure
+                print(f"\n✓ Using user-selected story structure: {beat_structure}")
             else:
-                # Fallback to genre template if structure not found
-                template = get_template(genre, user_tier)
-                print(f"\n✓ Structure '{beat_structure}' not found, using genre template")
-        else:
-            # Use classic genre-specific template
-            template = get_template(genre, user_tier)
-            print(f"\n✓ Using classic genre template")
+                # Fallback to auto-selection if structure not found
+                selected_structure, template = get_structure_for_story(story_bible, user_tier)
+                print(f"\n✓ Structure '{beat_structure}' not found, auto-selected: {selected_structure}")
+                story_bible["beat_structure"] = selected_structure
 
         # Override word count if specified in story_settings
         story_settings = story_bible.get("story_settings", {})
