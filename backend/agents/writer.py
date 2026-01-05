@@ -360,16 +360,26 @@ Write the complete story now. Target exactly {total_words} words.
         """Build recent story history context."""
         recent_summaries = story_history.get("recent_summaries", [])
         recent_plots = story_history.get("recent_plot_types", [])
+        recent_titles = story_history.get("recent_titles", [])
 
-        if not recent_summaries:
+        if not recent_summaries and not recent_titles:
             return ""
 
-        history_text = "\n".join([f"  - {s}" for s in recent_summaries[-5:]])
-        context = f"\n\n## RECENT STORIES (avoid repeating)\n\n{history_text}"
+        context = "\n\n## RECENT STORIES (DO NOT REPEAT)\n\n"
+
+        # CRITICAL: Exclude recent titles to prevent duplicates like "The Thaw" 3x
+        if recent_titles:
+            titles_text = ", ".join([f'"{t}"' for t in recent_titles[-10:]])
+            context += f"**TITLES TO AVOID (already used)**: {titles_text}\n\n"
+            context += "You MUST create a completely NEW, UNIQUE title. Do NOT reuse or slightly modify any title above.\n\n"
+
+        if recent_summaries:
+            history_text = "\n".join([f"  - {s}" for s in recent_summaries[-5:]])
+            context += f"**Recent story summaries (avoid similar plots)**:\n{history_text}\n"
 
         if recent_plots:
             plots_text = ", ".join(recent_plots[-5:])
-            context += f"\n\nRecent plot types: {plots_text}"
+            context += f"\n**Recent plot types**: {plots_text}"
 
         return context
 
