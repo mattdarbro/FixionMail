@@ -45,42 +45,6 @@ const VOICES = [
   { value: 'shimmer', label: 'Shimmer', desc: 'Female, light' },
 ];
 
-// Beat Structure options - narrative frameworks
-const BEAT_STRUCTURES = [
-  {
-    id: 'classic',
-    name: 'Classic Genre',
-    author: 'FixionMail',
-    icon: '📚',
-    desc: 'Genre-optimized beats tailored for each story type',
-    bestFor: 'All genres',
-  },
-  {
-    id: 'save_the_cat',
-    name: 'Save the Cat!',
-    author: 'Blake Snyder',
-    icon: '🎬',
-    desc: 'Hollywood\'s go-to beat sheet for audience engagement',
-    bestFor: 'Action, Romance, Comedy',
-  },
-  {
-    id: 'heros_journey',
-    name: 'Hero\'s Journey',
-    author: 'Joseph Campbell',
-    icon: '🗡️',
-    desc: 'The monomyth of departure, initiation, and return',
-    bestFor: 'Fantasy, Adventure, Sci-Fi',
-  },
-  {
-    id: 'truby_beats',
-    name: 'Truby\'s Anatomy',
-    author: 'John Truby',
-    icon: '🎭',
-    desc: 'Character-driven structure based on moral transformation',
-    bestFor: 'Drama, Literary, Psychological',
-  },
-];
-
 // Undercurrent (Deeper Meanings) modes
 const UNDERCURRENT_MODES = [
   {
@@ -141,8 +105,7 @@ export function StorySettingsPage() {
   const [newCameoDesc, setNewCameoDesc] = useState('');
   const [newCameoFreq, setNewCameoFreq] = useState<'rarely' | 'sometimes' | 'often'>('sometimes');
 
-  // Story structure and themes
-  const [beatStructure, setBeatStructure] = useState('classic');
+  // Story themes
   const [undercurrentMode, setUndercurrentMode] = useState('off');
   const [undercurrentCustom, setUndercurrentCustom] = useState('');
 
@@ -170,14 +133,10 @@ export function StorySettingsPage() {
         if (user.story_bible.main_characters) {
           setCharacters(user.story_bible.main_characters);
         }
-        // Load story structure and theme settings
+        // Load theme settings
         if (user.story_bible.story_settings) {
-          setBeatStructure(user.story_bible.story_settings.beat_structure || 'classic');
           setUndercurrentMode(user.story_bible.story_settings.undercurrent_mode || 'off');
           setUndercurrentCustom(user.story_bible.story_settings.undercurrent_custom || '');
-        } else if (user.story_bible.beat_structure) {
-          // Fallback to top-level beat_structure if exists
-          setBeatStructure(user.story_bible.beat_structure as string);
         }
         // Load cameo characters
         if (user.story_bible.cameo_characters) {
@@ -260,6 +219,8 @@ export function StorySettingsPage() {
       });
 
       // Update story bible
+      // Note: beat_structure is "auto" - the backend automatically rotates
+      // between different story structures for variety
       const storyBible = {
         genre: selectedGenre,
         intensity,
@@ -271,11 +232,11 @@ export function StorySettingsPage() {
           frequency: c.frequency,
           appearances: 0,
         })),
-        beat_structure: beatStructure,
+        beat_structure: 'auto',
         story_settings: {
           intensity_label: INTENSITY_LEVELS.find(l => l.value === intensity)?.label,
           story_length: storyLength,
-          beat_structure: beatStructure,
+          beat_structure: 'auto',
           undercurrent_mode: undercurrentMode,
           undercurrent_custom: undercurrentMode === 'custom' ? undercurrentCustom : null,
           undercurrent_match_intensity: true,
@@ -468,41 +429,6 @@ export function StorySettingsPage() {
                   <span className="mx-2">—</span>
                   <span>{INTENSITY_LEVELS[intensity - 1].desc}</span>
                 </div>
-              </div>
-            </div>
-
-            {/* Story Structure (Beat Structure) */}
-            <div className="bg-white rounded-2xl shadow-lg p-6">
-              <h2 className="text-xl font-bold text-stone-800 mb-2">Story Structure</h2>
-              <p className="text-sm text-stone-500 mb-4">Choose how your stories are structured</p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {BEAT_STRUCTURES.map((structure) => (
-                  <button
-                    key={structure.id}
-                    onClick={() => setBeatStructure(structure.id)}
-                    className={`p-4 rounded-xl text-left transition-all ${
-                      beatStructure === structure.id
-                        ? 'bg-amber-600 text-white shadow-lg ring-2 ring-amber-400'
-                        : 'bg-stone-50 hover:bg-amber-50 text-stone-700'
-                    }`}
-                  >
-                    <div className="flex items-start gap-3">
-                      <span className="text-2xl">{structure.icon}</span>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-semibold">{structure.name}</div>
-                        <div className={`text-xs ${beatStructure === structure.id ? 'text-amber-100' : 'text-stone-400'}`}>
-                          by {structure.author}
-                        </div>
-                        <div className={`text-sm mt-1 ${beatStructure === structure.id ? 'text-amber-50' : 'text-stone-500'}`}>
-                          {structure.desc}
-                        </div>
-                        <div className={`text-xs mt-2 ${beatStructure === structure.id ? 'text-amber-200' : 'text-stone-400'}`}>
-                          Best for: {structure.bestFor}
-                        </div>
-                      </div>
-                    </div>
-                  </button>
-                ))}
               </div>
             </div>
 
