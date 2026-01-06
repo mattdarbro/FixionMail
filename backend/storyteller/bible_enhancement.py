@@ -570,6 +570,8 @@ def update_story_history(
     bible: Dict[str, Any],
     story_summary: str,
     plot_type: str,
+    story_title: str = None,
+    beat_structure: str = None,
     rating: int = None,
     feedback: Dict[str, Any] = None
 ) -> Dict[str, Any]:
@@ -580,6 +582,8 @@ def update_story_history(
         bible: Story bible to update
         story_summary: Brief summary of the story
         plot_type: Type of plot used
+        story_title: Title of the story (for deduplication)
+        beat_structure: Beat structure used (e.g., "save_the_cat", "heros_journey")
         rating: User rating (1-5)
         feedback: User feedback dict
 
@@ -591,6 +595,12 @@ def update_story_history(
     # Increment total
     history["total_stories"] = history.get("total_stories", 0) + 1
 
+    # Track recent titles (keep last 15) - CRITICAL for avoiding duplicates
+    if story_title:
+        titles = history.get("recent_titles", [])
+        titles.append(story_title)
+        history["recent_titles"] = titles[-15:]
+
     # Add to recent summaries (keep last 7)
     summaries = history.get("recent_summaries", [])
     summaries.append(story_summary)
@@ -600,6 +610,12 @@ def update_story_history(
     plots = history.get("recent_plot_types", [])
     plots.append(plot_type)
     history["recent_plot_types"] = plots[-10:]
+
+    # Track beat structures used (keep last 10) - for rotation
+    if beat_structure:
+        structures = history.get("recent_beat_structures", [])
+        structures.append(beat_structure)
+        history["recent_beat_structures"] = structures[-10:]
 
     bible["story_history"] = history
 

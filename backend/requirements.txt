@@ -30,6 +30,7 @@ python-dotenv==1.0.1
 # Utilities
 httpx==0.28.0
 psutil==5.9.8
+Pillow==10.4.0  # Image processing for cover title overlay
 
 # Supabase
 supabase==2.10.0

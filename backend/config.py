@@ -356,9 +356,25 @@ class AppConfig(BaseSettings):
 
     @property
     def allowed_origins_list(self) -> list[str]:
-        """Get list of allowed CORS origins."""
+        """Get list of allowed CORS origins.
+
+        Security: In production (DEV_MODE=false), '*' is not allowed.
+        Falls back to APP_BASE_URL if no origins specified in production.
+        """
         if self.ALLOWED_ORIGINS == "*":
-            return ["*"]
+            if self.DEV_MODE:
+                return ["*"]
+            else:
+                # SECURITY: Don't allow '*' in production
+                # Fall back to APP_BASE_URL as the only allowed origin
+                import sys
+                print(
+                    "⚠️  WARNING: ALLOWED_ORIGINS='*' is not secure in production. "
+                    f"Using APP_BASE_URL ({self.APP_BASE_URL}) instead. "
+                    "Set ALLOWED_ORIGINS explicitly for production.",
+                    file=sys.stderr
+                )
+                return [self.APP_BASE_URL]
         return [o.strip() for o in self.ALLOWED_ORIGINS.split(",") if o.strip()]
 
     @property

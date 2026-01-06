@@ -1416,6 +1416,817 @@ TRUBY_BEATS_PREMIUM = BeatTemplate(
 )
 
 
+# Bond Beats (Static Protagonist Structure)
+# Unlike Hero's Journey, the protagonist DOES NOT change - the world changes around them
+BOND_BEATS_SHORT = BeatTemplate(
+    name="bond_beats_short",
+    genre="universal",
+    total_words=1800,
+    description="Static protagonist structure - hero influences and changes the world while remaining unchanged",
+    beats=[
+        {
+            "beat_number": 1,
+            "beat_name": "charismatic_opener",
+            "word_target": 250,
+            "description": "Charismatic Opener: Showcase defining trait in bold standalone action",
+            "guidance": "Start in the middle of action. No context needed. Show protagonist's signature skills - charm, cunning, competence. Exotic location, beautiful things, tension. Hook the reader immediately. The protagonist is STATIC - they will not change."
+        },
+        {
+            "beat_number": 2,
+            "beat_name": "world_and_challenge",
+            "word_target": 300,
+            "description": "World Introduction + Challenge: Establish world and introduce the threat",
+            "guidance": "Mix introductions with action (double scene technique). Show allies and reputation. Introduce villain's power and dastardly nature. Use exposition through action, not info dumps. Stakes become clear."
+        },
+        {
+            "beat_number": 3,
+            "beat_name": "first_influence",
+            "word_target": 350,
+            "description": "First Influence: Protagonist begins reshaping their world",
+            "guidance": "Show relationships with allies. Introduce key tools or allies that will matter later. Meet the secondary character who WILL change (the 'Bond Girl' archetype). Tension and temptation mixed. Protagonist is controlled by external forces but remains unchanged internally."
+        },
+        {
+            "beat_number": 4,
+            "beat_name": "escalating_stakes",
+            "word_target": 400,
+            "description": "Escalating Stakes + Midpoint Spectacle: Back-and-forth victories and defeats",
+            "guidance": "Protagonist watches villain secretly. Not all is revealed. Up and down tension. Use tech or skills but not everything works. Major set piece that showcases protagonist's dominance. Villain's exotic threat revealed. Multiple scenes doing 2-3 things at once."
+        },
+        {
+            "beat_number": 5,
+            "beat_name": "charm_and_pushback",
+            "word_target": 300,
+            "description": "Charm Offensive + Antagonist's Pushback: Protagonist uses charm, then gets trapped",
+            "guidance": "Protagonist sweet-talks their way through setbacks. The secondary character begins to change due to protagonist's influence. Then villain outmaneuvers and traps protagonist. Things look impossible. Short-lived wins followed by lows."
+        },
+        {
+            "beat_number": 6,
+            "beat_name": "climax_and_world_changed",
+            "word_target": 200,
+            "description": "Rally, Climax, World Changed: Escape, defeat villain, world is transformed",
+            "guidance": "Protagonist escapes using core traits. Rally allies. Fight the #2 villain (not the mastermind) first. High stakes showdown. Villain's world unravels. Protagonist UNCHANGED but world/allies transformed. End with signature flourish."
+        }
+    ]
+)
+
+BOND_BEATS_PREMIUM = BeatTemplate(
+    name="bond_beats_premium",
+    genre="universal",
+    total_words=4500,
+    description="Full static protagonist structure - hero influences and changes the world while remaining unchanged",
+    beats=[
+        {
+            "beat_number": 1,
+            "beat_name": "charismatic_opener",
+            "word_target": 350,
+            "description": "Charismatic Opener (0-5%): Showcase defining trait in bold standalone action",
+            "guidance": "Start in the middle of a mission, no context. Highlight protagonist's skills and personality through action. Exotic places, beautiful things, and tension mixed together. Good guy vs bad guy is obvious without explanation. Somewhat brutal to show stakes. The protagonist is STATIC and will never change throughout the story."
+        },
+        {
+            "beat_number": 2,
+            "beat_name": "world_introduction",
+            "word_target": 350,
+            "description": "World Introduction (5-10%): Establish world, allies, and villain",
+            "guidance": "Mix introductions and exposition in a fun environment. Use double scene technique - action + exposition + character simultaneously. Show villain's devilish nature and protagonist's cunning. Establish the authority figures who control the protagonist. Early hints of betrayal add mystery."
+        },
+        {
+            "beat_number": 3,
+            "beat_name": "challenge_emerges",
+            "word_target": 350,
+            "description": "Challenge Emerges (10-15%): The threat becomes clear",
+            "guidance": "Introduce a second threat or henchman who initially bests or challenges the protagonist. Focus on the villain's dastardly deeds. Multiple plot threads can interweave - moral dilemma, mission stakes, media/public pressure. External stakes the protagonist will address."
+        },
+        {
+            "beat_number": 4,
+            "beat_name": "first_influence",
+            "word_target": 500,
+            "description": "First Influence (15-25%): Protagonist reshapes their world",
+            "guidance": "Show protagonist's relationships - authority figures, allies, tech quartermaster. Introduce tools that will save lives later. Meet the secondary character who changes (the transforming ally). Tension and temptation, good and bad mixed. Protagonist remains static even in danger. Exotic places and opulence keep it fun."
+        },
+        {
+            "beat_number": 5,
+            "beat_name": "escalating_stakes",
+            "word_target": 500,
+            "description": "Escalating Stakes (25-35%): Back-and-forth victories and defeats",
+            "guidance": "Protagonist watches villain secretly. Slow reveal of the plot as protagonist figures it out. Tech works but not perfectly - ups and downs. Unexpected dangers. Secondary character's backstory and why they might change. Multiple use scenes - 2-3 things happening at once. Stakes raise continuously."
+        },
+        {
+            "beat_number": 6,
+            "beat_name": "midpoint_spectacle",
+            "word_target": 600,
+            "description": "Midpoint Spectacle (35-50%): Major set piece showcasing dominance",
+            "guidance": "Peak moment of influence. Exotic threat setup by villain. Neither protagonist nor villain is swayed - the tension builds. Multiple secondary characters in play. Meet more allies. Keep interesting places and things. Could reveal the villain's grand plan. Tense and slow at times, then bursts of action."
+        },
+        {
+            "beat_number": 7,
+            "beat_name": "secondary_impact",
+            "word_target": 450,
+            "description": "Secondary Impact (50-60%): Allies change, complications arise",
+            "guidance": "Backstory for secondary character and why they're changing. Villain demonstrates supreme power but protagonist finds a way out. Setbacks and victories back and forth. Secondary character is comforted or influenced by protagonist. The point is to highlight the unchanging nature of protagonist against a changing world."
+        },
+        {
+            "beat_number": 8,
+            "beat_name": "charm_offensive",
+            "word_target": 400,
+            "description": "Charm Offensive (60-70%): Protagonist uses charm to navigate setbacks",
+            "guidance": "Protagonist overhears more of villain's power. Stakes raised again. Secondary character swayed to protagonist's side. Protagonist doesn't change but secondary character does. Charm and wit win the day in key moments."
+        },
+        {
+            "beat_number": 9,
+            "beat_name": "antagonist_pushback",
+            "word_target": 400,
+            "description": "Antagonist's Pushback (70-80%): Villain traps or outmaneuvers protagonist",
+            "guidance": "Villain appears to be winning but protagonist is still in the game. Slow reveal of villain's full plan. Love/truth moment possible. Betrayal. From highs to lows in rapid succession. Short-lived wins. Villain's own people may turn on each other."
+        },
+        {
+            "beat_number": 10,
+            "beat_name": "protagonist_rally",
+            "word_target": 350,
+            "description": "Protagonist's Rally (80-90%): Escape and counterattack",
+            "guidance": "Protagonist sways final ally to their side. Uses core traits to escape. Small action set in motion earlier pays off. The impossibility of winning becomes more apparent - they make it seem impossible. Things are not what they seem. Rally the troops."
+        },
+        {
+            "beat_number": 11,
+            "beat_name": "climactic_impact",
+            "word_target": 400,
+            "description": "Climactic Impact (90-95%): High-stakes showdown",
+            "guidance": "Villain's world unravels. Fight the #2 henchman, not the mastermind directly. Countdown tension (literal or metaphorical). Protagonist must use all skills. Evil of villains starts to destroy themselves. Multiple threads resolve. Pure skill wins in the end."
+        },
+        {
+            "beat_number": 12,
+            "beat_name": "world_changed",
+            "word_target": 350,
+            "description": "World Changed (95-100%): Resolution with protagonist unchanged",
+            "guidance": "Protagonist reflects on unchanged nature while world shows lasting change. Secondary character is transformed. Protagonist goes on to another adventure. End with signature flourish or witty line. Affirm the static nature - they were always this skilled, this charming, this unflappable."
+        }
+    ]
+)
+
+
+# ===== TRUBY GENRE-SPECIFIC BEATS =====
+# From John Truby's "The Anatomy of Genres" - each genre has its own philosophy and beat structure
+
+# HORROR - The Philosophy of Death
+# Key: Hero is VICTIM, monster as "Other", NO positive self-revelation, double ending
+TRUBY_HORROR_SHORT = BeatTemplate(
+    name="truby_horror_short",
+    genre="horror",
+    total_words=1800,
+    description="Horror as philosophy of death - hero as victim confronting the monster/Other",
+    beats=[
+        {
+            "beat_number": 1,
+            "beat_name": "ghost_and_world",
+            "word_target": 300,
+            "description": "Ghost & Haunted World: Sins of the past in a trapped society",
+            "guidance": "Establish the GHOST - sins of the past that haunt this place. The story world is a 'haunted house' or closed society where characters CANNOT escape. Introduce the hero's weakness: slavery of the mind, shame, guilt, the monster within. The hero starts as potential VICTIM."
+        },
+        {
+            "beat_number": 2,
+            "beat_name": "monster_attacks",
+            "word_target": 350,
+            "description": "The Monster Attacks: The Other emerges",
+            "guidance": "The MONSTER attacks - this is the extreme 'Other', something fundamentally alien and threatening. The hero's desire crystallizes: defeat the monster, defeat death itself. Introduce the ALLY - usually a rational skeptic who will likely die or be proven wrong. Hero crosses into the forbidden world."
+        },
+        {
+            "beat_number": 3,
+            "beat_name": "reactive_drive",
+            "word_target": 400,
+            "description": "Reactive Drive: Survival mode escalates",
+            "guidance": "The hero's plan is purely REACTIVE - just trying to survive. The monster's attacks escalate. Each attack reveals more about the monster and the hero's past sins. The rational ally's skepticism is challenged. The 'safe haven' begins to feel compromised."
+        },
+        {
+            "beat_number": 4,
+            "beat_name": "haven_compromised",
+            "word_target": 350,
+            "description": "Battle in Compromised Haven: The final confrontation",
+            "guidance": "The battle takes place in a 'safe haven' that has been completely compromised - nowhere is safe. The hero faces the monster but there is NO POSITIVE SELF-REVELATION. The hero survives but is often broken, damaged, changed for the worse."
+        },
+        {
+            "beat_number": 5,
+            "beat_name": "double_ending",
+            "word_target": 200,
+            "description": "Double Ending: The monster returns",
+            "guidance": "The DOUBLE ENDING - hint or show that the monster returns or was never truly defeated. Horror is about ETERNAL RECURRENCE. The evil is not defeated, only delayed. Leave the reader with dread, not comfort. The horror continues or will continue."
+        }
+    ]
+)
+
+TRUBY_HORROR_PREMIUM = BeatTemplate(
+    name="truby_horror_premium",
+    genre="horror",
+    total_words=4500,
+    description="Full horror structure - philosophy of death with victim hero and eternal monster",
+    beats=[
+        {
+            "beat_number": 1,
+            "beat_name": "ghost",
+            "word_target": 350,
+            "description": "The Ghost: Sins of the past",
+            "guidance": "Establish the GHOST - the specific sin or trauma from the past that haunts this place or these characters. This could be a literal ghost, a family secret, a buried crime. The ghost creates the conditions for the horror to come."
+        },
+        {
+            "beat_number": 2,
+            "beat_name": "haunted_world",
+            "word_target": 350,
+            "description": "The Haunted World: Trapped society",
+            "guidance": "The story world is a 'haunted house' - a CLOSED or TRAPPED society where characters cannot easily escape. Could be an actual house, a small town, a ship, an island. Establish why leaving is impossible or unthinkable."
+        },
+        {
+            "beat_number": 3,
+            "beat_name": "hero_as_victim",
+            "word_target": 350,
+            "description": "Hero as Victim: Weakness and shame",
+            "guidance": "The hero is fundamentally a VICTIM - passive, trapped, often complicit in past sins. Establish their weakness: slavery of the mind, shame, guilt. They may have 'the monster within' - a darkness that makes them vulnerable or connected to the evil."
+        },
+        {
+            "beat_number": 4,
+            "beat_name": "monster_emerges",
+            "word_target": 400,
+            "description": "The Monster Attacks: The Other appears",
+            "guidance": "The MONSTER attacks - this is the extreme 'Other', something fundamentally alien and threatening to our humanity. The monster represents what we fear most about death, the unknown, or ourselves. First attack establishes the monster's power and the stakes."
+        },
+        {
+            "beat_number": 5,
+            "beat_name": "rational_ally",
+            "word_target": 350,
+            "description": "The Ally: The rational skeptic",
+            "guidance": "Introduce the ALLY - typically a rational skeptic who doesn't believe in the supernatural or underestimates the threat. This character often dies or is proven catastrophically wrong. Their rationality cannot save them."
+        },
+        {
+            "beat_number": 6,
+            "beat_name": "crossing_barrier",
+            "word_target": 400,
+            "description": "Crossing the Barrier: Into the forbidden",
+            "guidance": "The hero crosses into the FORBIDDEN WORLD - the place where the monster rules, where normal rules don't apply. This could be physical (basement, forest) or psychological (madness, obsession). There's no going back."
+        },
+        {
+            "beat_number": 7,
+            "beat_name": "reactive_survival",
+            "word_target": 450,
+            "description": "Reactive Drive: Pure survival",
+            "guidance": "The hero's plan is purely REACTIVE - just trying to survive. No clever strategy, just desperate response to escalating attacks. The monster's attacks grow worse. Each reveals more about the ghost/sin and the hero's connection to it."
+        },
+        {
+            "beat_number": 8,
+            "beat_name": "escalation",
+            "word_target": 450,
+            "description": "Monster Escalation: The attacks worsen",
+            "guidance": "The monster demonstrates its full power. Other characters die or are taken. The ally's skepticism crumbles too late. The hero realizes the depth of their own guilt or connection to the evil. The safe spaces shrink."
+        },
+        {
+            "beat_number": 9,
+            "beat_name": "haven_battle",
+            "word_target": 500,
+            "description": "Battle in Compromised Haven: Final confrontation",
+            "guidance": "The battle takes place in a 'SAFE HAVEN' that has been COMPROMISED - the last refuge is breached. The hero faces the monster directly. This is not a triumph but a desperate last stand. The hero may defeat the monster but at terrible cost."
+        },
+        {
+            "beat_number": 10,
+            "beat_name": "no_revelation",
+            "word_target": 300,
+            "description": "No Self-Revelation: Broken, not grown",
+            "guidance": "Unlike other genres, there is NO POSITIVE SELF-REVELATION. The hero survives but is broken, traumatized, or morally damaged. They do not 'grow' in a positive sense. They may realize the horror is eternal, or become part of it."
+        },
+        {
+            "beat_number": 11,
+            "beat_name": "double_ending",
+            "word_target": 300,
+            "description": "The Double Ending: Eternal recurrence",
+            "guidance": "The DOUBLE ENDING - the monster returns or was never truly defeated. A final scare, a lingering dread, a sign that the evil continues. Horror is about ETERNAL RECURRENCE - death and evil cannot be permanently conquered. End with unease, not comfort."
+        }
+    ]
+)
+
+# ACTION - The Philosophy of Success
+# Key: Warrior's moral code, will to greatness, collecting allies, game plan, vortex battle
+TRUBY_ACTION_SHORT = BeatTemplate(
+    name="truby_action_short",
+    genre="action",
+    total_words=1800,
+    description="Action as philosophy of success - warrior's code, will, and physical triumph",
+    beats=[
+        {
+            "beat_number": 1,
+            "beat_name": "defining_crisis",
+            "word_target": 300,
+            "description": "Hero's Defining Crisis: Enslaved world, warrior emerges",
+            "guidance": "The hero faces a DEFINING CRISIS that showcases their core trait. The world is one of enslavement or physical danger. Establish the WARRIOR'S MORAL CODE - courage, honor, the will to greatness. The hero's weakness is shame or a failure of will."
+        },
+        {
+            "beat_number": 2,
+            "beat_name": "collect_allies",
+            "word_target": 350,
+            "description": "Collecting the Allies: Building the team",
+            "guidance": "The hero's DESIRE is success, glory, personal freedom. They must COLLECT ALLIES - build the team needed to face the opposition. Each ally brings specific skills. The OPPONENT represents external bondage - a master villain who must be overcome."
+        },
+        {
+            "beat_number": 3,
+            "beat_name": "game_plan",
+            "word_target": 400,
+            "description": "Game Plan & Drive: Strategic attack, cat and mouse",
+            "guidance": "The hero develops a GAME PLAN - a strategic attack on the opponent. The DRIVE is cat and mouse, rapid pacing, action set pieces. Revelations lead to new decisions. The MORAL ARGUMENT emerges: the 'Great' (excellence) vs the 'Good' (morality)."
+        },
+        {
+            "beat_number": 4,
+            "beat_name": "vortex_battle",
+            "word_target": 450,
+            "description": "Vortex Point: The violent final battle",
+            "guidance": "The VORTEX POINT - the violent final battle where all forces converge. This is pure physical action, the ultimate test of the warrior's code. The hero must prove their worth through courage and skill. Maximum stakes, maximum action."
+        },
+        {
+            "beat_number": 5,
+            "beat_name": "revelation_communion",
+            "word_target": 200,
+            "description": "Self-Revelation & Communion: Victory and belonging",
+            "guidance": "SELF-REVELATION - the hero proves their worth and learns what truly matters. FAREWELL or COMMUNION - the hero either leaves as a lone warrior or joins the community they saved. Victory brings freedom, glory, or both."
+        }
+    ]
+)
+
+TRUBY_ACTION_PREMIUM = BeatTemplate(
+    name="truby_action_premium",
+    genre="action",
+    total_words=4500,
+    description="Full action structure - warrior's code, team building, and triumphant battle",
+    beats=[
+        {
+            "beat_number": 1,
+            "beat_name": "defining_crisis",
+            "word_target": 400,
+            "description": "Hero's Defining Crisis: The warrior is tested",
+            "guidance": "Open with a DEFINING CRISIS that showcases the hero's core warrior trait - their courage, skill, or determination. This is not the main conflict but a preview of who the hero is under pressure."
+        },
+        {
+            "beat_number": 2,
+            "beat_name": "enslaved_world",
+            "word_target": 350,
+            "description": "The Enslaved World: Physical danger and oppression",
+            "guidance": "Establish the story world as one of ENSLAVEMENT or physical danger. People are oppressed, threatened, or trapped. The hero sees this injustice and their DESIRE crystallizes: success, glory, personal freedom, or the freedom of others."
+        },
+        {
+            "beat_number": 3,
+            "beat_name": "warriors_code",
+            "word_target": 350,
+            "description": "Warrior's Moral Code: Courage and will",
+            "guidance": "Establish the hero's WARRIOR'S MORAL CODE - the values they live by. Courage, honor, loyalty, the will to greatness. Their WEAKNESS is shame or a past failure of will - a time they didn't live up to their code."
+        },
+        {
+            "beat_number": 4,
+            "beat_name": "opposition",
+            "word_target": 400,
+            "description": "The Opposition: Master villain and bondage",
+            "guidance": "The OPPONENT represents external bondage - a master villain, an oppressive system, a powerful enemy. Show their strength and cruelty. The hero cannot defeat them alone. The opposition seems overwhelming."
+        },
+        {
+            "beat_number": 5,
+            "beat_name": "collecting_allies",
+            "word_target": 450,
+            "description": "Collecting the Allies: Building the team",
+            "guidance": "The hero must COLLECT ALLIES - recruiting the team needed to face the opposition. Each ally brings specific skills and personality. There may be reluctance, negotiation, proving worthiness. The team dynamic adds texture and humor."
+        },
+        {
+            "beat_number": 6,
+            "beat_name": "game_plan",
+            "word_target": 400,
+            "description": "The Game Plan: Strategic attack",
+            "guidance": "The hero develops the GAME PLAN - the strategic approach to defeating the opponent. This involves preparation, training, gathering resources. The plan should be clever but have potential weaknesses the reader can see."
+        },
+        {
+            "beat_number": 7,
+            "beat_name": "cat_and_mouse",
+            "word_target": 450,
+            "description": "Drive - Cat and Mouse: Rapid action pacing",
+            "guidance": "The DRIVE phase - cat and mouse, rapid pacing. Initial clashes with the opposition. Wins and losses. Revelations that lead to new decisions. The MORAL ARGUMENT begins: the 'Great' (excellence, winning) vs the 'Good' (morality, sacrifice)."
+        },
+        {
+            "beat_number": 8,
+            "beat_name": "setback",
+            "word_target": 400,
+            "description": "Major Setback: The plan fails",
+            "guidance": "A major SETBACK - the game plan fails or a key ally is lost. The hero's weakness resurfaces. They must dig deeper, recommit to their warrior's code. The team's bonds are tested."
+        },
+        {
+            "beat_number": 9,
+            "beat_name": "vortex_point",
+            "word_target": 500,
+            "description": "Vortex Point: The violent final battle",
+            "guidance": "The VORTEX POINT - the violent final battle where all forces converge. This is the ultimate test of the warrior's code. Pure physical action at maximum intensity. The hero must prove their worth through courage and skill."
+        },
+        {
+            "beat_number": 10,
+            "beat_name": "self_revelation",
+            "word_target": 300,
+            "description": "Self-Revelation: The hero proves their worth",
+            "guidance": "SELF-REVELATION - through victory, the hero learns what truly matters. They may choose the 'Good' over the 'Great' or prove they can be both. Their shame is redeemed, their failure of will corrected."
+        },
+        {
+            "beat_number": 11,
+            "beat_name": "farewell_communion",
+            "word_target": 300,
+            "description": "Farewell or Communion: Victory's aftermath",
+            "guidance": "FAREWELL or COMMUNION - the hero either leaves as a lone warrior (farewell) or joins the community they saved (communion). Success brings freedom, glory, and possibly love. The world is changed by the hero's will."
+        }
+    ]
+)
+
+# LOVE STORY - The Philosophy of Happiness
+# Key: TWO protagonists, the gaze/meeting, the scam, steps of intimacy, apparent defeat
+TRUBY_LOVE_SHORT = BeatTemplate(
+    name="truby_love_short",
+    genre="romance",
+    total_words=1800,
+    description="Love story as philosophy of happiness - two protagonists learning to love",
+    beats=[
+        {
+            "beat_number": 1,
+            "beat_name": "two_protagonists",
+            "word_target": 300,
+            "description": "Two Protagonists: Emotional armor and fear",
+            "guidance": "Establish TWO EQUAL PROTAGONISTS - both have depth and agency. Each has a GHOST - a cycle of fear regarding intimacy. Their WEAKNESS is inability to love, emotional armor. They are fundamentally incomplete without each other but don't know it yet."
+        },
+        {
+            "beat_number": 2,
+            "beat_name": "the_gaze",
+            "word_target": 350,
+            "description": "The Gaze: Meeting and longing",
+            "guidance": "THE GAZE - the meeting, the first look. DESIRE awakens - they want this person but fear being vulnerable. Each sees something in the other that both attracts and threatens. Love ALLIES appear (friends giving advice, good and bad). The other person is also the OPPONENT - the one blocking their desire."
+        },
+        {
+            "beat_number": 3,
+            "beat_name": "the_scam",
+            "word_target": 400,
+            "description": "The Scam & Intimacy: Trying to love safely",
+            "guidance": "THE SCAM - each tries to get the other without being vulnerable themselves. Games, pretenses, protection of the heart. STEPS OF INTIMACY begin: Talking → Touching → (perhaps) Sex. Each step deeper increases both desire and fear."
+        },
+        {
+            "beat_number": 4,
+            "beat_name": "apparent_victory_defeat",
+            "word_target": 350,
+            "description": "Victory then Defeat: Perfect moment, then breakup",
+            "guidance": "APPARENT VICTORY - the perfect love moment, intimacy seems achieved. Then APPARENT DEFEAT - the breakup. The scam is exposed, fear wins, they push each other away. Both are devastated, forced to confront their inability to love."
+        },
+        {
+            "beat_number": 5,
+            "beat_name": "revelation_union",
+            "word_target": 200,
+            "description": "Self-Revelation & Union: Admitting need",
+            "guidance": "SELF-REVELATION - both admit their need for the other, their fear, their weakness. NEW EQUILIBRIUM - Union (romantic ending) or tragic separation (they've grown but can't be together). The key is vulnerability and authentic connection."
+        }
+    ]
+)
+
+TRUBY_LOVE_PREMIUM = BeatTemplate(
+    name="truby_love_premium",
+    genre="romance",
+    total_words=4500,
+    description="Full love story structure - two protagonists on parallel journeys to vulnerability",
+    beats=[
+        {
+            "beat_number": 1,
+            "beat_name": "protagonist_one",
+            "word_target": 350,
+            "description": "First Protagonist: Their ghost and armor",
+            "guidance": "Establish PROTAGONIST ONE - their life, their GHOST (past pain regarding intimacy), their emotional armor. They cannot love fully due to fear. Show their WEAKNESS - the specific way they push people away or protect themselves."
+        },
+        {
+            "beat_number": 2,
+            "beat_name": "protagonist_two",
+            "word_target": 350,
+            "description": "Second Protagonist: Their ghost and armor",
+            "guidance": "Establish PROTAGONIST TWO - equally developed with their own GHOST and armor. Their weakness should complement or clash with protagonist one. Both are incomplete without knowing it."
+        },
+        {
+            "beat_number": 3,
+            "beat_name": "the_gaze",
+            "word_target": 350,
+            "description": "The Gaze: The meeting",
+            "guidance": "THE GAZE - the first meeting, the look that changes everything. Something sparks between them. DESIRE awakens in both - they want this person. But wanting means risking vulnerability, which triggers their armor."
+        },
+        {
+            "beat_number": 4,
+            "beat_name": "desire_opponent",
+            "word_target": 400,
+            "description": "Desire & Opposition: They want and block each other",
+            "guidance": "The other person is both the DESIRE and the OPPONENT. They want each other but each blocks the other's emotional progress. Love ALLIES appear - friends giving advice (some good, some bad). External obstacles may also interfere."
+        },
+        {
+            "beat_number": 5,
+            "beat_name": "the_scam",
+            "word_target": 400,
+            "description": "The Scam: Trying to love without vulnerability",
+            "guidance": "THE SCAM - each tries to get the other without being truly vulnerable. Games, pretenses, half-truths, protection of the heart. They're falling in love but pretending they're not, or pretending it's casual."
+        },
+        {
+            "beat_number": 6,
+            "beat_name": "intimacy_steps",
+            "word_target": 450,
+            "description": "Steps of Intimacy: Getting closer",
+            "guidance": "STEPS OF INTIMACY - Talking → Touching → deeper connection. Each step increases both desire and fear. Moments of genuine connection break through the armor. The first dance, first kiss, first real conversation."
+        },
+        {
+            "beat_number": 7,
+            "beat_name": "apparent_victory",
+            "word_target": 400,
+            "description": "Apparent Victory: The perfect moment",
+            "guidance": "APPARENT VICTORY - the perfect love moment. They seem to have achieved intimacy and happiness. The armor seems down. This is the 'happily ever after' moment that comes too early - because the real work hasn't been done."
+        },
+        {
+            "beat_number": 8,
+            "beat_name": "apparent_defeat",
+            "word_target": 450,
+            "description": "Apparent Defeat: The breakup",
+            "guidance": "APPARENT DEFEAT - the breakup. The scam is exposed, the armor snaps back, fear wins. They push each other away, often saying hurtful things. External obstacles may combine with internal ones. Both are devastated."
+        },
+        {
+            "beat_number": 9,
+            "beat_name": "dark_night",
+            "word_target": 350,
+            "description": "Dark Night: Confronting inability to love",
+            "guidance": "The dark night of the soul - both protagonists must confront their GHOST and their inability to love. They see how their armor has hurt them and the other. The choice: remain safe and alone, or risk everything."
+        },
+        {
+            "beat_number": 10,
+            "beat_name": "self_revelation",
+            "word_target": 350,
+            "description": "Self-Revelation: Admitting the need",
+            "guidance": "SELF-REVELATION - one or both admit their need for the other, their fear, their weakness. This requires true vulnerability - saying 'I love you' or 'I was wrong' without knowing if it will be returned."
+        },
+        {
+            "beat_number": 11,
+            "beat_name": "new_equilibrium",
+            "word_target": 350,
+            "description": "New Equilibrium: Union or tragic separation",
+            "guidance": "NEW EQUILIBRIUM - Union (romantic ending, they're together having both grown) or tragic separation (they've grown but circumstances keep them apart). Either way, both are changed. Love has taught them to be vulnerable."
+        }
+    ]
+)
+
+# THRILLER - Mix of Horror, Action, and Crime
+# Key: Hero under suspicion, being hunted, attack focus, must clear name
+TRUBY_THRILLER_SHORT = BeatTemplate(
+    name="truby_thriller_short",
+    genre="thriller",
+    total_words=1800,
+    description="Thriller combining horror dread, action pace, and crime investigation",
+    beats=[
+        {
+            "beat_number": 1,
+            "beat_name": "ordinary_shattered",
+            "word_target": 300,
+            "description": "Ordinary World Shattered: The attack comes",
+            "guidance": "The hero's ordinary world is SHATTERED by an attack or threat. They may be UNDER SUSPICION - wrongly accused or framed. From HORROR: the dread, the sense of being hunted. From CRIME: the mystery of who's behind it. The hero must clear their name while being hunted."
+        },
+        {
+            "beat_number": 2,
+            "beat_name": "hunted",
+            "word_target": 400,
+            "description": "The Hunted: Running and investigating",
+            "guidance": "The hero is HUNTED - by the villain, by authorities, by both. From ACTION: rapid pacing, physical danger. They must investigate while on the run. Every ally is suspect. Trust becomes impossible. The clock is ticking toward some deadline."
+        },
+        {
+            "beat_number": 3,
+            "beat_name": "revelations_attacks",
+            "word_target": 450,
+            "description": "Revelations & Attacks: Truth emerges through danger",
+            "guidance": "Truth emerges through ATTACKS and narrow escapes. Each revelation raises the stakes. From HORROR: the villain's plan is monstrous. From CRIME: the conspiracy goes deeper than imagined. The hero discovers their own connection to the threat."
+        },
+        {
+            "beat_number": 4,
+            "beat_name": "final_trap",
+            "word_target": 350,
+            "description": "Final Trap & Counterattack: Turn the tables",
+            "guidance": "The hero is trapped but TURNS THE TABLES. Using everything they've learned, they set their own trap. From ACTION: the hero becomes the hunter. The villain's identity and full plan are exposed. Confrontation is inevitable."
+        },
+        {
+            "beat_number": 5,
+            "beat_name": "climax_clearance",
+            "word_target": 200,
+            "description": "Climax & Clearance: Vindication or pyrrhic victory",
+            "guidance": "Climactic confrontation with the villain. The hero is CLEARED of suspicion and defeats the threat. But from HORROR: victory may be incomplete or costly. The world is saved but the hero is changed, possibly damaged."
+        }
+    ]
+)
+
+TRUBY_THRILLER_PREMIUM = BeatTemplate(
+    name="truby_thriller_premium",
+    genre="thriller",
+    total_words=4500,
+    description="Full thriller structure - hunted hero combining horror, action, and crime elements",
+    beats=[
+        {
+            "beat_number": 1,
+            "beat_name": "ordinary_world",
+            "word_target": 350,
+            "description": "Ordinary World: Before the storm",
+            "guidance": "Establish the hero's ordinary world - their job, relationships, routine. They have a specific WEAKNESS or vulnerability that the coming events will exploit. Subtle hints of the threat to come."
+        },
+        {
+            "beat_number": 2,
+            "beat_name": "the_attack",
+            "word_target": 400,
+            "description": "The Attack: World shattered",
+            "guidance": "The ATTACK - the hero's world is violently disrupted. Someone close to them is killed, they witness something they shouldn't, or they're framed for a crime. From HORROR: the dread, the sense of malevolent force. Life will never be the same."
+        },
+        {
+            "beat_number": 3,
+            "beat_name": "under_suspicion",
+            "word_target": 350,
+            "description": "Under Suspicion: Hunted from all sides",
+            "guidance": "The hero is UNDER SUSPICION - the evidence points to them, or they're the only witness. Authorities pursue them. They can't trust the system. From CRIME: they must solve the mystery to clear their name. The clock starts ticking."
+        },
+        {
+            "beat_number": 4,
+            "beat_name": "running_investigating",
+            "word_target": 400,
+            "description": "Running & Investigating: Dual pressure",
+            "guidance": "The hero must RUN and INVESTIGATE simultaneously. From ACTION: rapid pacing, physical danger, narrow escapes. Every potential ally is suspect. The hero pieces together clues while evading capture."
+        },
+        {
+            "beat_number": 5,
+            "beat_name": "conspiracy_deepens",
+            "word_target": 400,
+            "description": "Conspiracy Deepens: It's bigger than imagined",
+            "guidance": "The CONSPIRACY is bigger than imagined. Powerful people are involved. The villain's plan has larger stakes - political, corporate, or existential. From CRIME: following the money or power trail. The hero is in over their head."
+        },
+        {
+            "beat_number": 6,
+            "beat_name": "attacks_escalate",
+            "word_target": 450,
+            "description": "Attacks Escalate: The villain strikes back",
+            "guidance": "The villain realizes the hero is getting close and ATTACKS escalate. From HORROR: the attacks become more personal, more brutal. Someone the hero cares about is threatened or killed. The hero's connection to the threat is revealed."
+        },
+        {
+            "beat_number": 7,
+            "beat_name": "all_seems_lost",
+            "word_target": 400,
+            "description": "All Seems Lost: Trapped and alone",
+            "guidance": "The hero is TRAPPED - captured, cornered, or out of options. Their evidence is destroyed or discredited. No one believes them. From HORROR: they face the villain's true monstrous nature. Death seems certain."
+        },
+        {
+            "beat_number": 8,
+            "beat_name": "turn_tables",
+            "word_target": 400,
+            "description": "Turn the Tables: The hunter becomes hunted",
+            "guidance": "The hero TURNS THE TABLES. Using everything they've learned, their hidden strength, or an overlooked clue, they escape and set their own trap. From ACTION: the hero becomes the hunter. They know the villain's plan."
+        },
+        {
+            "beat_number": 9,
+            "beat_name": "expose_villain",
+            "word_target": 350,
+            "description": "Expose the Villain: The truth comes out",
+            "guidance": "The hero works to EXPOSE the villain - gather proof that will clear their name and reveal the conspiracy. Race against the deadline. The villain tries to silence them one last time."
+        },
+        {
+            "beat_number": 10,
+            "beat_name": "climactic_confrontation",
+            "word_target": 400,
+            "description": "Climactic Confrontation: Face to face",
+            "guidance": "CLIMACTIC CONFRONTATION with the villain. This is physical (from ACTION), psychological (from HORROR), and revelatory (from CRIME). The hero defeats the villain through wit, will, and courage."
+        },
+        {
+            "beat_number": 11,
+            "beat_name": "clearance",
+            "word_target": 300,
+            "description": "Clearance: Vindicated but changed",
+            "guidance": "The hero is CLEARED - the truth is known, the conspiracy exposed. But from HORROR: victory is costly. The hero is changed, possibly damaged. The world is safer but trust is harder. Some mysteries may remain."
+        }
+    ]
+)
+
+# DETECTIVE - The Hunt for Truth
+# Key: The crime, investigation, interviews, the reveal, bringing to justice
+TRUBY_DETECTIVE_SHORT = BeatTemplate(
+    name="truby_detective_short",
+    genre="mystery",
+    total_words=1800,
+    description="Detective story as hunt for truth - investigation, interviews, revelation",
+    beats=[
+        {
+            "beat_number": 1,
+            "beat_name": "the_crime",
+            "word_target": 300,
+            "description": "The Crime: A mystery demands solving",
+            "guidance": "THE CRIME - a murder, theft, or mystery that demands solving. The detective is drawn in by duty, curiosity, or personal connection. Establish the detective's method and moral code. The crime scene holds the first clues."
+        },
+        {
+            "beat_number": 2,
+            "beat_name": "investigation_begins",
+            "word_target": 400,
+            "description": "Investigation & Interviews: Gathering suspects",
+            "guidance": "THE INVESTIGATION begins - examining evidence, questioning witnesses. INTERVIEWS reveal suspects, each with motive and opportunity. The detective pieces together the victim's world. Red herrings emerge. The truth is buried under lies."
+        },
+        {
+            "beat_number": 3,
+            "beat_name": "hunt_deepens",
+            "word_target": 450,
+            "description": "The Hunt Deepens: Following the trail",
+            "guidance": "The HUNT FOR TRUTH deepens. Following leads, connecting dots. The detective may face obstruction - from authority, from the guilty, from unexpected quarters. Second crime or complication raises stakes. The detective's personal code is tested."
+        },
+        {
+            "beat_number": 4,
+            "beat_name": "revelation",
+            "word_target": 350,
+            "description": "The Revelation: Truth uncovered",
+            "guidance": "THE REVELATION - the detective realizes the truth. Often through a detail that suddenly makes everything clear. The 'why' matters as much as the 'who.' The solution reveals something about human nature - greed, jealousy, desperation."
+        },
+        {
+            "beat_number": 5,
+            "beat_name": "justice",
+            "word_target": 200,
+            "description": "Bringing to Justice: The confrontation",
+            "guidance": "Confrontation with the guilty party. The detective explains how they solved it. JUSTICE - the guilty are exposed and face consequences. But justice may be imperfect or bittersweet. Truth has a cost."
+        }
+    ]
+)
+
+TRUBY_DETECTIVE_PREMIUM = BeatTemplate(
+    name="truby_detective_premium",
+    genre="mystery",
+    total_words=4500,
+    description="Full detective structure - methodical investigation leading to revelation",
+    beats=[
+        {
+            "beat_number": 1,
+            "beat_name": "the_crime",
+            "word_target": 400,
+            "description": "The Crime: The mystery presented",
+            "guidance": "THE CRIME - presented in full disturbing detail. A murder, disappearance, or mystery that demands solving. The crime scene tells a story but not the whole story. First clues are gathered but don't yet make sense."
+        },
+        {
+            "beat_number": 2,
+            "beat_name": "detective_called",
+            "word_target": 350,
+            "description": "Detective Called: Duty or obsession",
+            "guidance": "The DETECTIVE is drawn into the case - by duty, by curiosity, or by personal connection to the victim. Establish their METHOD and moral code. Their weakness may be obsession with truth, or personal demons. They see what others miss."
+        },
+        {
+            "beat_number": 3,
+            "beat_name": "victims_world",
+            "word_target": 350,
+            "description": "The Victim's World: Who they were",
+            "guidance": "Exploring THE VICTIM'S WORLD - who they were, who they knew, what secrets they held. The victim was not who they appeared. Multiple lives touched, multiple potential motives. The detective maps the relationships."
+        },
+        {
+            "beat_number": 4,
+            "beat_name": "interviews_suspects",
+            "word_target": 450,
+            "description": "Interviews & Suspects: Everyone lies",
+            "guidance": "INTERVIEWS with suspects - each has motive, means, and opportunity. Everyone lies about something. The detective must separate relevant lies from irrelevant ones. Red herrings emerge. First theory forms but it's wrong."
+        },
+        {
+            "beat_number": 5,
+            "beat_name": "following_leads",
+            "word_target": 400,
+            "description": "Following Leads: The hunt for truth",
+            "guidance": "FOLLOWING LEADS - the detective pursues promising threads. Some pan out, some don't. The truth is buried under layers of deception. Physical evidence must be matched with testimony. The detective's skill is tested."
+        },
+        {
+            "beat_number": 6,
+            "beat_name": "obstruction",
+            "word_target": 400,
+            "description": "Obstruction: Someone doesn't want truth found",
+            "guidance": "OBSTRUCTION - someone is actively preventing the truth from emerging. Could be the guilty party, someone protecting them, or someone with a different secret to hide. Evidence disappears. Witnesses recant. The detective is warned off."
+        },
+        {
+            "beat_number": 7,
+            "beat_name": "second_crime",
+            "word_target": 350,
+            "description": "Second Crime or Complication: Stakes rise",
+            "guidance": "A SECOND CRIME or major complication - another murder, the detective is framed, or a key witness dies. Stakes rise. The detective is getting close enough to threaten the guilty. Time pressure increases."
+        },
+        {
+            "beat_number": 8,
+            "beat_name": "code_tested",
+            "word_target": 350,
+            "description": "Code Tested: Temptation to compromise",
+            "guidance": "The detective's moral CODE is tested - they're tempted to bend rules, hide evidence, or pursue personal justice. The right thing and the easy thing diverge. They must choose who they are."
+        },
+        {
+            "beat_number": 9,
+            "beat_name": "revelation",
+            "word_target": 400,
+            "description": "The Revelation: Everything clicks",
+            "guidance": "THE REVELATION - often through a small detail that suddenly makes everything clear. The detective sees the pattern they've been missing. Not just 'who' but 'why' - the psychological truth behind the crime."
+        },
+        {
+            "beat_number": 10,
+            "beat_name": "confrontation",
+            "word_target": 400,
+            "description": "Confrontation: Accusing the guilty",
+            "guidance": "CONFRONTATION with the guilty party. The detective explains the chain of reasoning, the evidence, the motive. The guilty may confess, deny, or try to escape. The truth is spoken aloud."
+        },
+        {
+            "beat_number": 11,
+            "beat_name": "justice",
+            "word_target": 350,
+            "description": "Justice: Truth and consequences",
+            "guidance": "JUSTICE - but justice is complex. The guilty face legal consequences. But the truth has costs - relationships destroyed, innocence lost, lives changed. The detective solves the crime but may not feel victorious. Order is restored, but imperfectly."
+        }
+    ]
+)
+
+
 # ===== BEAT STRUCTURE REGISTRY =====
 # These are the selectable story structures
 
@@ -1455,6 +2266,61 @@ BEAT_STRUCTURES = {
         "best_for": ["All genres", "Genre-specific conventions", "Reader expectations"],
         "short_template": None,  # Uses genre-specific templates
         "premium_template": None  # Uses genre-specific templates
+    },
+    "bond_beats": {
+        "id": "bond_beats",
+        "name": "Bond Beats (Static Protagonist)",
+        "author": "Matt Darbro / FixionMail",
+        "description": "Static protagonist structure where the hero influences and changes the world while remaining unchanged themselves. Perfect for competent, unflappable protagonists.",
+        "best_for": ["Spy", "Action", "Thriller", "Competence porn", "Heist"],
+        "short_template": BOND_BEATS_SHORT,
+        "premium_template": BOND_BEATS_PREMIUM
+    },
+    # Truby Genre-Specific Beats (from The Anatomy of Genres)
+    "truby_horror": {
+        "id": "truby_horror",
+        "name": "Truby Horror (Philosophy of Death)",
+        "author": "John Truby",
+        "description": "Horror as confrontation with death. Hero is VICTIM, monster is the 'Other', NO positive self-revelation, double ending where evil returns.",
+        "best_for": ["Horror", "Supernatural", "Gothic", "Psychological horror"],
+        "short_template": TRUBY_HORROR_SHORT,
+        "premium_template": TRUBY_HORROR_PREMIUM
+    },
+    "truby_action": {
+        "id": "truby_action",
+        "name": "Truby Action (Philosophy of Success)",
+        "author": "John Truby",
+        "description": "Action as philosophy of will and success. Warrior's moral code, collecting allies, game plan leading to vortex battle.",
+        "best_for": ["Action", "Military", "Sports", "Underdog stories"],
+        "short_template": TRUBY_ACTION_SHORT,
+        "premium_template": TRUBY_ACTION_PREMIUM
+    },
+    "truby_love": {
+        "id": "truby_love",
+        "name": "Truby Love Story (Philosophy of Happiness)",
+        "author": "John Truby",
+        "description": "Love as dual-protagonist journey. TWO equal protagonists with emotional armor, the gaze, the scam, steps of intimacy, apparent defeat.",
+        "best_for": ["Romance", "Romantic comedy", "Drama", "Literary fiction"],
+        "short_template": TRUBY_LOVE_SHORT,
+        "premium_template": TRUBY_LOVE_PREMIUM
+    },
+    "truby_thriller": {
+        "id": "truby_thriller",
+        "name": "Truby Thriller (Mixed Genre)",
+        "author": "John Truby",
+        "description": "Thriller combining Horror (dread), Action (pace), and Crime (investigation). Hero under suspicion, hunted while investigating.",
+        "best_for": ["Thriller", "Suspense", "Conspiracy", "Political thriller"],
+        "short_template": TRUBY_THRILLER_SHORT,
+        "premium_template": TRUBY_THRILLER_PREMIUM
+    },
+    "truby_detective": {
+        "id": "truby_detective",
+        "name": "Truby Detective (Hunt for Truth)",
+        "author": "John Truby",
+        "description": "Detective story as methodical hunt for truth. The crime, investigation, interviews, revelation, and complex justice.",
+        "best_for": ["Mystery", "Detective", "Crime", "Noir"],
+        "short_template": TRUBY_DETECTIVE_SHORT,
+        "premium_template": TRUBY_DETECTIVE_PREMIUM
     }
 }
 
@@ -1543,6 +2409,128 @@ def get_structure_template(structure_id: str, tier: str = "free") -> BeatTemplat
         return structure.get("premium_template")
     else:
         return structure.get("short_template")
+
+
+# Genre to structure affinity mapping
+# Higher weight = better fit for that genre
+# Includes Truby genre-specific beats with highest affinity for their matching genres
+GENRE_STRUCTURE_AFFINITY = {
+    "sci-fi": {"heros_journey": 3, "save_the_cat": 2, "bond_beats": 2, "truby_beats": 1, "truby_action": 2},
+    "scifi": {"heros_journey": 3, "save_the_cat": 2, "bond_beats": 2, "truby_beats": 1, "truby_action": 2},
+    "fantasy": {"heros_journey": 4, "save_the_cat": 2, "truby_beats": 1, "bond_beats": 1},
+    "mystery": {"truby_detective": 5, "truby_beats": 2, "save_the_cat": 2, "bond_beats": 1, "heros_journey": 1},
+    "thriller": {"truby_thriller": 5, "bond_beats": 4, "save_the_cat": 2, "truby_beats": 1, "heros_journey": 1},
+    "romance": {"truby_love": 5, "save_the_cat": 3, "truby_beats": 2, "heros_journey": 1, "bond_beats": 1},
+    "horror": {"truby_horror": 5, "truby_beats": 2, "save_the_cat": 2, "heros_journey": 1, "bond_beats": 1},
+    "drama": {"truby_beats": 4, "truby_love": 2, "save_the_cat": 2, "heros_journey": 1, "bond_beats": 1},
+    "action": {"truby_action": 5, "bond_beats": 4, "save_the_cat": 3, "heros_journey": 2, "truby_beats": 1},
+    "western": {"heros_journey": 3, "truby_beats": 2, "save_the_cat": 2, "bond_beats": 2, "truby_action": 2},
+    "historical": {"truby_beats": 3, "heros_journey": 2, "save_the_cat": 2, "bond_beats": 1, "truby_love": 1},
+    "sitcom": {"save_the_cat": 4, "truby_beats": 1, "bond_beats": 1, "heros_journey": 1},
+    "comedy": {"save_the_cat": 4, "truby_beats": 1, "bond_beats": 1, "heros_journey": 1},
+    "crime": {"truby_detective": 4, "truby_thriller": 3, "bond_beats": 2, "truby_beats": 1},
+    "noir": {"truby_detective": 4, "truby_thriller": 3, "truby_beats": 2, "bond_beats": 1},
+    "suspense": {"truby_thriller": 5, "bond_beats": 3, "save_the_cat": 2, "truby_detective": 2},
+    "spy": {"bond_beats": 5, "truby_thriller": 3, "truby_action": 2, "save_the_cat": 1},
+}
+
+
+def select_varied_structure(
+    genre: str,
+    recent_structures: List[str] = None,
+    exclude_classic: bool = True
+) -> str:
+    """
+    Select a beat structure that provides variety.
+
+    Avoids recently used structures and weights by genre affinity.
+
+    Args:
+        genre: Current story genre
+        recent_structures: List of recently used structure IDs (most recent last)
+        exclude_classic: If True, don't return "classic" (use genre-specific instead)
+
+    Returns:
+        Structure ID (e.g., "bond_beats", "heros_journey")
+    """
+    import random
+
+    recent_structures = recent_structures or []
+
+    # Get all available structures (excluding classic if requested)
+    available = [sid for sid in BEAT_STRUCTURES.keys() if not (exclude_classic and sid == "classic")]
+
+    # Remove structures used in the last 2 stories (to ensure variety)
+    recently_used = set(recent_structures[-2:]) if recent_structures else set()
+    candidates = [s for s in available if s not in recently_used]
+
+    # If all structures were recently used, use all of them
+    if not candidates:
+        candidates = available
+
+    # Get genre affinity weights
+    genre_lower = genre.lower().replace("-", "").replace("_", "")
+    affinity = GENRE_STRUCTURE_AFFINITY.get(genre_lower, {})
+
+    # Build weighted list
+    weighted_candidates = []
+    for structure_id in candidates:
+        weight = affinity.get(structure_id, 1)  # Default weight of 1
+        weighted_candidates.extend([structure_id] * weight)
+
+    # Random selection from weighted list
+    if weighted_candidates:
+        selected = random.choice(weighted_candidates)
+    else:
+        selected = random.choice(candidates) if candidates else "save_the_cat"
+
+    return selected
+
+
+def get_structure_for_story(
+    story_bible: Dict[str, Any],
+    tier: str = "free"
+) -> tuple[str, BeatTemplate]:
+    """
+    Get the best beat structure for a story, considering variety.
+
+    If user has set a specific beat_structure, use that.
+    Otherwise, auto-select for variety based on recent history.
+
+    Args:
+        story_bible: User's story bible with history
+        tier: User tier (free or premium)
+
+    Returns:
+        Tuple of (structure_id, BeatTemplate)
+    """
+    genre = story_bible.get("genre", "sci-fi")
+    user_structure = story_bible.get("beat_structure")
+
+    # If user explicitly set a structure (not "auto" or "classic"), use it
+    if user_structure and user_structure not in ("auto", "classic", ""):
+        template = get_structure_template(user_structure, tier)
+        if template:
+            return (user_structure, template)
+
+    # Auto-select for variety
+    story_history = story_bible.get("story_history", {})
+    recent_structures = story_history.get("recent_beat_structures", [])
+
+    selected_id = select_varied_structure(
+        genre=genre,
+        recent_structures=recent_structures,
+        exclude_classic=True
+    )
+
+    template = get_structure_template(selected_id, tier)
+
+    # Fall back to genre template if structure template not available
+    if not template:
+        template = get_template(genre, tier)
+        return ("classic", template)
+
+    return (selected_id, template)
 
 
 # ===== TEMPLATE REGISTRY =====

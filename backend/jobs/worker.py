@@ -149,6 +149,7 @@ class StoryWorker:
                 raise Exception(result.get("error", "Unknown generation error"))
 
             story = result["story"]
+            updated_bible = result.get("updated_bible", story_bible)  # Get updated bible with name registry
 
             # Update progress: Saving to database
             await self.job_service.update_status(
@@ -167,6 +168,7 @@ class StoryWorker:
                 from backend.database.users import UserService
                 from backend.database.credits import CreditService
                 from backend.database.deliveries import DeliveryService
+                from backend.storyteller.bible_enhancement import update_story_history
                 from backend.config import config
 
                 if config.supabase_configured:
@@ -174,14 +176,24 @@ class StoryWorker:
                     user = await user_service.get_by_email(user_email)
 
                     if user:
-                        # Save story to database
+                        # Update story history in the bible (tracks titles, summaries, etc.)
+                        story_metadata = story.get("metadata", {})
+                        updated_bible = update_story_history(
+                            bible=updated_bible,
+                            story_summary=story_metadata.get("summary", story["title"]),
+                            plot_type=story_metadata.get("plot_type", "unknown"),
+                            story_title=story["title"],
+                            beat_structure=story_bible.get("beat_structure", "classic")
+                        )
+
+                        # Save story to database (with updated bible)
                         story_service = StoryService()
                         saved_story = await story_service.create(
                             user_id=user["id"],
                             title=story["title"],
                             narrative=story["narrative"],
                             genre=story["genre"],
-                            story_bible=story_bible,
+                            story_bible=updated_bible,
                             model_used=writer_model,
                             word_count=story.get("word_count"),
                             beat_structure=story_bible.get("beat_structure"),
@@ -190,6 +202,18 @@ class StoryWorker:
                             credits_used=1 if user_tier != "free" else 0,
                         )
                         story_id = saved_story.get("id")
+
+                        # CRITICAL: Save updated bible back to user for future story generation
+                        # This persists: recent_titles, recent_summaries, used_names, etc.
+                        try:
+                            await user_service.update_story_bible(user["id"], updated_bible)
+                            logger.info(
+                                "Story bible updated with history",
+                                user_id=user["id"],
+                                recent_titles_count=len(updated_bible.get("story_history", {}).get("recent_titles", []))
+                            )
+                        except Exception as bible_error:
+                            logger.error(f"Failed to update story bible: {bible_error}", error=str(bible_error))
 
                         # Deduct credits if enabled
                         if config.ENABLE_CREDIT_SYSTEM and user_tier != "free":
