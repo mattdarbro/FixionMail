@@ -31,6 +31,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 from backend.database.users import UserService
 from backend.database.stories import StoryService
 from backend.database.jobs import JobQueueService
+from backend.storyteller.bible_enhancement import get_genre_config
 from backend.utils.logging import get_logger
 
 logger = get_logger("daily_scheduler")
@@ -245,7 +246,20 @@ class DailyStoryScheduler:
 
         # Build story bible from user preferences
         story_bible = user.get("story_bible", {})
-        story_bible["genre"] = user.get("current_genre", "mystery")
+        current_genre = user.get("current_genre", "mystery")
+        story_bible["genre"] = current_genre
+
+        # CRITICAL: Regenerate genre_config from current genre
+        # This ensures genre changes take effect (character persistence, setting variation, etc.)
+        # Without this, stale genre_config from original bible would be used
+        genre_cfg = get_genre_config(current_genre)
+        story_bible["genre_config"] = {
+            "genre_key": current_genre,
+            "label": genre_cfg["label"],
+            "characters": genre_cfg["characters"],  # "user" (recurring) or "ai" (fresh)
+            "setting": genre_cfg["setting"],        # "same" or "different"
+            "world": genre_cfg["world"],            # "same" or "different"
+        }
 
         # Add protagonist if available
         if user.get("current_protagonist"):

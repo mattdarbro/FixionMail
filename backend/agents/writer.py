@@ -202,11 +202,12 @@ class WriterAgent:
         genre_config = story_bible.get("genre_config", {})
         story_settings = story_bible.get("story_settings", {})
 
-        # Handle characters
-        has_recurring_chars = genre_config.get("characters") == "user" or "protagonist" in story_bible
-        protagonist = story_bible.get("protagonist", story_bible.get("character_template", {}))
-        supporting = story_bible.get("supporting_characters", story_bible.get("supporting_cast_template", []))
-        main_characters = story_bible.get("main_characters", [])
+        # Handle characters - genre_config is the authority for whether to use recurring characters
+        # This ensures genre changes take effect (e.g., switching from detective to cozy uses fresh chars)
+        has_recurring_chars = genre_config.get("characters") == "user"
+        protagonist = story_bible.get("protagonist", story_bible.get("character_template", {})) if has_recurring_chars else {}
+        supporting = story_bible.get("supporting_characters", story_bible.get("supporting_cast_template", [])) if has_recurring_chars else []
+        main_characters = story_bible.get("main_characters", []) if has_recurring_chars else []
 
         # Check if we have SSBA-structured beats or generic template
         is_structured = self._is_structured_beat_plan(beat_template)

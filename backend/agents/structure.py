@@ -307,10 +307,12 @@ class StructureAgent:
         tone = story_bible.get("tone", "")
         themes = story_bible.get("themes", [])
 
-        # Characters
-        protagonist = story_bible.get("protagonist", story_bible.get("character_template", {}))
-        supporting = story_bible.get("supporting_characters", [])
-        main_characters = story_bible.get("main_characters", [])
+        # Characters - only use recurring characters if genre_config says so
+        # This ensures genre changes take effect (e.g., switching from detective to cozy uses fresh chars)
+        has_recurring_chars = genre_config.get("characters") == "user"
+        protagonist = story_bible.get("protagonist", story_bible.get("character_template", {})) if has_recurring_chars else {}
+        supporting = story_bible.get("supporting_characters", []) if has_recurring_chars else []
+        main_characters = story_bible.get("main_characters", []) if has_recurring_chars else []
 
         # Story settings
         story_settings = story_bible.get("story_settings", {})
