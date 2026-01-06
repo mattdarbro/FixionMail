@@ -294,9 +294,15 @@ async def generate_story_image(
             print("  ⏭️  REPLICATE_API_TOKEN not set, skipping image generation")
             return None
 
-        # Build a descriptive prompt WITHOUT text (to avoid gibberish letters)
+        # Build a descriptive prompt that emphasizes visual art WITHOUT text
+        # Using positive framing ("painterly", "wordless") works better than negation ("no text")
         base_prompt = f"{genre} story cover art, {story_premise}, atmospheric scene"
-        enhanced_prompt = f"{base_prompt}, cinematic lighting, high quality, detailed, professional illustration, no text, no letters, no words"
+        enhanced_prompt = (
+            f"{base_prompt}, cinematic lighting, high quality, detailed, "
+            f"painterly illustration style, wordless visual narrative, pure scenic artwork, "
+            f"clean composition, artistic book cover without typography, "
+            f"focus on mood and atmosphere, evocative imagery"
+        )
 
         print(f"  Image prompt: {enhanced_prompt[:100]}...")
 
