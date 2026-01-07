@@ -253,19 +253,21 @@ export function OnboardingPage() {
     const prompts: Record<string, string> = {
       mystery: "Excellent choice! Now, every good mystery needs a sharp detective - or at least someone who stumbles into trouble. Tell me about your protagonist. What's their name? What do they do? And most importantly... do they have any peculiar habits that might come in handy when solving crimes?",
       romance: "Ah, romance! My favorite. Now, who's our romantic lead? Give me a name, an age, maybe what they do for work. And tell me - are they the hopeless romantic type, or the 'love is just a chemical reaction' skeptic who's about to be proven deliciously wrong?",
-      thriller: "Now we're talking! High stakes, heart-pounding action. But first, our protagonist - the one who's going to be running for their life. Who are they? What's their name, their background? Are they trained for danger, or an ordinary person about to have a very bad day?",
-      scifi: "To infinity and beyond! Well, maybe not that far. But we do need a protagonist for our cosmic adventure. Who's piloting this ship? Give me a name, maybe their role on the crew, and tell me - are they an idealist or a cynic about humanity's future among the stars?",
+      comedy: "Comedy! Get ready to laugh. Now, every great comedy needs a lovable protagonist who gets into hilarious situations. Tell me about them - what's their name, what do they do, and what kind of trouble do they usually find themselves in?",
       fantasy: "Now for the hero of our tale! Every great fantasy needs a worthy protagonist. Who shall carry our story? A name, perhaps a trade or calling, and tell me - do they know they're destined for greatness, or are they blissfully unaware of the adventure awaiting them?",
-      horror: "Oh, this is going to be fun. For you, not so much for our protagonist. Speaking of which - who's our unfortunate hero? Name, occupation, and most importantly - are they the brave type who investigates strange noises, or the sensible sort who knows when to run?",
-      literary: "Ah, the thinking person's genre. Our protagonist should be complex, layered. Who are they? Beyond just a name and job, tell me - what drives them? What keeps them up at night? What truth are they running from or toward?",
-      adventure: "Adventure awaits! But first, our intrepid hero. Who's brave enough (or foolish enough) to seek fortune and glory? Give me a name, their skillset, and tell me - are they in it for the treasure, the thrill, or something they won't admit even to themselves?",
+      scifi: "To infinity and beyond! Well, maybe not that far. But we do need a protagonist for our cosmic adventure. Who's piloting this ship? Give me a name, maybe their role on the crew, and tell me - are they an idealist or a cynic about humanity's future among the stars?",
+      cozy: "Cozy vibes! Perfect for unwinding. Now, who's the heart of our warm and comforting stories? Tell me their name, what they do, and what makes them the kind of person you'd want to share a cup of tea with.",
+      western: "Saddle up, partner! The frontier awaits. Who's our hero riding into the sunset? Give me a name, their role in the wild west, and tell me - are they a lawman, an outlaw, or something in between?",
+      action: "Action-packed adventures ahead! But first, our hero. Who's brave enough to face danger head-on? Tell me their name, their skills, and whether they're a trained professional or someone who rises to the occasion.",
+      historical: "A journey through time! Our protagonist will bring history to life. Who are they? Give me a name, their place in history, and what era you'd like to explore through their eyes.",
+      strange_fables: "Strange and wonderful tales await! Our protagonist will encounter the unexpected. Tell me about them - their name, their ordinary life that's about to get very unusual, and how open they are to the impossible.",
     };
 
     return prompts[selectedGenre || ''] || prompts.mystery;
   };
 
   const getPreferencesPrompt = (): string => {
-    return `Perfect! ${protagonist.name} sounds like exactly the kind of character our writers love to work with. Just a few more details - when would you like your stories delivered? I'll make sure the writers have them ready for you. And how long do you like your stories? Short and sweet, medium with a nice arc, or long enough to really get lost in?`;
+    return `Perfect! ${protagonist.name} sounds like exactly the kind of character our writers love to work with. Just a few more details - when would you like your stories delivered? I'll make sure the writers have them ready for you. And how long do you like your stories? A quick read for busy days, or a standard length to really get into the narrative?`;
   };
 
   const getCompletionMessage = (): string => {
@@ -450,9 +452,8 @@ export function OnboardingPage() {
                       onChange={(e) => setPreferences((p) => ({ ...p, story_length: e.target.value }))}
                       className="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
                     >
-                      <option value="short">Short (~1,000 words) - 5 min read</option>
-                      <option value="medium">Medium (~2,000 words) - 10 min read</option>
-                      <option value="long">Long (~3,500 words) - 15 min read</option>
+                      <option value="short">Quick Read (~1,500 words) - 5 min read</option>
+                      <option value="medium">Standard (~3,000 words) - 12 min read</option>
                     </select>
                   </div>
                   <div>

@@ -9,6 +9,7 @@ and waiting, this worker just handles the email timing.
 """
 
 import os
+import asyncio
 import resend
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any
@@ -68,8 +69,12 @@ class DeliveryWorker:
 
             logger.info(f"Processing due deliveries", count=len(due_deliveries))
 
-            for delivery in due_deliveries:
+            for i, delivery in enumerate(due_deliveries):
                 await self._send_delivery(delivery)
+                # Rate limit: Resend allows max 2 requests/second
+                # Add 0.6s delay between sends to stay safely under limit
+                if i < len(due_deliveries) - 1:
+                    await asyncio.sleep(0.6)
 
         except Exception as e:
             logger.error(f"Delivery worker error: {e}", error=str(e))
