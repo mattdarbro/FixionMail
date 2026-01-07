@@ -74,7 +74,7 @@ const STEP_LABELS: Record<string, string> = {
 };
 
 export function DashboardPage() {
-  const { user, session, signOut } = useAuth();
+  const { user, session, signOut, refreshUser } = useAuth();
   const navigate = useNavigate();
   const [recentStories, setRecentStories] = useState<Story[]>([]);
   const [totalStories, setTotalStories] = useState(0);
@@ -83,6 +83,7 @@ export function DashboardPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [activity, setActivity] = useState<JobActivityItem[]>([]);
   const [showActivity, setShowActivity] = useState(false);
+  const [isUpgrading, setIsUpgrading] = useState(false);
 
   const fetchStatus = useCallback(async () => {
     if (!session?.access_token) return;
@@ -196,6 +197,37 @@ export function DashboardPage() {
       alert(err instanceof Error ? err.message : 'Failed to generate story');
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const handleUpgrade = async () => {
+    if (!session?.access_token || isUpgrading) return;
+
+    setIsUpgrading(true);
+    try {
+      const response = await fetch('/api/users/upgrade-to-premium', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.detail || 'Failed to upgrade');
+      }
+
+      // Refresh user data to reflect new subscription status
+      if (refreshUser) {
+        await refreshUser();
+      }
+
+      alert('Welcome to Premium! You now have 30 credits per month.');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to upgrade');
+    } finally {
+      setIsUpgrading(false);
     }
   };
 
@@ -395,20 +427,47 @@ export function DashboardPage() {
             </div>
           </button>
 
-          {/* Subscription - Coming Soon */}
-          <div className="bg-white rounded-2xl shadow-lg p-6 text-left border-2 border-dashed border-stone-200">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-stone-100 rounded-xl flex items-center justify-center text-3xl opacity-50">
-                💳
+          {/* Subscription / Upgrade */}
+          {user.subscription_status === 'trial' ? (
+            <button
+              onClick={handleUpgrade}
+              disabled={isUpgrading}
+              className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl shadow-lg p-6 text-left hover:from-emerald-600 hover:to-teal-700 transition-all hover:scale-[1.02] group disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 bg-white/20 rounded-xl flex items-center justify-center text-3xl">
+                  {isUpgrading ? (
+                    <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    '✨'
+                  )}
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-xl font-bold text-white">Upgrade to Premium</h3>
+                  <p className="text-emerald-100 text-sm mt-1">
+                    {user.credits} trial credits left - Go unlimited!
+                  </p>
+                </div>
+                <svg className="w-6 h-6 text-white/70 group-hover:text-white group-hover:translate-x-1 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
               </div>
-              <div className="flex-1">
-                <h3 className="text-xl font-bold text-stone-400">Subscription</h3>
-                <p className="text-stone-400 text-sm mt-1">
-                  Coming soon
-                </p>
+            </button>
+          ) : (
+            <div className="bg-white rounded-2xl shadow-lg p-6 text-left border-2 border-emerald-200">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 bg-emerald-100 rounded-xl flex items-center justify-center text-3xl">
+                  💎
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-xl font-bold text-emerald-700">Premium Active</h3>
+                  <p className="text-stone-500 text-sm mt-1">
+                    {user.credits} credits this month
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Quick Stats */}

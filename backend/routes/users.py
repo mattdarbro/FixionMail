@@ -342,3 +342,50 @@ async def delete_account(user_id: str = Depends(get_current_user_id)):
         status_code=501,
         detail="Account deletion not yet implemented. Please contact support."
     )
+
+
+# =============================================================================
+# Upgrade Routes (Temporary - will be replaced with Stripe integration)
+# =============================================================================
+
+@router.post("/upgrade-to-premium")
+async def upgrade_to_premium(
+    user: dict = Depends(get_current_user),
+    user_id: str = Depends(get_current_user_id)
+):
+    """
+    Upgrade user from trial to premium.
+
+    This is a temporary endpoint for testing. In production, this will be
+    replaced with proper Stripe payment integration.
+    """
+    if user["subscription_status"] == "active":
+        raise HTTPException(
+            status_code=400,
+            detail="You already have an active subscription"
+        )
+
+    user_service = UserService()
+    credit_service = CreditService()
+
+    # Update subscription status to active
+    await user_service.update_subscription(
+        user_id,
+        status="active",
+        tier="monthly",
+    )
+
+    # Add 30 credits for the month
+    await credit_service.add_credits(
+        user_id,
+        amount=30,
+        transaction_type="subscription",
+        description="Premium subscription - 30 monthly credits"
+    )
+
+    return {
+        "status": "success",
+        "message": "Upgraded to premium! You now have 30 credits per month.",
+        "subscription_status": "active",
+        "subscription_tier": "monthly",
+    }
