@@ -283,12 +283,30 @@ class StoryWorker:
                         )
                         delivery_scheduled = True
 
+                        # Update last_story_at ONLY for daily scheduled stories
+                        # Manual stories are "extras" and don't block the next scheduled story
+                        is_daily = settings.get("is_daily", False)
+                        if is_daily:
+                            try:
+                                await user_service.record_story_delivery(user["id"])
+                                logger.info(
+                                    "Updated last_story_at for daily story",
+                                    user_id=user["id"],
+                                    story_id=story_id
+                                )
+                            except Exception as record_error:
+                                logger.warning(
+                                    f"Failed to update last_story_at: {record_error}",
+                                    user_id=user["id"]
+                                )
+
                         logger.info(
                             f"Story saved and delivery scheduled",
                             story_id=story_id,
                             deliver_at=deliver_at.isoformat(),
                             timezone=user_timezone,
-                            immediate=immediate_delivery
+                            immediate=immediate_delivery,
+                            is_daily=is_daily
                         )
                     else:
                         logger.warning(f"User not found, story not saved", email=user_email)

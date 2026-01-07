@@ -291,6 +291,10 @@ class DailyStoryScheduler:
             "timezone": user_timezone,
             # If True, email is sent immediately after generation (for manual admin triggers)
             "immediate_delivery": immediate_delivery,
+            # IMPORTANT: Marks this as a scheduled daily story (vs manual generation)
+            # Only daily stories update last_story_at to prevent duplicate daily deliveries
+            # Manual stories are "extras" and don't block the next scheduled story
+            "is_daily": True,
         }
 
         # Create job
@@ -304,8 +308,8 @@ class DailyStoryScheduler:
             user_id=user_id
         )
 
-        # Update user's last_story_at to prevent duplicate deliveries
-        await self.user_service.record_story_delivery(user_id)
+        # NOTE: last_story_at is now updated in worker.py AFTER successful story generation
+        # This prevents blocking future stories if the job fails
 
         logger.info(f"Queued daily story", email=user_email, job_id=job_id)
 

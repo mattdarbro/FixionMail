@@ -33,6 +33,21 @@ interface DashboardStatus {
   has_pending_story: boolean;
 }
 
+interface JobActivityItem {
+  job_id: string;
+  status: string;
+  current_step?: string;
+  progress_percent: number;
+  genre?: string;
+  title?: string;
+  error_message?: string;
+  is_daily: boolean;
+  created_at: string;
+  started_at?: string;
+  completed_at?: string;
+  generation_time_seconds?: number;
+}
+
 const GENRE_ICONS: Record<string, string> = {
   mystery: '🔍',
   romance: '💕',
@@ -66,6 +81,8 @@ export function DashboardPage() {
   const [isLoadingStories, setIsLoadingStories] = useState(true);
   const [status, setStatus] = useState<DashboardStatus | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [activity, setActivity] = useState<JobActivityItem[]>([]);
+  const [showActivity, setShowActivity] = useState(false);
 
   const fetchStatus = useCallback(async () => {
     if (!session?.access_token) return;
@@ -119,6 +136,25 @@ export function DashboardPage() {
       // Silent fail for stories
     } finally {
       setIsLoadingStories(false);
+    }
+  };
+
+  const fetchActivity = async () => {
+    if (!session?.access_token) return;
+
+    try {
+      const response = await fetch('/api/stories/activity?limit=20', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setActivity(data.jobs);
+      }
+    } catch {
+      // Silent fail for activity
     }
   };
 
@@ -417,6 +453,103 @@ export function DashboardPage() {
                 Your first story will arrive at your scheduled delivery time.
               </p>
             </div>
+          )}
+        </div>
+
+        {/* Activity Log */}
+        <div className="mt-8 bg-white rounded-2xl shadow-lg p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xl font-bold text-stone-800">Job Activity Log</h3>
+            <button
+              onClick={() => {
+                setShowActivity(!showActivity);
+                if (!showActivity) fetchActivity();
+              }}
+              className="text-sm text-amber-600 hover:text-amber-700 font-medium"
+            >
+              {showActivity ? 'Hide' : 'Show'} Activity →
+            </button>
+          </div>
+
+          {showActivity && (
+            <div className="space-y-2 max-h-96 overflow-y-auto">
+              {activity.length === 0 ? (
+                <p className="text-stone-500 text-center py-4">No recent activity</p>
+              ) : (
+                activity.map((job) => (
+                  <div
+                    key={job.job_id}
+                    className={`p-3 rounded-lg border ${
+                      job.status === 'completed'
+                        ? 'bg-green-50 border-green-200'
+                        : job.status === 'failed'
+                        ? 'bg-red-50 border-red-200'
+                        : job.status === 'running'
+                        ? 'bg-blue-50 border-blue-200'
+                        : 'bg-stone-50 border-stone-200'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">
+                          {job.status === 'completed' ? '✅' :
+                           job.status === 'failed' ? '❌' :
+                           job.status === 'running' ? '⏳' : '📋'}
+                        </span>
+                        <div>
+                          <span className="font-medium text-stone-800">
+                            {job.title || job.genre || 'Story'}
+                          </span>
+                          <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${
+                            job.is_daily
+                              ? 'bg-blue-100 text-blue-700'
+                              : 'bg-amber-100 text-amber-700'
+                          }`}>
+                            {job.is_daily ? 'Daily' : 'Manual'}
+                          </span>
+                        </div>
+                      </div>
+                      <span className="text-xs text-stone-500">
+                        {formatDate(job.created_at)}
+                      </span>
+                    </div>
+
+                    <div className="mt-1 text-sm text-stone-600">
+                      <span className="capitalize">{job.status}</span>
+                      {job.current_step && job.status === 'running' && (
+                        <span> - {STEP_LABELS[job.current_step] || job.current_step}</span>
+                      )}
+                      {job.generation_time_seconds && (
+                        <span className="text-stone-400 ml-2">
+                          ({Math.round(job.generation_time_seconds)}s)
+                        </span>
+                      )}
+                    </div>
+
+                    {job.error_message && (
+                      <div className="mt-1 text-xs text-red-600 bg-red-100 p-2 rounded">
+                        {job.error_message}
+                      </div>
+                    )}
+
+                    {job.status === 'running' && (
+                      <div className="mt-2 bg-white/50 rounded-full h-1.5 overflow-hidden">
+                        <div
+                          className="bg-blue-500 h-full rounded-full transition-all duration-500"
+                          style={{ width: `${job.progress_percent}%` }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+          {!showActivity && (
+            <p className="text-stone-500 text-sm">
+              Click "Show Activity" to see recent story generation jobs and their status.
+            </p>
           )}
         </div>
 
