@@ -203,6 +203,10 @@ export function DashboardPage() {
   const handleUpgrade = async () => {
     if (!session?.access_token || isUpgrading) return;
 
+    // Prompt for access code
+    const accessCode = prompt('Enter your upgrade access code:');
+    if (!accessCode) return;
+
     setIsUpgrading(true);
     try {
       const response = await fetch('/api/users/upgrade-to-premium', {
@@ -211,6 +215,7 @@ export function DashboardPage() {
           'Authorization': `Bearer ${session.access_token}`,
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({ access_code: accessCode }),
       });
 
       if (!response.ok) {

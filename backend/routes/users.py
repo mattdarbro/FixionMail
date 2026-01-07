@@ -5,6 +5,7 @@ Handles user profile updates, preferences, story bible management,
 and account information.
 """
 
+import os
 from typing import Optional, Dict, Any, List
 
 from fastapi import APIRouter, HTTPException, Depends
@@ -348,17 +349,36 @@ async def delete_account(user_id: str = Depends(get_current_user_id)):
 # Upgrade Routes (Temporary - will be replaced with Stripe integration)
 # =============================================================================
 
+class UpgradeRequest(BaseModel):
+    """Request to upgrade with access code."""
+    access_code: str
+
+
+# Temporary upgrade code - change this to something secret!
+UPGRADE_ACCESS_CODE = os.getenv("UPGRADE_ACCESS_CODE", "FIXION2024")
+
+
 @router.post("/upgrade-to-premium")
 async def upgrade_to_premium(
+    request: UpgradeRequest,
     user: dict = Depends(get_current_user),
     user_id: str = Depends(get_current_user_id)
 ):
     """
-    Upgrade user from trial to premium.
+    Upgrade user from trial to premium with access code.
 
     This is a temporary endpoint for testing. In production, this will be
     replaced with proper Stripe payment integration.
+
+    Requires a valid access code to prevent unauthorized upgrades.
     """
+    # Verify access code
+    if request.access_code != UPGRADE_ACCESS_CODE:
+        raise HTTPException(
+            status_code=403,
+            detail="Invalid access code"
+        )
+
     if user["subscription_status"] == "active":
         raise HTTPException(
             status_code=400,
