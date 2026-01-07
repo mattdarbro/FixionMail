@@ -205,15 +205,36 @@ class StoryWorker:
 
                         # CRITICAL: Save updated bible back to user for future story generation
                         # This persists: recent_titles, recent_summaries, used_names, etc.
-                        try:
-                            await user_service.update_story_bible(user["id"], updated_bible)
-                            logger.info(
-                                "Story bible updated with history",
-                                user_id=user["id"],
-                                recent_titles_count=len(updated_bible.get("story_history", {}).get("recent_titles", []))
-                            )
-                        except Exception as bible_error:
-                            logger.error(f"Failed to update story bible: {bible_error}", error=str(bible_error))
+                        # Without this update, the next story may duplicate titles/content!
+                        bible_updated = False
+                        max_retries = 3
+                        for attempt in range(max_retries):
+                            try:
+                                await user_service.update_story_bible(user["id"], updated_bible)
+                                bible_updated = True
+                                logger.info(
+                                    "Story bible updated with history",
+                                    user_id=user["id"],
+                                    recent_titles_count=len(updated_bible.get("story_history", {}).get("recent_titles", [])),
+                                    attempt=attempt + 1
+                                )
+                                break
+                            except Exception as bible_error:
+                                if attempt < max_retries - 1:
+                                    logger.warning(
+                                        f"Story bible update attempt {attempt + 1} failed, retrying...",
+                                        error=str(bible_error),
+                                        user_id=user["id"]
+                                    )
+                                    await asyncio.sleep(1 * (attempt + 1))  # Exponential backoff
+                                else:
+                                    logger.error(
+                                        f"CRITICAL: Failed to update story bible after {max_retries} attempts. "
+                                        f"User may receive duplicate stories!",
+                                        error=str(bible_error),
+                                        user_id=user["id"],
+                                        story_title=story["title"]
+                                    )
 
                         # Deduct credits if enabled
                         if config.ENABLE_CREDIT_SYSTEM and user_tier != "free":
