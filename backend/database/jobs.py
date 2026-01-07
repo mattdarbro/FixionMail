@@ -114,7 +114,7 @@ class JobQueueService:
         """Get recent jobs, optionally filtered by email."""
         query = (
             self.client.table("story_jobs")
-            .select("job_id, status, current_step, progress_percent, created_at, completed_at, generation_time_seconds, user_email")
+            .select("job_id, status, current_step, progress_percent, created_at, started_at, completed_at, generation_time_seconds, user_email, settings, story_bible, result, error_message")
             .order("created_at", desc=True)
             .limit(limit)
         )

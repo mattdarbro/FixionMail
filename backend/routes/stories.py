@@ -98,6 +98,28 @@ class DashboardStatusResponse(BaseModel):
     has_pending_story: bool
 
 
+class JobActivityItem(BaseModel):
+    """A single job activity log entry."""
+    job_id: str
+    status: str
+    current_step: Optional[str] = None
+    progress_percent: int = 0
+    genre: Optional[str] = None
+    title: Optional[str] = None
+    error_message: Optional[str] = None
+    is_daily: bool = False
+    created_at: str
+    started_at: Optional[str] = None
+    completed_at: Optional[str] = None
+    generation_time_seconds: Optional[float] = None
+
+
+class JobActivityResponse(BaseModel):
+    """Recent job activity for the dashboard."""
+    jobs: List[JobActivityItem]
+    total: int
+
+
 # =============================================================================
 # Story List Routes
 # =============================================================================
@@ -210,6 +232,63 @@ async def get_dashboard_status(
         active_jobs=active_jobs,
         next_delivery=next_delivery,
         has_pending_story=len(active_jobs) > 0 or next_delivery is not None,
+    )
+
+
+@router.get("/activity", response_model=JobActivityResponse)
+async def get_job_activity(
+    limit: int = Query(default=20, le=50),
+    user_id: str = Depends(get_current_user_id)
+):
+    """
+    Get recent job activity for the dashboard.
+
+    Shows all recent jobs (pending, running, completed, failed) to give
+    visibility into what's happening with story generation.
+    """
+    job_service = JobQueueService()
+
+    # Get recent jobs for this user
+    recent_jobs = await job_service.get_recent_jobs(limit=limit)
+
+    # Filter to only this user's jobs and build response
+    jobs = []
+    for job in recent_jobs:
+        # Get settings to check if daily
+        settings = job.get("settings") or {}
+        job_user_id = settings.get("user_id")
+
+        # Only include this user's jobs
+        if job_user_id != user_id:
+            continue
+
+        # Try to get title from result
+        result = job.get("result") or {}
+        story_data = result.get("story") or {}
+        title = story_data.get("title")
+
+        # Get genre from story_bible
+        story_bible = job.get("story_bible") or {}
+        genre = story_bible.get("genre")
+
+        jobs.append(JobActivityItem(
+            job_id=job["job_id"],
+            status=job["status"],
+            current_step=job.get("current_step"),
+            progress_percent=job.get("progress_percent", 0),
+            genre=genre,
+            title=title,
+            error_message=job.get("error_message"),
+            is_daily=settings.get("is_daily", False),
+            created_at=job["created_at"],
+            started_at=job.get("started_at"),
+            completed_at=job.get("completed_at"),
+            generation_time_seconds=job.get("generation_time_seconds"),
+        ))
+
+    return JobActivityResponse(
+        jobs=jobs,
+        total=len(jobs)
     )
 
 
@@ -356,6 +435,8 @@ async def generate_story(
         "editor_model": "opus" if is_premium else "sonnet",
         "tts_voice": prefs.get("voice_id", "nova"),
         "dev_mode": False,
+        # Manual stories are "extras" - they don't block the next scheduled daily story
+        "is_daily": False,
     }
 
     # Queue the story
