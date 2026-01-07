@@ -351,6 +351,66 @@ export function DashboardPage() {
           </div>
         </div>
 
+        {/* Quick Actions - Prominent section for key user tasks */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          {/* Story Settings - Most prominent */}
+          <button
+            onClick={() => navigate('/settings')}
+            className="bg-gradient-to-br from-amber-500 to-orange-500 rounded-2xl shadow-lg p-6 text-left hover:from-amber-600 hover:to-orange-600 transition-all hover:scale-[1.02] group"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 bg-white/20 rounded-xl flex items-center justify-center text-3xl">
+                🎭
+              </div>
+              <div className="flex-1">
+                <h3 className="text-xl font-bold text-white">Story Settings</h3>
+                <p className="text-amber-100 text-sm mt-1">
+                  Genre, characters, intensity & more
+                </p>
+              </div>
+              <svg className="w-6 h-6 text-white/70 group-hover:text-white group-hover:translate-x-1 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
+          </button>
+
+          {/* Read Stories */}
+          <button
+            onClick={() => navigate('/stories')}
+            className="bg-white rounded-2xl shadow-lg p-6 text-left hover:bg-stone-50 transition-all hover:scale-[1.02] group border-2 border-stone-100 hover:border-amber-200"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 bg-amber-100 rounded-xl flex items-center justify-center text-3xl">
+                📚
+              </div>
+              <div className="flex-1">
+                <h3 className="text-xl font-bold text-stone-800">Your Stories</h3>
+                <p className="text-stone-500 text-sm mt-1">
+                  {totalStories > 0 ? `${totalStories} stories to read` : 'Stories will appear here'}
+                </p>
+              </div>
+              <svg className="w-6 h-6 text-stone-300 group-hover:text-amber-500 group-hover:translate-x-1 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
+          </button>
+
+          {/* Subscription - Coming Soon */}
+          <div className="bg-white rounded-2xl shadow-lg p-6 text-left border-2 border-dashed border-stone-200">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 bg-stone-100 rounded-xl flex items-center justify-center text-3xl opacity-50">
+                💳
+              </div>
+              <div className="flex-1">
+                <h3 className="text-xl font-bold text-stone-400">Subscription</h3>
+                <p className="text-stone-400 text-sm mt-1">
+                  Coming soon
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Quick Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="bg-white rounded-xl shadow-lg p-6">
