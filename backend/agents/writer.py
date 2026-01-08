@@ -366,13 +366,17 @@ Write the complete story now. Target exactly {total_words} words.
         if not recent_summaries and not recent_titles:
             return ""
 
-        context = "\n\n## RECENT STORIES (DO NOT REPEAT)\n\n"
+        context = "\n\n## ⚠️ CRITICAL: RECENT STORIES (DO NOT REPEAT) ⚠️\n\n"
 
-        # CRITICAL: Exclude recent titles to prevent duplicates like "The Thaw" 3x
+        # CRITICAL: Exclude recent titles to prevent duplicates
         if recent_titles:
             titles_text = ", ".join([f'"{t}"' for t in recent_titles[-10:]])
-            context += f"**TITLES TO AVOID (already used)**: {titles_text}\n\n"
-            context += "You MUST create a completely NEW, UNIQUE title. Do NOT reuse or slightly modify any title above.\n\n"
+            context += f"**🚫 FORBIDDEN TITLES (already used - DO NOT USE)**: {titles_text}\n\n"
+            context += "**HARD REQUIREMENT**: Your title MUST be completely different from ALL titles listed above.\n"
+            context += "- Do NOT use ANY of these titles, even with small modifications\n"
+            context += "- Do NOT use similar phrases or word patterns\n"
+            context += "- Create something FRESH and ORIGINAL\n"
+            context += "- If you use a forbidden title, the story will be REJECTED\n\n"
 
         if recent_summaries:
             history_text = "\n".join([f"  - {s}" for s in recent_summaries[-5:]])

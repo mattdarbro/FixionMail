@@ -25,7 +25,7 @@ except ImportError:
     PIL_AVAILABLE = False
     print("⚠️  PIL not available - title overlay disabled")
 from backend.storyteller.beat_templates import get_template, get_structure_template, get_structure_for_story
-from backend.storyteller.bible_enhancement import should_use_cliffhanger, should_include_cameo
+from backend.storyteller.bible_enhancement import should_use_cliffhanger, should_include_cameo, check_and_fix_duplicate_title
 from backend.storyteller.name_registry import (
     get_excluded_names,
     extract_names_from_story,
@@ -738,6 +738,13 @@ async def generate_standalone_story(
         print(f"  Word count: {word_count}")
         print(f"  Target: {template.total_words} (±15%)")
         print(f"  Quality: {'PASSED' if passed else 'NEEDS REVIEW'}")
+
+        # Step 6.5: Check for duplicate title (safety net)
+        # This catches duplicates even if the AI ignores the instruction
+        original_title = story_title
+        story_title = check_and_fix_duplicate_title(story_title, story_bible)
+        if story_title != original_title:
+            print(f"  Title changed from \"{original_title}\" to \"{story_title}\"")
 
         # Step 7: Generate cover image
         # In dev mode, ALWAYS generate for both free and premium (for testing)

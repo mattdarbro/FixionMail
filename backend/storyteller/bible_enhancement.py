@@ -566,6 +566,69 @@ def add_cameo_characters(bible: Dict[str, Any], cameos: list[Dict[str, str]]) ->
     return bible
 
 
+def check_and_fix_duplicate_title(
+    title: str,
+    bible: Dict[str, Any],
+    max_suffix: int = 10
+) -> str:
+    """
+    Check if a title is a duplicate and fix it if so.
+
+    This is a safety net to catch duplicate titles even if the AI
+    ignores the instruction to avoid them.
+
+    Args:
+        title: The generated title
+        bible: Story bible containing story_history
+        max_suffix: Maximum suffix number to try
+
+    Returns:
+        The original title if unique, or a modified unique title
+    """
+    history = bible.get("story_history", {})
+    recent_titles = history.get("recent_titles", [])
+
+    if not recent_titles:
+        return title
+
+    # Normalize titles for comparison (lowercase, strip)
+    normalized_recent = [t.lower().strip() for t in recent_titles]
+    normalized_title = title.lower().strip()
+
+    # Check if exact match
+    if normalized_title not in normalized_recent:
+        return title
+
+    # Title is a duplicate - try to make it unique
+    print(f"  ⚠️  Duplicate title detected: \"{title}\"")
+
+    # Strategy 1: Add "A New" prefix
+    new_title = f"A New {title}"
+    if new_title.lower().strip() not in normalized_recent:
+        print(f"  ✓ Fixed to: \"{new_title}\"")
+        return new_title
+
+    # Strategy 2: Add "Another" prefix
+    new_title = f"Another {title}"
+    if new_title.lower().strip() not in normalized_recent:
+        print(f"  ✓ Fixed to: \"{new_title}\"")
+        return new_title
+
+    # Strategy 3: Add numeric suffix
+    for i in range(2, max_suffix + 1):
+        new_title = f"{title} {i}"
+        if new_title.lower().strip() not in normalized_recent:
+            print(f"  ✓ Fixed to: \"{new_title}\"")
+            return new_title
+
+    # If all else fails, add timestamp
+    from datetime import datetime
+    timestamp = datetime.now().strftime("%H%M")
+    new_title = f"{title} ({timestamp})"
+    print(f"  ✓ Fixed to: \"{new_title}\"")
+    return new_title
+
+
 def update_story_history(
     bible: Dict[str, Any],
     story_summary: str,
