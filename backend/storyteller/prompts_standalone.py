@@ -5,7 +5,14 @@ These replace the chapter-based prompts for the daily story service.
 """
 
 import json
-from typing import Dict, Any
+from typing import Dict, Any, List, Optional
+
+# Import name database for culturally-appropriate name suggestions
+try:
+    from . import name_database
+    NAME_DATABASE_AVAILABLE = True
+except ImportError:
+    NAME_DATABASE_AVAILABLE = False
 
 
 def create_standalone_story_beat_prompt(
@@ -83,9 +90,11 @@ Adjust the story to match these preferences while staying true to the genre.
 
     # Excluded names context (to avoid repetition)
     excluded_names_context = ""
+    excluded_char_names = []
     if excluded_names:
         char_names = excluded_names.get("characters", [])
         place_names = excluded_names.get("places", [])
+        excluded_char_names = char_names
 
         if char_names or place_names:
             excluded_names_context = "\n\n## AVOID THESE NAMES (recently used)\n\n"
@@ -94,6 +103,21 @@ Adjust the story to match these preferences while staying true to the genre.
             if place_names:
                 excluded_names_context += f"**Place names to AVOID**: {', '.join(place_names[:20])}\n"
             excluded_names_context += "\n**Create FRESH, unique names** that feel different from these. Use diverse cultural backgrounds and naming styles."
+
+    # Suggested names from database (for AI-generated character stories)
+    suggested_names_context = ""
+    if not has_recurring_chars and NAME_DATABASE_AVAILABLE:
+        try:
+            suggested_names_context = name_database.format_suggested_names_prompt(
+                story_bible,
+                count=4,
+                exclude_names=excluded_char_names
+            )
+            if suggested_names_context:
+                suggested_names_context = f"\n\n{suggested_names_context}"
+        except Exception as e:
+            # Silently fail if name database unavailable
+            pass
 
     # Cameo context
     cameo_context = ""
@@ -203,6 +227,7 @@ This is a STANDALONE story (not part of a series), but it exists in an establish
 {history_context}
 {prefs_context}
 {excluded_names_context}
+{suggested_names_context}
 {cameo_context}
 {ending_style}
 
