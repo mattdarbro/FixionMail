@@ -32,6 +32,13 @@ from backend.storyteller.name_registry import (
     add_used_names,
     cleanup_expired_names
 )
+
+# Import name database for tracking usage
+try:
+    from backend.storyteller import name_database
+    NAME_DATABASE_AVAILABLE = True
+except ImportError:
+    NAME_DATABASE_AVAILABLE = False
 from backend.agents import (
     WriterAgent, StructureAgent, EditorAgent,
     WRITER_MODELS, STRUCTURE_MODELS, EDITOR_MODELS
@@ -804,6 +811,20 @@ async def generate_standalone_story(
             # Clean up expired names
             story_bible = cleanup_expired_names(story_bible)
             print(f"\n  📝 Saved {len(extracted.get('characters', []))} character names, {len(extracted.get('places', []))} place names to registry")
+
+            # Track name usage in the database (for names from our curated list)
+            if NAME_DATABASE_AVAILABLE:
+                try:
+                    for char_name in extracted.get("characters", []):
+                        # Try to track as both male and female (since we don't know gender)
+                        # The function will only update if the name exists in the database
+                        name_database.increment_name_usage_by_name(char_name, "first", "male")
+                        name_database.increment_name_usage_by_name(char_name, "first", "female")
+                        # Also try last names
+                        name_database.increment_name_usage_by_name(char_name, "last")
+                except Exception as e:
+                    # Don't fail story generation if tracking fails
+                    print(f"  ⚠️  Name usage tracking error (non-fatal): {e}")
 
         # Calculate total time
         total_time = time.time() - start_time
