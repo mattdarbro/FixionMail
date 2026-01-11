@@ -299,8 +299,8 @@ class AppConfig(BaseSettings):
 
     # ===== Media Generation Settings =====
     IMAGE_MODEL: str = Field(
-        default="stability-ai/sdxl:latest",
-        description="Replicate model for image generation"
+        default="google/imagen-3-fast",
+        description="Replicate model for image generation. Options: google/imagen-3-fast, black-forest-labs/flux-schnell, black-forest-labs/flux-1.1-pro, stability-ai/sdxl"
     )
 
     IMAGE_WIDTH: int = Field(
