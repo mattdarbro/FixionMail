@@ -593,47 +593,61 @@ async def startup_event():
         #         print(f"⚠️  Error initializing email system during startup: {e}")
         print("ℹ️  Email system will be initialized by FixionMail when needed")
 
-        # Start background story worker for job queue processing
-        if os.getenv("ENABLE_STORY_WORKER", "true").lower() == "true":
-            try:
-                from backend.jobs import start_story_worker
-                print("\n🔄 Starting background story worker...")
-                await start_story_worker()
-                print("✓ Background story worker started (polling for jobs)")
-            except Exception as e:
-                print(f"⚠️  Error starting story worker: {e}")
-                import traceback
-                traceback.print_exc()
-        else:
-            print("ℹ️  Story worker disabled (ENABLE_STORY_WORKER=false)")
+        # ===== Background Workers =====
+        # In Redis Queue mode, workers run as separate processes (not in the web process)
+        # In single-process mode (default), workers run in-process via APScheduler
 
-        # Start daily story scheduler
-        if os.getenv("ENABLE_DAILY_SCHEDULER", "true").lower() == "true":
-            try:
-                from backend.jobs import start_daily_scheduler
-                print("\n📅 Starting daily story scheduler...")
-                await start_daily_scheduler()
-                print("✓ Daily story scheduler started (checking delivery times)")
-            except Exception as e:
-                print(f"⚠️  Error starting daily scheduler: {e}")
-                import traceback
-                traceback.print_exc()
-        else:
-            print("ℹ️  Daily scheduler disabled (ENABLE_DAILY_SCHEDULER=false)")
+        redis_queue_enabled = getattr(config, 'redis_configured', False)
 
-        # Start email delivery worker
-        if os.getenv("ENABLE_DELIVERY_WORKER", "true").lower() == "true":
-            try:
-                from backend.email import start_delivery_worker
-                print("\n📧 Starting email delivery worker...")
-                await start_delivery_worker()
-                print("✓ Email delivery worker started (sending scheduled emails)")
-            except Exception as e:
-                print(f"⚠️  Error starting delivery worker: {e}")
-                import traceback
-                traceback.print_exc()
+        if redis_queue_enabled:
+            print("\n🔴 Redis Queue Mode ENABLED")
+            print("   Workers run as separate processes (worker, scheduler, delivery)")
+            print("   In-process APScheduler workers are DISABLED to prevent duplicates")
         else:
-            print("ℹ️  Delivery worker disabled (ENABLE_DELIVERY_WORKER=false)")
+            print("\n🟢 Single-Process Mode (APScheduler)")
+            print("   Workers run in-process within this web server")
+
+            # Start background story worker for job queue processing
+            if os.getenv("ENABLE_STORY_WORKER", "true").lower() == "true":
+                try:
+                    from backend.jobs import start_story_worker
+                    print("\n🔄 Starting background story worker...")
+                    await start_story_worker()
+                    print("✓ Background story worker started (polling for jobs)")
+                except Exception as e:
+                    print(f"⚠️  Error starting story worker: {e}")
+                    import traceback
+                    traceback.print_exc()
+            else:
+                print("ℹ️  Story worker disabled (ENABLE_STORY_WORKER=false)")
+
+            # Start daily story scheduler
+            if os.getenv("ENABLE_DAILY_SCHEDULER", "true").lower() == "true":
+                try:
+                    from backend.jobs import start_daily_scheduler
+                    print("\n📅 Starting daily story scheduler...")
+                    await start_daily_scheduler()
+                    print("✓ Daily story scheduler started (checking delivery times)")
+                except Exception as e:
+                    print(f"⚠️  Error starting daily scheduler: {e}")
+                    import traceback
+                    traceback.print_exc()
+            else:
+                print("ℹ️  Daily scheduler disabled (ENABLE_DAILY_SCHEDULER=false)")
+
+            # Start email delivery worker
+            if os.getenv("ENABLE_DELIVERY_WORKER", "true").lower() == "true":
+                try:
+                    from backend.email import start_delivery_worker
+                    print("\n📧 Starting email delivery worker...")
+                    await start_delivery_worker()
+                    print("✓ Email delivery worker started (sending scheduled emails)")
+                except Exception as e:
+                    print(f"⚠️  Error starting delivery worker: {e}")
+                    import traceback
+                    traceback.print_exc()
+            else:
+                print("ℹ️  Delivery worker disabled (ENABLE_DELIVERY_WORKER=false)")
 
         # Validate world templates exist (no longer using RAG)
         try:
@@ -673,33 +687,40 @@ async def shutdown_event():
         print("FixionMail API Shutting Down...")
         print("=" * 60)
 
-        # Stop background story worker
-        try:
-            from backend.jobs import stop_story_worker, close_queue
-            print("🔄 Stopping background story worker...")
-            stop_story_worker()
-            await close_queue()
-            print("✓ Background story worker stopped")
-        except Exception as e:
-            print(f"⚠️  Error stopping story worker: {e}")
+        # Only stop in-process workers if we're NOT in Redis Queue mode
+        redis_queue_enabled = getattr(config, 'redis_configured', False)
 
-        # Stop daily story scheduler
-        try:
-            from backend.jobs import stop_daily_scheduler
-            print("📅 Stopping daily story scheduler...")
-            stop_daily_scheduler()
-            print("✓ Daily story scheduler stopped")
-        except Exception as e:
-            print(f"⚠️  Error stopping daily scheduler: {e}")
+        if not redis_queue_enabled:
+            # Stop background story worker
+            try:
+                from backend.jobs import stop_story_worker, close_queue
+                print("🔄 Stopping background story worker...")
+                stop_story_worker()
+                await close_queue()
+                print("✓ Background story worker stopped")
+            except Exception as e:
+                print(f"⚠️  Error stopping story worker: {e}")
 
-        # Stop email delivery worker
-        try:
-            from backend.email import stop_delivery_worker
-            print("📧 Stopping email delivery worker...")
-            stop_delivery_worker()
-            print("✓ Email delivery worker stopped")
-        except Exception as e:
-            print(f"⚠️  Error stopping delivery worker: {e}")
+            # Stop daily story scheduler
+            try:
+                from backend.jobs import stop_daily_scheduler
+                print("📅 Stopping daily story scheduler...")
+                stop_daily_scheduler()
+                print("✓ Daily story scheduler stopped")
+            except Exception as e:
+                print(f"⚠️  Error stopping daily scheduler: {e}")
+
+            # Stop email delivery worker
+            try:
+                from backend.email import stop_delivery_worker
+                print("📧 Stopping email delivery worker...")
+                stop_delivery_worker()
+                print("✓ Email delivery worker stopped")
+            except Exception as e:
+                print(f"⚠️  Error stopping delivery worker: {e}")
+        else:
+            print("ℹ️  Redis Queue mode - no in-process workers to stop")
+
         print("=" * 60)
         print("Shutdown complete")
         print("=" * 60)
