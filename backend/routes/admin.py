@@ -222,6 +222,84 @@ async def get_user_detail(user_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.delete("/users/{user_id}")
+async def delete_user(user_id: str):
+    """
+    Delete a user and all their associated data.
+    This is a destructive operation - use with caution!
+    """
+    if not config.supabase_configured:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+
+    try:
+        from backend.database.client import get_supabase_admin_client
+        client = get_supabase_admin_client()
+
+        # First verify the user exists
+        user_result = client.table("users").select("id, email").eq("id", user_id).single().execute()
+        if not user_result.data:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        user_email = user_result.data.get("email", "unknown")
+        logger.info(f"Deleting user", user_id=user_id, email=user_email)
+
+        deleted_counts = {}
+
+        # Delete scheduled deliveries first (references stories)
+        try:
+            deliveries = client.table("scheduled_deliveries").delete().eq("user_id", user_id).execute()
+            deleted_counts["deliveries"] = len(deliveries.data) if deliveries.data else 0
+        except Exception as e:
+            logger.warning(f"Error deleting deliveries: {e}")
+            deleted_counts["deliveries"] = 0
+
+        # Delete stories
+        try:
+            stories = client.table("stories").delete().eq("user_id", user_id).execute()
+            deleted_counts["stories"] = len(stories.data) if stories.data else 0
+        except Exception as e:
+            logger.warning(f"Error deleting stories: {e}")
+            deleted_counts["stories"] = 0
+
+        # Delete credit transactions
+        try:
+            transactions = client.table("credit_transactions").delete().eq("user_id", user_id).execute()
+            deleted_counts["transactions"] = len(transactions.data) if transactions.data else 0
+        except Exception as e:
+            logger.warning(f"Error deleting transactions: {e}")
+            deleted_counts["transactions"] = 0
+
+        # Delete story jobs (if any)
+        try:
+            jobs = client.table("story_jobs").delete().eq("user_email", user_email).execute()
+            deleted_counts["jobs"] = len(jobs.data) if jobs.data else 0
+        except Exception as e:
+            logger.warning(f"Error deleting jobs: {e}")
+            deleted_counts["jobs"] = 0
+
+        # Finally delete the user
+        client.table("users").delete().eq("id", user_id).execute()
+
+        logger.info(
+            f"User deleted successfully",
+            user_id=user_id,
+            email=user_email,
+            deleted=deleted_counts
+        )
+
+        return {
+            "success": True,
+            "message": f"User {user_email} deleted successfully",
+            "deleted": deleted_counts
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to delete user: {e}", user_id=user_id, error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # ===== Stories =====
 
 @router.get("/stories")

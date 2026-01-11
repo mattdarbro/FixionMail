@@ -237,6 +237,14 @@
             background: #6b7280;
             pointer-events: none;
         }
+        .delete-btn {
+            background: #7f1d1d;
+            color: white;
+            margin-left: 5px;
+        }
+        .delete-btn:hover:not(:disabled) {
+            background: #dc2626;
+        }
 
         /* Alert Banner */
         .alerts-container {
@@ -952,6 +960,13 @@
                             >
                                 Generate Story
                             </button>
+                            <button
+                                onclick="deleteUser('${user.id}', '${user.email}')"
+                                class="action-btn delete-btn"
+                                title="Delete this user and all their data"
+                            >
+                                Delete
+                            </button>
                         </td>
                     </tr>`;
                 }
@@ -1304,6 +1319,57 @@
                     targetBtn.classList.remove('loading');
                     targetBtn.textContent = 'Generate Story';
                 }
+            }
+        }
+
+        async function deleteUser(userId, email) {
+            // Confirm deletion
+            const confirmed = confirm(
+                `⚠️ DELETE USER\n\n` +
+                `Are you sure you want to delete:\n${email}\n\n` +
+                `This will permanently delete:\n` +
+                `• All their stories\n` +
+                `• All scheduled deliveries\n` +
+                `• All credit transactions\n` +
+                `• The user account\n\n` +
+                `This action cannot be undone!`
+            );
+
+            if (!confirmed) return;
+
+            // Double confirm for safety
+            const doubleConfirm = confirm(
+                `Final confirmation:\n\nDelete ${email} and ALL their data?`
+            );
+
+            if (!doubleConfirm) return;
+
+            try {
+                const res = await fetch(`${API_URL}/api/admin/users/${userId}`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    throw new Error(data.detail || `HTTP ${res.status}`);
+                }
+
+                alert(
+                    `✅ User Deleted\n\n${data.message}\n\n` +
+                    `Deleted:\n` +
+                    `• ${data.deleted.stories || 0} stories\n` +
+                    `• ${data.deleted.deliveries || 0} deliveries\n` +
+                    `• ${data.deleted.transactions || 0} transactions`
+                );
+
+                // Refresh the users list and overview
+                loadUsers();
+                loadOverview();
+
+            } catch (e) {
+                alert(`Failed to delete user: ${e.message}`);
             }
         }
 
