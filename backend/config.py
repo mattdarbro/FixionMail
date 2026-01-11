@@ -152,6 +152,32 @@ class AppConfig(BaseSettings):
         description="Stripe Price ID for 20 credit pack ($14.99)"
     )
 
+    # ===== Redis Configuration (Job Queue) =====
+    REDIS_URL: str | None = Field(
+        default=None,
+        description="Redis URL for job queue (e.g., redis://localhost:6379 or rediss://...upstash.io)"
+    )
+
+    ENABLE_REDIS_QUEUE: bool = Field(
+        default=False,
+        description="Enable Redis-based job queue (requires REDIS_URL)"
+    )
+
+    @field_validator('ENABLE_REDIS_QUEUE', mode='before')
+    @classmethod
+    def parse_redis_queue_bool(cls, v):
+        """Parse boolean from string values."""
+        if isinstance(v, bool):
+            return v
+        if isinstance(v, str):
+            return v.lower() in ("true", "1", "yes", "on")
+        return False
+
+    @property
+    def redis_configured(self) -> bool:
+        """Check if Redis is properly configured."""
+        return self.REDIS_URL is not None and self.ENABLE_REDIS_QUEUE
+
     # ===== Story Settings =====
     DEFAULT_WORLD: str = Field(
         default="west_haven",
