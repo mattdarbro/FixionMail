@@ -413,6 +413,7 @@ async def system_status():
 
     queue_stats = {"pending": 0, "running": 0, "completed_today": 0, "failed_today": 0}
     delivery_stats = {"pending": 0, "sent_today": 0, "failed": 0}
+    redis_stats = None
 
     try:
         from backend.database.jobs import JobQueueService
@@ -437,15 +438,27 @@ async def system_status():
     except Exception as e:
         queue_stats["error"] = str(e)
 
+    # Redis queue stats (if enabled)
+    if config.redis_configured:
+        try:
+            from backend.queue.connection import redis_health_check
+            redis_stats = redis_health_check()
+        except Exception as e:
+            redis_stats = {"status": "error", "error": str(e)}
+
+    worker_mode = "redis_queue" if config.redis_configured else "apscheduler"
+
     return {
         "status": "operational",
+        "mode": worker_mode,
         "queue": queue_stats,
         "deliveries": delivery_stats,
+        "redis": redis_stats,
         "workers": {
-            "story_worker": "Generation (off-peak)",
-            "delivery_worker": "Email sending (on schedule)"
+            "story_worker": "Redis Queue" if config.redis_configured else "APScheduler (in-process)",
+            "delivery_worker": "Redis Queue" if config.redis_configured else "APScheduler (in-process)"
         },
-        "capacity": "~6 stories/hour"
+        "capacity": "scalable" if config.redis_configured else "~6 stories/hour"
     }
 
 

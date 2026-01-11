@@ -31,6 +31,11 @@ replicate>=0.22.0
 resend>=0.8.0
 apscheduler>=3.10.4
 
+# Job Queue (Redis)
+redis>=5.0.0
+rq>=1.16.0
+rq-dashboard>=0.7.0
+
 # Testing
 pytest>=7.4.0
 pytest-asyncio>=0.21.0
