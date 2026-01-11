@@ -64,11 +64,26 @@ class DeliveryService:
             timezone_str: User's timezone for reference
 
         Returns:
-            Created delivery record
+            Created or existing delivery record
         """
+        story_id_str = str(story_id)
+        user_id_str = str(user_id)
+
+        # Check if delivery already exists for this story (prevents duplicates on job recovery)
+        existing = (
+            self.client.table("scheduled_deliveries")
+            .select("*")
+            .eq("story_id", story_id_str)
+            .execute()
+        )
+
+        if existing.data:
+            # Delivery already exists - return it instead of creating duplicate
+            return existing.data[0]
+
         delivery_data = {
-            "story_id": str(story_id),
-            "user_id": str(user_id),
+            "story_id": story_id_str,
+            "user_id": user_id_str,
             "user_email": user_email,
             "deliver_at": deliver_at.isoformat(),
             "timezone": timezone_str,
