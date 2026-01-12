@@ -226,19 +226,16 @@ class RedisQueueScheduler:
             return False
 
     def _build_job_settings(self, user: dict) -> dict:
-        """Build job settings from user preferences."""
+        """Build job settings from user preferences - ALL PREMIUM for now."""
         settings = user.get("settings") or {}
-        tier = user.get("subscription_tier", "free")
-        subscription_status = user.get("subscription_status", "")
-        is_premium = subscription_status == "active" or tier in ["monthly", "annual", "premium"]
 
         return {
             "delivery_time": settings.get("delivery_time", "08:00"),
             "timezone": settings.get("timezone", "UTC"),
-            "user_tier": "premium" if is_premium else tier,
+            "user_tier": "premium",  # Always premium for now
             "writer_model": "sonnet",
             "structure_model": "sonnet",
-            "editor_model": "opus" if is_premium else "sonnet",
+            "editor_model": "opus",  # Always Opus 4.5
             "tts_provider": settings.get("tts_provider", "openai"),
             "tts_voice": settings.get("tts_voice"),
             "is_daily": True,
