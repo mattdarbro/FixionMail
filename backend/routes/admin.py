@@ -1063,15 +1063,17 @@ async def generate_story_for_user(user_id: str):
             # Build job settings
             settings = user.get("settings") or {}
             tier = user.get("subscription_tier", "free")
+            subscription_status = user.get("subscription_status", "")
+            is_premium = subscription_status == "active" or tier in ["monthly", "annual", "premium"]
 
             job_id = str(uuid.uuid4())
             job_settings = {
                 "delivery_time": settings.get("delivery_time", "08:00"),
                 "timezone": settings.get("timezone", "UTC"),
-                "user_tier": tier,
+                "user_tier": "premium" if is_premium else tier,
                 "writer_model": "sonnet",
                 "structure_model": "sonnet",
-                "editor_model": "opus" if tier in ["monthly", "annual"] else "sonnet",
+                "editor_model": "opus" if is_premium else "sonnet",
                 "tts_provider": settings.get("tts_provider", "openai"),
                 "tts_voice": settings.get("tts_voice"),
                 "is_daily": False,  # Manual trigger, not daily scheduled

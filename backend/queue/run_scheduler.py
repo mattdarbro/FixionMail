@@ -229,14 +229,16 @@ class RedisQueueScheduler:
         """Build job settings from user preferences."""
         settings = user.get("settings") or {}
         tier = user.get("subscription_tier", "free")
+        subscription_status = user.get("subscription_status", "")
+        is_premium = subscription_status == "active" or tier in ["monthly", "annual", "premium"]
 
         return {
             "delivery_time": settings.get("delivery_time", "08:00"),
             "timezone": settings.get("timezone", "UTC"),
-            "user_tier": tier,
+            "user_tier": "premium" if is_premium else tier,
             "writer_model": "sonnet",
             "structure_model": "sonnet",
-            "editor_model": "opus" if tier in ["monthly", "annual"] else "sonnet",
+            "editor_model": "opus" if is_premium else "sonnet",
             "tts_provider": settings.get("tts_provider", "openai"),
             "tts_voice": settings.get("tts_voice"),
             "is_daily": True,
