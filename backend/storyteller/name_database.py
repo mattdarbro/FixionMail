@@ -85,9 +85,9 @@ DEFAULT_CULTURES = [
 def get_supabase_client() -> Client:
     """Get Supabase client for database operations."""
     url = os.environ.get("SUPABASE_URL")
-    key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or os.environ.get("SUPABASE_KEY")
+    key = os.environ.get("SUPABASE_SERVICE_KEY") or os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
     if not url or not key:
-        raise ValueError("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set")
+        raise ValueError("SUPABASE_URL and SUPABASE_SERVICE_KEY must be set")
     return create_client(url, key)
 
 
