@@ -1060,18 +1060,17 @@ async def generate_story_for_user(user_id: str):
                     detail=f"User already has an active job: {active_jobs[0].get('job_id')}"
                 )
 
-            # Build job settings
+            # Build job settings - ALL PREMIUM for now
             settings = user.get("settings") or {}
-            tier = user.get("subscription_tier", "free")
 
             job_id = str(uuid.uuid4())
             job_settings = {
                 "delivery_time": settings.get("delivery_time", "08:00"),
                 "timezone": settings.get("timezone", "UTC"),
-                "user_tier": tier,
+                "user_tier": "premium",  # Always premium for now
                 "writer_model": "sonnet",
                 "structure_model": "sonnet",
-                "editor_model": "opus" if tier in ["monthly", "annual"] else "sonnet",
+                "editor_model": "opus",  # Always Opus 4.5
                 "tts_provider": settings.get("tts_provider", "openai"),
                 "tts_voice": settings.get("tts_voice"),
                 "is_daily": False,  # Manual trigger, not daily scheduled
