@@ -152,12 +152,12 @@ async def _generate_story_async(
                     user_id=user["id"],
                     title=story["title"],
                     narrative=story["narrative"],
-                    word_count=story.get("word_count", 0),
                     genre=story.get("genre", "fiction"),
                     story_bible=updated_bible,
-                    cover_image_url=story.get("cover_image_url"),
+                    model_used=writer_model,
+                    word_count=story.get("word_count", 0),
                     audio_url=story.get("audio_url"),
-                    is_cliffhanger=story.get("is_cliffhanger", False)
+                    image_url=story.get("cover_image_url"),
                 )
                 story_id = story_record["id"]
 
