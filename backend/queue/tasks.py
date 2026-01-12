@@ -11,7 +11,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, Optional
 from zoneinfo import ZoneInfo
 
-from rq import get_current_job
+from rq import get_current_job, Retry
 from rq.job import Job
 
 from .connection import get_story_queue, get_email_queue, QUEUE_STORIES, QUEUE_EMAILS
@@ -427,7 +427,7 @@ def enqueue_story_job(
         job_timeout="15m",  # Story generation can take a while
         result_ttl=86400,  # Keep results for 24 hours
         failure_ttl=604800,  # Keep failed jobs for 7 days
-        retry=3,  # Retry up to 3 times on failure
+        retry=Retry(max=3),  # Retry up to 3 times on failure
     )
 
 
@@ -450,5 +450,5 @@ def enqueue_email_delivery(delivery_id: str) -> Job:
         job_timeout="2m",  # Email should be quick
         result_ttl=3600,  # Keep results for 1 hour
         failure_ttl=86400,  # Keep failed jobs for 24 hours
-        retry=3,
+        retry=Retry(max=3),
     )
