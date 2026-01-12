@@ -1,5 +1,11 @@
-# Web service configuration
-# Story worker runs in-process because Railway volumes can't be shared between services
+# FixionMail Railway Configuration
+#
+# All services use the same start command (python start.py).
+# The SERVICE_TYPE environment variable controls which process runs:
+#   - SERVICE_TYPE=web       -> Web server (gunicorn/FastAPI)
+#   - SERVICE_TYPE=worker    -> RQ worker for story generation
+#   - SERVICE_TYPE=scheduler -> Daily story scheduler
+#   - SERVICE_TYPE=delivery  -> Email delivery scheduler
 
 [build]
 builder = "nixpacks"
@@ -7,9 +13,8 @@ builder = "nixpacks"
 buildCommand = "pip install -r requirements.txt && cd frontend && npm install && npm run build && cd .."
 
 [deploy]
-# timeout 900 = 15 minutes to handle long story generation (structure + writer + editor + media)
-# graceful-timeout allows worker to finish current request before being killed
-startCommand = "gunicorn backend.api.main:app --workers 2 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT --timeout 900 --graceful-timeout 900"
+# start.py checks SERVICE_TYPE env var to determine which process to run
+startCommand = "python start.py"
 healthcheckPath = "/health"
 healthcheckTimeout = 300
 restartPolicyType = "on_failure"
