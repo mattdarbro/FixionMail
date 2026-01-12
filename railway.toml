@@ -15,7 +15,8 @@ buildCommand = "pip install -r requirements.txt && cd frontend && npm install &&
 [deploy]
 # start.py checks SERVICE_TYPE env var to determine which process to run
 startCommand = "python start.py"
-healthcheckPath = "/health"
-healthcheckTimeout = 300
+# NOTE: Don't set healthcheckPath here - it applies to ALL services
+# but worker/scheduler/delivery are not web servers and can't respond to HTTP
+# Configure healthcheck at the Railway service level for the web service only
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 10
