@@ -1012,7 +1012,7 @@ async def generate_story_for_user(user_id: str):
 
     try:
         from backend.database.client import get_supabase_admin_client
-        from backend.jobs.daily_scheduler import get_daily_scheduler
+        from backend.database.users import UserService
 
         client = get_supabase_admin_client()
 
@@ -1023,37 +1023,116 @@ async def generate_story_for_user(user_id: str):
 
         user = user_result.data
 
-        # Check if user has credits
-        credits = user.get("credits", 0)
-        if credits < 1:
+        # Check if user has credits (if credit system is enabled)
+        if config.ENABLE_CREDIT_SYSTEM:
+            credits = user.get("story_credits", 0)
+            tier = user.get("subscription_tier", "free")
+            if tier == "free" and credits < 1:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"User has insufficient credits ({credits}). Add credits first."
+                )
+
+        # Check if user has a story bible
+        story_bible = user.get("story_bible") or {}
+        if not story_bible:
             raise HTTPException(
                 status_code=400,
-                detail=f"User has insufficient credits ({credits}). Add credits first."
+                detail="User has no story bible configured. Set up a story bible first."
             )
 
-        # Get the scheduler instance
-        scheduler = get_daily_scheduler()
-        if not scheduler:
-            # Initialize a temporary scheduler if not running
-            from backend.jobs.daily_scheduler import DailyStoryScheduler
-            scheduler = DailyStoryScheduler()
-            await scheduler.initialize()
+        # Use Redis Queue system if enabled, otherwise fall back to legacy system
+        redis_queue_enabled = getattr(config, 'redis_configured', False)
 
-        # Queue the story for this user with immediate delivery
-        # (sends email as soon as story is generated, not at scheduled time)
-        await scheduler._queue_story_for_user(user, immediate_delivery=True)
+        if redis_queue_enabled and config.REDIS_URL:
+            # Use Redis Queue system
+            import uuid
+            from backend.database.jobs import JobQueueService
+            from backend.queue.tasks import enqueue_story_job
 
-        logger.info(
-            "Admin triggered manual story generation (immediate delivery)",
-            user_id=user_id,
-            email=user.get("email")
-        )
+            job_service = JobQueueService()
 
-        return {
-            "status": "queued",
-            "message": f"Story generation queued for {user.get('email')} - will be emailed immediately upon completion",
-            "user_id": user_id
-        }
+            # Check if user already has an active job
+            existing_job = await job_service.get_active_job_for_user(user["email"])
+            if existing_job:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"User already has an active job: {existing_job.get('id')}"
+                )
+
+            # Build job settings
+            settings = user.get("settings") or {}
+            tier = user.get("subscription_tier", "free")
+
+            job_id = str(uuid.uuid4())
+            job_settings = {
+                "delivery_time": settings.get("delivery_time", "08:00"),
+                "timezone": settings.get("timezone", "UTC"),
+                "user_tier": tier,
+                "writer_model": "sonnet",
+                "structure_model": "sonnet",
+                "editor_model": "opus" if tier in ["monthly", "annual"] else "sonnet",
+                "tts_provider": settings.get("tts_provider", "openai"),
+                "tts_voice": settings.get("tts_voice"),
+                "is_daily": False,  # Manual trigger, not daily scheduled
+                "immediate_delivery": True,  # Send email as soon as generated
+            }
+
+            # Create job record in database
+            await job_service.create_job(
+                job_id=job_id,
+                story_bible=story_bible,
+                user_email=user["email"],
+                settings=job_settings
+            )
+
+            # Enqueue to Redis
+            rq_job = enqueue_story_job(
+                job_id=job_id,
+                story_bible=story_bible,
+                user_email=user["email"],
+                settings=job_settings
+            )
+
+            logger.info(
+                "Admin triggered manual story generation via Redis Queue",
+                user_id=user_id,
+                email=user.get("email"),
+                job_id=job_id,
+                rq_job_id=rq_job.id
+            )
+
+            return {
+                "status": "queued",
+                "message": f"Story generation queued for {user.get('email')} via Redis Queue - will be emailed immediately upon completion",
+                "user_id": user_id,
+                "job_id": job_id,
+                "queue": "redis"
+            }
+
+        else:
+            # Fall back to legacy APScheduler system
+            from backend.jobs.daily_scheduler import get_daily_scheduler, DailyStoryScheduler
+
+            scheduler = get_daily_scheduler()
+            if not scheduler:
+                scheduler = DailyStoryScheduler()
+                await scheduler.initialize()
+
+            await scheduler._queue_story_for_user(user, immediate_delivery=True)
+
+            logger.info(
+                "Admin triggered manual story generation via legacy scheduler",
+                user_id=user_id,
+                email=user.get("email")
+            )
+
+            return {
+                "status": "queued",
+                "message": f"Story generation queued for {user.get('email')} - will be emailed immediately upon completion",
+                "user_id": user_id,
+                "queue": "legacy"
+            }
 
     except HTTPException:
         raise
