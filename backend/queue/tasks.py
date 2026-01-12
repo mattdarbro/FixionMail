@@ -339,7 +339,7 @@ async def _send_email_async(delivery_id: str) -> Dict[str, Any]:
         html_content = render_story_email(
             title=story["title"],
             narrative=story.get("narrative", ""),
-            cover_image_url=story.get("cover_image_url"),
+            cover_image_url=story.get("image_url"),
             audio_url=story.get("audio_url"),
             genre=story.get("genre", "fiction"),
             word_count=story.get("word_count", 0)
