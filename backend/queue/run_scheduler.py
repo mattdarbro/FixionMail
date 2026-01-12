@@ -105,8 +105,8 @@ class RedisQueueScheduler:
                         continue
 
                     # Check if user already has a pending/running job
-                    existing_job = await job_service.get_active_job_for_user(user["email"])
-                    if existing_job:
+                    active_jobs = await job_service.get_user_active_jobs(user["id"], limit=1)
+                    if active_jobs:
                         continue
 
                     # Get user's story bible
