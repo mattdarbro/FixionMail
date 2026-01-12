@@ -1053,11 +1053,11 @@ async def generate_story_for_user(user_id: str):
             job_service = JobQueueService()
 
             # Check if user already has an active job
-            existing_job = await job_service.get_active_job_for_user(user["email"])
-            if existing_job:
+            active_jobs = await job_service.get_user_active_jobs(user["id"], limit=1)
+            if active_jobs:
                 raise HTTPException(
                     status_code=409,
-                    detail=f"User already has an active job: {existing_job.get('id')}"
+                    detail=f"User already has an active job: {active_jobs[0].get('job_id')}"
                 )
 
             # Build job settings
