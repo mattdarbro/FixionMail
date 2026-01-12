@@ -6,9 +6,9 @@
 
 -- Check for all required tables
 SELECT
-    table_name,
+    required.table_name,
     CASE
-        WHEN table_name IS NOT NULL THEN '✅ EXISTS'
+        WHEN t.table_name IS NOT NULL THEN '✅ EXISTS'
         ELSE '❌ MISSING'
     END as status
 FROM (
