@@ -1,5 +1,8 @@
 # Nixpacks configuration for Railway
 # Tells Nixpacks we need both Python AND Node.js
+#
+# All services use the same start command (python start.py).
+# The SERVICE_TYPE environment variable controls which process runs.
 
 [phases.setup]
 nixPkgs = ["python313", "nodejs_20"]
@@ -15,4 +18,5 @@ cmds = [
 cmds = ["cd frontend && npm install && npm run build"]
 
 [start]
-cmd = "gunicorn backend.api.main:app --workers 2 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT --timeout 900 --graceful-timeout 900"
+# start.py checks SERVICE_TYPE env var to determine which process to run
+cmd = "python start.py"
