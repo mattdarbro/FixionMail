@@ -17,13 +17,6 @@ from langchain_core.messages import HumanMessage
 from langchain_anthropic import ChatAnthropic
 from backend.config import config
 
-# PIL for title overlay on cover images
-try:
-    from PIL import Image, ImageDraw, ImageFont
-    PIL_AVAILABLE = True
-except ImportError:
-    PIL_AVAILABLE = False
-    print("⚠️  PIL not available - title overlay disabled")
 from backend.storyteller.beat_templates import get_template, get_structure_template, get_structure_for_story
 from backend.storyteller.bible_enhancement import should_use_cliffhanger, should_include_cameo, check_and_fix_duplicate_title
 from backend.storyteller.name_registry import (
@@ -48,135 +41,6 @@ from backend.agents import (
 WriterModelType = Literal["sonnet", "opus"]
 StructureModelType = Literal["haiku", "sonnet"]
 EditorModelType = Literal["opus", "sonnet"]
-
-
-def add_title_overlay(
-    image_path: str,
-    title: str,
-    genre: str = ""
-) -> bool:
-    """
-    Add title text overlay to a cover image, making it look like a real book cover.
-
-    The title is placed at the bottom of the image with a semi-transparent
-    gradient background for readability.
-
-    Args:
-        image_path: Path to the image file (will be modified in place)
-        title: The story title to overlay
-        genre: Optional genre for styling (currently unused, reserved for future)
-
-    Returns:
-        True if overlay was applied successfully, False otherwise
-    """
-    if not PIL_AVAILABLE:
-        print("  ⏭️  PIL not available, skipping title overlay")
-        return False
-
-    try:
-        # Open the image
-        img = Image.open(image_path).convert("RGBA")
-        width, height = img.size
-
-        # Create a drawing context
-        draw = ImageDraw.Draw(img)
-
-        # Try to load a nice font, fall back to default
-        font_size = max(28, width // 15)  # Scale font to image size
-        try:
-            # Try common system fonts (Linux/Mac/Windows)
-            font_paths = [
-                "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf",
-                "/usr/share/fonts/truetype/liberation/LiberationSerif-Bold.ttf",
-                "/System/Library/Fonts/Georgia Bold.ttf",
-                "/System/Library/Fonts/Supplemental/Georgia Bold.ttf",
-                "C:/Windows/Fonts/georgiab.ttf",
-            ]
-            font = None
-            for font_path in font_paths:
-                if os.path.exists(font_path):
-                    font = ImageFont.truetype(font_path, font_size)
-                    break
-            if font is None:
-                # Use default font (smaller, but works everywhere)
-                font = ImageFont.load_default()
-                font_size = 20  # Default font is small
-        except Exception:
-            font = ImageFont.load_default()
-            font_size = 20
-
-        # Wrap title text if too long
-        max_width = int(width * 0.85)  # 85% of image width
-        words = title.split()
-        lines = []
-        current_line = []
-
-        for word in words:
-            test_line = " ".join(current_line + [word])
-            bbox = draw.textbbox((0, 0), test_line, font=font)
-            line_width = bbox[2] - bbox[0]
-
-            if line_width <= max_width:
-                current_line.append(word)
-            else:
-                if current_line:
-                    lines.append(" ".join(current_line))
-                current_line = [word]
-
-        if current_line:
-            lines.append(" ".join(current_line))
-
-        # Limit to 3 lines max
-        if len(lines) > 3:
-            lines = lines[:3]
-            lines[2] = lines[2][:20] + "..."
-
-        # Calculate text dimensions
-        line_height = font_size + 8
-        total_text_height = len(lines) * line_height
-
-        # Create gradient overlay at bottom
-        overlay_height = total_text_height + 60  # Extra padding
-        overlay = Image.new("RGBA", (width, overlay_height), (0, 0, 0, 0))
-        overlay_draw = ImageDraw.Draw(overlay)
-
-        # Draw gradient (transparent to semi-opaque black)
-        for y in range(overlay_height):
-            # Gradient from transparent at top to 70% opacity at bottom
-            alpha = int(180 * (y / overlay_height))
-            overlay_draw.line([(0, y), (width, y)], fill=(0, 0, 0, alpha))
-
-        # Paste gradient overlay at bottom of image
-        img.paste(overlay, (0, height - overlay_height), overlay)
-
-        # Draw title text (centered, white with subtle shadow)
-        y_offset = height - overlay_height + 25
-
-        for line in lines:
-            bbox = draw.textbbox((0, 0), line, font=font)
-            line_width = bbox[2] - bbox[0]
-            x = (width - line_width) // 2
-
-            # Draw shadow (offset by 2px)
-            draw.text((x + 2, y_offset + 2), line, font=font, fill=(0, 0, 0, 200))
-
-            # Draw text
-            draw.text((x, y_offset), line, font=font, fill=(255, 255, 255, 255))
-
-            y_offset += line_height
-
-        # Save the modified image (convert back to RGB for PNG/JPEG compatibility)
-        img_rgb = Image.new("RGB", img.size, (255, 255, 255))
-        img_rgb.paste(img, mask=img.split()[3] if img.mode == "RGBA" else None)
-        img_rgb.save(image_path)
-
-        print(f"  ✓ Title overlay added: \"{title[:40]}{'...' if len(title) > 40 else ''}\"")
-        return True
-
-    except Exception as e:
-        print(f"  ⚠️  Title overlay failed: {e}")
-        # Image remains unchanged - this is fine, story still delivers
-        return False
 
 
 async def generate_story_audio_openai(
@@ -438,15 +302,30 @@ async def generate_story_image(
             print("  ⏭️  REPLICATE_API_TOKEN not set, skipping image generation")
             return None
 
-        # Build a descriptive prompt that emphasizes visual art WITHOUT text
-        # Using positive framing ("painterly", "wordless") works better than negation ("no text")
-        base_prompt = f"{genre} story cover art, {story_premise}, atmospheric scene"
-        enhanced_prompt = (
-            f"{base_prompt}, cinematic lighting, high quality, detailed, "
-            f"painterly illustration style, wordless visual narrative, pure scenic artwork, "
-            f"clean composition, artistic book cover without typography, "
-            f"focus on mood and atmosphere, evocative imagery"
-        )
+        # Build a descriptive prompt optimized for the model
+        # Flux models work better with concrete, specific descriptions
+        # Imagen works better with artistic/conceptual language
+
+        model = config.IMAGE_MODEL
+
+        if "flux" in model.lower():
+            # FLUX-optimized prompt: concrete, specific, style-focused
+            enhanced_prompt = (
+                f"A dramatic scene from a {genre} story: {story_premise}. "
+                f"Cinematic composition, volumetric lighting, rich colors, "
+                f"highly detailed digital painting, concept art style, "
+                f"epic atmosphere, professional illustration, 8k quality, "
+                f"no text, no words, no letters, no watermarks"
+            )
+        else:
+            # Imagen/other models: more artistic/conceptual
+            base_prompt = f"{genre} story cover art, {story_premise}, atmospheric scene"
+            enhanced_prompt = (
+                f"{base_prompt}, cinematic lighting, high quality, detailed, "
+                f"painterly illustration style, wordless visual narrative, pure scenic artwork, "
+                f"clean composition, artistic book cover without typography, "
+                f"focus on mood and atmosphere, evocative imagery"
+            )
 
         print(f"  Image prompt: {enhanced_prompt[:100]}...")
 
@@ -524,10 +403,6 @@ async def generate_story_image(
             # Save to local file
             with open(filepath, "wb") as f:
                 f.write(response.content)
-
-        # Add title overlay to make it look like a real book cover
-        # This is fast (<1s) and gracefully falls back if it fails
-        add_title_overlay(filepath, story_title, genre)
 
         # Upload to storage backend (Supabase in prod, local in dev)
         from backend.storage import upload_image
