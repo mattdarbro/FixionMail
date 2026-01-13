@@ -1073,11 +1073,14 @@ async def get_scheduler_status():
 
     Shows scheduler health, next check time, and upcoming user deliveries.
     """
-    from backend.jobs.daily_scheduler import get_daily_scheduler
     from zoneinfo import ZoneInfo
+
+    # Determine if we're in Redis Queue mode
+    redis_queue_mode = bool(config.REDIS_URL)
 
     status = {
         "scheduler_running": False,
+        "redis_queue_mode": redis_queue_mode,
         "check_interval_seconds": 60,
         "generation_lead_minutes": 30,
         "next_deliveries": [],
@@ -1088,12 +1091,22 @@ async def get_scheduler_status():
         "alerts": []
     }
 
-    # Check if scheduler is running
-    scheduler = get_daily_scheduler()
-    if scheduler:
-        status["scheduler_running"] = scheduler.scheduler.running if scheduler.scheduler else False
-        status["check_interval_seconds"] = scheduler.check_interval
-        status["generation_lead_minutes"] = scheduler.generation_lead
+    # Check scheduler status based on mode
+    if redis_queue_mode:
+        # In Redis mode, schedulers run as separate processes
+        # We can't directly check if they're running, but we can check for recent activity
+        status["scheduler_running"] = True  # Assume running if configured
+        status["scheduler_mode"] = "redis_queue"
+        status["scheduler_note"] = "Schedulers run as separate processes (run_scheduler.py, run_delivery.py)"
+    else:
+        # In single-process mode, check the in-process APScheduler
+        from backend.jobs.daily_scheduler import get_daily_scheduler
+        scheduler = get_daily_scheduler()
+        if scheduler:
+            status["scheduler_running"] = scheduler.scheduler.running if scheduler.scheduler else False
+            status["check_interval_seconds"] = scheduler.check_interval
+            status["generation_lead_minutes"] = scheduler.generation_lead
+        status["scheduler_mode"] = "in_process"
 
     # Get upcoming user deliveries based on their preferences
     if config.supabase_configured:
@@ -1178,6 +1191,39 @@ async def get_scheduler_status():
             delivery_service = DeliveryService()
             failed_deliveries = await delivery_service.get_failed_deliveries(limit=100)
             status["recent_failures"]["deliveries"] = len(failed_deliveries)
+
+            # Get delivery stats for better diagnostics
+            delivery_stats = await delivery_service.get_delivery_stats()
+            status["delivery_stats"] = delivery_stats
+
+            # Check for stuck "sending" deliveries (indicates worker may not be running)
+            stuck_sending = await delivery_service.reset_stuck_sending(older_than_minutes=10)
+            if stuck_sending > 0:
+                status["stuck_deliveries_reset"] = stuck_sending
+
+            # In Redis mode, check queue health
+            if redis_queue_mode:
+                try:
+                    from backend.queue.connection import redis_health_check
+                    queue_health = redis_health_check()
+                    status["redis_queue"] = queue_health
+
+                    # Alert if emails are queued but not being processed
+                    if queue_health.get("status") == "healthy":
+                        emails_queued = queue_health.get("queues", {}).get("emails", 0)
+                        emails_failed = queue_health.get("failed_jobs", {}).get("emails", 0)
+                        if emails_queued > 5:
+                            status["alerts"].append({
+                                "level": "warning",
+                                "message": f"{emails_queued} emails queued - ensure worker is running (python -m backend.queue.run_worker)"
+                            })
+                        if emails_failed > 0:
+                            status["alerts"].append({
+                                "level": "error",
+                                "message": f"{emails_failed} email job(s) failed in Redis queue"
+                            })
+                except Exception as redis_err:
+                    status["redis_queue"] = {"status": "error", "error": str(redis_err)}
 
             # Generate alerts
             if status["recent_failures"]["jobs"] > 0:
