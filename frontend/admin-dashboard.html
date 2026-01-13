@@ -379,6 +379,8 @@
             <div class="panel-header">
                 <h2>Email Delivery Schedule</h2>
                 <div class="filter-controls">
+                    <button onclick="resetStuckDeliveries()" class="action-btn" style="background: #f59e0b; color: white;">Reset Stuck</button>
+                    <button onclick="sendAllPending()" class="action-btn" style="background: #10b981; color: white;">Send All Pending</button>
                     <select id="delivery-status-filter" onchange="loadDeliveries()">
                         <option value="">Pending & Sending</option>
                         <option value="pending">Pending</option>
@@ -733,6 +735,7 @@
                             <th>Sent At</th>
                             <th>Retries</th>
                             <th>Error</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>`;
@@ -742,6 +745,8 @@
                     const deliverAt = new Date(d.deliver_at);
                     const now = new Date();
                     const isDueSoon = d.status === 'pending' && (deliverAt - now) < 3600000;
+                    const canSend = d.status === 'pending' || d.status === 'sending' || d.status === 'failed';
+                    const canAbort = d.status === 'pending' || d.status === 'sending';
 
                     html += `<tr>
                         <td><span class="scheduled-time ${isDueSoon ? 'due-soon' : ''}">${formatDateTime(d.deliver_at)}</span></td>
@@ -752,6 +757,11 @@
                         <td>${d.sent_at ? formatDateTime(d.sent_at) : '-'}</td>
                         <td>${d.retry_count || 0}</td>
                         <td class="error-message" title="${d.error_message || ''}">${d.error_message || '-'}</td>
+                        <td>
+                            ${canSend ? `<button onclick="sendDeliveryNow('${d.id}')" class="action-btn generate-btn" title="Send immediately">Send</button>` : ''}
+                            ${canAbort ? `<button onclick="abortDelivery('${d.id}')" class="action-btn abort-btn" title="Cancel delivery">Abort</button>` : ''}
+                            ${d.status === 'sent' ? '-' : ''}
+                        </td>
                     </tr>`;
                 }
 
@@ -1370,6 +1380,111 @@
 
             } catch (e) {
                 alert(`Failed to delete user: ${e.message}`);
+            }
+        }
+
+        // Delivery Management Functions
+        async function resetStuckDeliveries() {
+            if (!confirm('Reset all deliveries stuck in "sending" status back to "pending"?\n\nThis will allow them to be retried.')) {
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_URL}/api/admin/deliveries/reset-stuck`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    throw new Error(data.detail || `HTTP ${res.status}`);
+                }
+
+                alert(`✅ ${data.message}`);
+                loadDeliveries();
+                loadOverview();
+
+            } catch (e) {
+                alert(`Failed to reset stuck deliveries: ${e.message}`);
+            }
+        }
+
+        async function sendAllPending() {
+            if (!confirm('Send ALL pending deliveries that are past their scheduled time?\n\nThis will enqueue them all to Redis for immediate processing.')) {
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_URL}/api/admin/deliveries/send-all-pending`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    throw new Error(data.detail || `HTTP ${res.status}`);
+                }
+
+                alert(`✅ ${data.message}`);
+                loadDeliveries();
+                loadOverview();
+
+            } catch (e) {
+                alert(`Failed to send pending deliveries: ${e.message}`);
+            }
+        }
+
+        async function sendDeliveryNow(deliveryId) {
+            if (!confirm('Send this delivery immediately?')) {
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_URL}/api/admin/deliveries/${deliveryId}/send-now`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    throw new Error(data.detail || `HTTP ${res.status}`);
+                }
+
+                alert(`✅ ${data.message}`);
+                loadDeliveries();
+                loadOverview();
+
+            } catch (e) {
+                alert(`Failed to send delivery: ${e.message}`);
+            }
+        }
+
+        async function abortDelivery(deliveryId) {
+            if (!confirm('Abort this delivery?\n\nThe email will not be sent.')) {
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_URL}/api/admin/deliveries/${deliveryId}/abort`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    throw new Error(data.detail || `HTTP ${res.status}`);
+                }
+
+                alert(`✅ ${data.message}`);
+                loadDeliveries();
+                loadOverview();
+
+            } catch (e) {
+                alert(`Failed to abort delivery: ${e.message}`);
             }
         }
 
