@@ -596,12 +596,19 @@ async def startup_event():
         # ===== Background Workers =====
         # In Redis Queue mode, workers run as separate processes (not in the web process)
         # In single-process mode (default), workers run in-process via APScheduler
+        #
+        # IMPORTANT: Check REDIS_URL directly - if it's set, assume Redis mode is intended
+        # This prevents duplicate story generation when both web server and separate
+        # scheduler/worker services are running
 
-        redis_queue_enabled = getattr(config, 'redis_configured', False)
+        redis_queue_mode = bool(config.REDIS_URL)
 
-        if redis_queue_enabled:
-            print("\n🔴 Redis Queue Mode ENABLED")
-            print("   Workers run as separate processes (worker, scheduler, delivery)")
+        if redis_queue_mode:
+            print("\n🔴 Redis Queue Mode (REDIS_URL is set)")
+            print("   Workers should run as separate processes:")
+            print("   - SERVICE_TYPE=worker (story generation + email sending)")
+            print("   - SERVICE_TYPE=scheduler (daily story scheduling)")
+            print("   - SERVICE_TYPE=delivery (email delivery scheduling)")
             print("   In-process APScheduler workers are DISABLED to prevent duplicates")
         else:
             print("\n🟢 Single-Process Mode (APScheduler)")
