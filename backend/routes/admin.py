@@ -1025,7 +1025,7 @@ async def generate_story_for_user(user_id: str):
 
         # Check if user has credits (if credit system is enabled)
         if config.ENABLE_CREDIT_SYSTEM:
-            credits = user.get("story_credits", 0)
+            credits = user.get("credits", 0)
             tier = user.get("subscription_tier", "free")
             if tier == "free" and credits < 1:
                 raise HTTPException(
@@ -1061,18 +1061,18 @@ async def generate_story_for_user(user_id: str):
                 )
 
             # Build job settings - ALL PREMIUM for now
-            settings = user.get("settings") or {}
+            preferences = user.get("preferences") or {}
 
             job_id = str(uuid.uuid4())
             job_settings = {
-                "delivery_time": settings.get("delivery_time", "08:00"),
-                "timezone": settings.get("timezone", "UTC"),
+                "delivery_time": preferences.get("delivery_time", "08:00"),
+                "timezone": preferences.get("timezone", "UTC"),
                 "user_tier": "premium",  # Always premium for now
                 "writer_model": "sonnet",
                 "structure_model": "sonnet",
                 "editor_model": "opus",  # Always Opus 4.5
-                "tts_provider": settings.get("tts_provider", "openai"),
-                "tts_voice": settings.get("tts_voice"),
+                "tts_provider": preferences.get("tts_provider", "openai"),
+                "tts_voice": preferences.get("tts_voice"),
                 "is_daily": False,  # Manual trigger, not daily scheduled
                 "immediate_delivery": True,  # Send email as soon as generated
             }
