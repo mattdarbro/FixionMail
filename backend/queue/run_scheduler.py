@@ -162,9 +162,9 @@ class RedisQueueScheduler:
         """Check if we should generate a story for this user now."""
         try:
             # Get user's timezone and delivery time preferences
-            settings = user.get("settings") or {}
-            user_tz_str = settings.get("timezone", "UTC")
-            delivery_time = settings.get("delivery_time", "08:00")
+            preferences = user.get("preferences") or {}
+            user_tz_str = preferences.get("timezone", "UTC")
+            delivery_time = preferences.get("delivery_time", "08:00")
 
             try:
                 user_tz = ZoneInfo(user_tz_str)
@@ -215,7 +215,7 @@ class RedisQueueScheduler:
             if config.ENABLE_CREDIT_SYSTEM:
                 tier = user.get("subscription_tier", "free")
                 if tier == "free":
-                    credits = user.get("story_credits", 0)
+                    credits = user.get("credits", 0)
                     if credits <= 0:
                         return False
 
@@ -227,17 +227,17 @@ class RedisQueueScheduler:
 
     def _build_job_settings(self, user: dict) -> dict:
         """Build job settings from user preferences - ALL PREMIUM for now."""
-        settings = user.get("settings") or {}
+        preferences = user.get("preferences") or {}
 
         return {
-            "delivery_time": settings.get("delivery_time", "08:00"),
-            "timezone": settings.get("timezone", "UTC"),
+            "delivery_time": preferences.get("delivery_time", "08:00"),
+            "timezone": preferences.get("timezone", "UTC"),
             "user_tier": "premium",  # Always premium for now
             "writer_model": "sonnet",
             "structure_model": "sonnet",
             "editor_model": "opus",  # Always Opus 4.5
-            "tts_provider": settings.get("tts_provider", "openai"),
-            "tts_voice": settings.get("tts_voice"),
+            "tts_provider": preferences.get("tts_provider", "openai"),
+            "tts_voice": preferences.get("tts_voice"),
             "is_daily": True,
             "immediate_delivery": False,
         }

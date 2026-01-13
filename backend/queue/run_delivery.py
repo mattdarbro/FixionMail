@@ -91,11 +91,13 @@ class DeliveryQueueScheduler:
             enqueued_count = 0
 
             for delivery in due_deliveries:
-                try:
-                    delivery_id = delivery["id"]
+                delivery_id = delivery["id"]
+                marked_sending = False
 
+                try:
                     # Mark as sending first to prevent duplicate processing
                     await delivery_service.mark_sending(delivery_id)
+                    marked_sending = True
 
                     # Enqueue to Redis
                     rq_job = enqueue_email_delivery(delivery_id)
@@ -111,9 +113,17 @@ class DeliveryQueueScheduler:
                 except Exception as delivery_error:
                     logger.error(
                         f"Error enqueuing delivery: {delivery_error}",
-                        delivery_id=delivery.get("id"),
+                        delivery_id=delivery_id,
                         error=str(delivery_error)
                     )
+                    # If we marked as sending but failed to enqueue, revert to pending
+                    # so it can be retried on the next check
+                    if marked_sending:
+                        try:
+                            await delivery_service.reset_to_pending(delivery_id)
+                            logger.info(f"Reset delivery to pending after enqueue failure", delivery_id=delivery_id)
+                        except Exception as reset_error:
+                            logger.error(f"Failed to reset delivery status: {reset_error}", delivery_id=delivery_id)
 
             if enqueued_count > 0:
                 logger.info(f"Enqueued {enqueued_count} email delivery job(s)")

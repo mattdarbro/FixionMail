@@ -129,6 +129,60 @@ class DeliveryService:
         )
         return result.data[0] if result.data else None
 
+    async def reset_to_pending(self, delivery_id: str | UUID) -> Dict[str, Any]:
+        """Reset a delivery back to pending status (for retry after enqueue failure)."""
+        result = (
+            self.client.table("scheduled_deliveries")
+            .update({
+                "status": DeliveryStatus.PENDING.value,
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            })
+            .eq("id", str(delivery_id))
+            .execute()
+        )
+        return result.data[0] if result.data else None
+
+    async def reset_stuck_sending(self, older_than_minutes: int = 10) -> int:
+        """
+        Reset deliveries stuck in 'sending' status back to 'pending'.
+
+        This handles cases where the scheduler marked as sending but the
+        Redis enqueue or worker processing failed.
+
+        Args:
+            older_than_minutes: Only reset deliveries stuck for longer than this
+
+        Returns:
+            Number of deliveries reset
+        """
+        cutoff = (datetime.now(timezone.utc) - timedelta(minutes=older_than_minutes)).isoformat()
+
+        # Find stuck deliveries
+        stuck = (
+            self.client.table("scheduled_deliveries")
+            .select("id")
+            .eq("status", DeliveryStatus.SENDING.value)
+            .lt("updated_at", cutoff)
+            .execute()
+        )
+
+        if not stuck.data:
+            return 0
+
+        # Reset each one
+        count = 0
+        for delivery in stuck.data:
+            try:
+                self.client.table("scheduled_deliveries").update({
+                    "status": DeliveryStatus.PENDING.value,
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                }).eq("id", delivery["id"]).execute()
+                count += 1
+            except Exception:
+                pass
+
+        return count
+
     async def mark_sent(
         self,
         delivery_id: str | UUID,
