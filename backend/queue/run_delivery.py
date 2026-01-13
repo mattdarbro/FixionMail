@@ -134,11 +134,23 @@ class DeliveryQueueScheduler:
             self._is_checking = False
 
 
+def is_scheduler_paused() -> bool:
+    """Check if scheduler is paused via environment variable."""
+    return os.environ.get("SCHEDULER_PAUSED", "").lower() in ("true", "1", "yes")
+
+
 async def main():
     """Run the delivery scheduler."""
     print("=" * 50)
     print("FixionMail Email Delivery Scheduler (Redis Queue)")
     print("=" * 50)
+
+    # Check for pause flag
+    if is_scheduler_paused():
+        print("⏸️  SCHEDULER_PAUSED=true - Delivery scheduler is paused")
+        print("   Set SCHEDULER_PAUSED=false to resume")
+        print("   Exiting...")
+        sys.exit(0)
 
     if not config.REDIS_URL:
         print("❌ ERROR: REDIS_URL environment variable is required")
