@@ -740,6 +740,217 @@ async def get_failed_deliveries(limit: int = Query(50, ge=1, le=200)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/deliveries/{delivery_id}/send-now")
+async def force_send_delivery(delivery_id: str):
+    """
+    Force send a delivery immediately.
+
+    Enqueues the delivery to Redis for immediate processing,
+    regardless of its scheduled time.
+    """
+    if not config.supabase_configured:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+
+    try:
+        from backend.database.deliveries import DeliveryService, DeliveryStatus
+        from backend.queue.tasks import enqueue_email_delivery
+        from backend.queue.connection import get_redis_connection
+
+        delivery_service = DeliveryService()
+
+        # Get the delivery
+        delivery = await delivery_service.get_delivery_by_id(delivery_id)
+        if not delivery:
+            raise HTTPException(status_code=404, detail="Delivery not found")
+
+        # Check current status
+        current_status = delivery.get("status")
+        if current_status == DeliveryStatus.SENT.value:
+            raise HTTPException(status_code=400, detail="Delivery already sent")
+
+        # Reset to pending first (in case it was stuck in sending)
+        await delivery_service.reset_to_pending(delivery_id)
+
+        # Check if Redis is available
+        if not config.REDIS_URL:
+            raise HTTPException(status_code=503, detail="Redis not configured")
+
+        # Enqueue to Redis for immediate processing
+        try:
+            rq_job = enqueue_email_delivery(delivery_id)
+            logger.info(
+                f"Admin force-sent delivery",
+                delivery_id=delivery_id,
+                rq_job_id=rq_job.id,
+                email=delivery.get("user_email")
+            )
+            return {
+                "success": True,
+                "message": "Delivery enqueued for immediate sending",
+                "delivery_id": delivery_id,
+                "rq_job_id": rq_job.id
+            }
+        except Exception as enqueue_error:
+            # Revert back to pending if enqueue failed
+            await delivery_service.reset_to_pending(delivery_id)
+            raise HTTPException(status_code=500, detail=f"Failed to enqueue: {enqueue_error}")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to force-send delivery: {e}", error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/deliveries/{delivery_id}/abort")
+async def abort_delivery(delivery_id: str):
+    """
+    Abort/cancel a pending delivery.
+
+    Sets the delivery status to 'failed' with an abort message.
+    """
+    if not config.supabase_configured:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+
+    try:
+        from backend.database.deliveries import DeliveryService, DeliveryStatus
+
+        delivery_service = DeliveryService()
+
+        # Get the delivery
+        delivery = await delivery_service.get_delivery_by_id(delivery_id)
+        if not delivery:
+            raise HTTPException(status_code=404, detail="Delivery not found")
+
+        # Check current status
+        current_status = delivery.get("status")
+        if current_status == DeliveryStatus.SENT.value:
+            raise HTTPException(status_code=400, detail="Cannot abort - delivery already sent")
+
+        # Mark as failed with abort message
+        await delivery_service.mark_failed(
+            delivery_id,
+            error_message="Aborted by admin",
+            should_retry=False
+        )
+
+        logger.info(
+            f"Admin aborted delivery",
+            delivery_id=delivery_id,
+            email=delivery.get("user_email")
+        )
+
+        return {
+            "success": True,
+            "message": "Delivery aborted",
+            "delivery_id": delivery_id
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to abort delivery: {e}", error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/deliveries/reset-stuck")
+async def reset_stuck_deliveries(older_than_minutes: int = Query(10, ge=1, le=60)):
+    """
+    Reset deliveries stuck in 'sending' status back to 'pending'.
+
+    This fixes deliveries that got stuck due to Redis/worker failures.
+    """
+    if not config.supabase_configured:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+
+    try:
+        from backend.database.deliveries import DeliveryService
+
+        delivery_service = DeliveryService()
+        reset_count = await delivery_service.reset_stuck_sending(older_than_minutes=older_than_minutes)
+
+        logger.info(
+            f"Admin reset stuck deliveries",
+            count=reset_count,
+            older_than_minutes=older_than_minutes
+        )
+
+        return {
+            "success": True,
+            "message": f"Reset {reset_count} stuck deliveries",
+            "count": reset_count
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to reset stuck deliveries: {e}", error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/deliveries/send-all-pending")
+async def send_all_pending_deliveries():
+    """
+    Force send all pending deliveries that are past their deliver_at time.
+
+    Use this to flush the delivery queue after fixing issues.
+    """
+    if not config.supabase_configured:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+
+    if not config.REDIS_URL:
+        raise HTTPException(status_code=503, detail="Redis not configured")
+
+    try:
+        from backend.database.deliveries import DeliveryService
+        from backend.queue.tasks import enqueue_email_delivery
+
+        delivery_service = DeliveryService()
+
+        # Get all due deliveries
+        due_deliveries = await delivery_service.get_due_deliveries(limit=100)
+
+        if not due_deliveries:
+            return {
+                "success": True,
+                "message": "No pending deliveries to send",
+                "count": 0
+            }
+
+        enqueued = 0
+        failed = 0
+
+        for delivery in due_deliveries:
+            try:
+                delivery_id = delivery["id"]
+                await delivery_service.mark_sending(delivery_id)
+                rq_job = enqueue_email_delivery(delivery_id)
+                enqueued += 1
+            except Exception as e:
+                failed += 1
+                logger.error(f"Failed to enqueue delivery: {e}", delivery_id=delivery.get("id"))
+                # Try to reset to pending
+                try:
+                    await delivery_service.reset_to_pending(delivery["id"])
+                except Exception:
+                    pass
+
+        logger.info(
+            f"Admin sent all pending deliveries",
+            enqueued=enqueued,
+            failed=failed
+        )
+
+        return {
+            "success": True,
+            "message": f"Enqueued {enqueued} deliveries ({failed} failed)",
+            "enqueued": enqueued,
+            "failed": failed
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to send all pending deliveries: {e}", error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # ===== Logs =====
 
 @router.get("/logs")
