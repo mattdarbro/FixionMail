@@ -1,34 +1,74 @@
 /**
- * Login Page
+ * Signup Page
  *
- * Email/password authentication.
+ * Email/password registration for new users.
  */
 
 import { useState, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
-export function LoginPage() {
-  const { signIn } = useAuth();
+export function SignupPage() {
+  const { signUp } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
     setError(null);
 
-    const { error } = await signIn(email, password);
+    // Validate passwords match
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    // Validate password length
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
+
+    setIsLoading(true);
+
+    const { error } = await signUp(email, password);
 
     setIsLoading(false);
 
     if (error) {
       setError(error.message);
+    } else {
+      setSuccess(true);
     }
-    // On success, AuthContext will update and redirect automatically
   };
+
+  if (success) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-amber-50 to-stone-100 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center">
+          <div className="text-5xl mb-4">🎉</div>
+          <h1 className="text-2xl font-bold text-stone-800 mb-2">
+            Account Created!
+          </h1>
+          <p className="text-stone-600 mb-6">
+            Check your email at <strong>{email}</strong> to confirm your account,
+            then you can sign in.
+          </p>
+          <Link
+            to="/login"
+            className="inline-block px-6 py-3 bg-amber-600 text-white rounded-lg font-semibold
+                       hover:bg-amber-700 transition-colors"
+          >
+            Go to Sign In
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-amber-50 to-stone-100 flex items-center justify-center p-4">
@@ -40,13 +80,13 @@ export function LoginPage() {
           <p className="text-stone-600 mt-2">Your Personal Story Studio</p>
         </div>
 
-        {/* Login Card */}
+        {/* Signup Card */}
         <div className="bg-white rounded-2xl shadow-xl p-8">
           <h2 className="text-xl font-semibold text-stone-800 mb-2">
-            Welcome Back
+            Start Your Free Trial
           </h2>
           <p className="text-stone-600 mb-6">
-            Sign in to continue your stories.
+            Create an account to receive personalized stories.
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -83,7 +123,29 @@ export function LoginPage() {
                 id="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Your password"
+                placeholder="At least 6 characters"
+                required
+                minLength={6}
+                className="w-full px-4 py-3 border border-stone-300 rounded-lg
+                           bg-white text-stone-800
+                           focus:ring-2 focus:ring-amber-500 focus:border-transparent
+                           placeholder:text-stone-400"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="confirmPassword"
+                className="block text-sm font-medium text-stone-700 mb-1"
+              >
+                Confirm Password
+              </label>
+              <input
+                type="password"
+                id="confirmPassword"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Confirm your password"
                 required
                 minLength={6}
                 className="w-full px-4 py-3 border border-stone-300 rounded-lg
@@ -101,7 +163,7 @@ export function LoginPage() {
 
             <button
               type="submit"
-              disabled={isLoading || !email || !password}
+              disabled={isLoading || !email || !password || !confirmPassword}
               className="w-full px-4 py-3 bg-amber-600 text-white rounded-lg font-semibold
                          hover:bg-amber-700 transition-colors
                          disabled:bg-stone-300 disabled:cursor-not-allowed"
@@ -124,25 +186,43 @@ export function LoginPage() {
                       d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
                     />
                   </svg>
-                  Signing in...
+                  Creating account...
                 </span>
               ) : (
-                'Sign In'
+                'Create Account'
               )}
             </button>
           </form>
 
           <div className="mt-6 text-center text-sm text-stone-500">
-            New to FixionMail?{' '}
-            <Link to="/signup" className="text-amber-600 hover:text-amber-700 font-medium">
-              Create an account
+            Already have an account?{' '}
+            <Link to="/login" className="text-amber-600 hover:text-amber-700 font-medium">
+              Sign in
             </Link>
           </div>
         </div>
 
-        {/* Features hint */}
-        <div className="mt-8 text-center text-sm text-stone-500">
-          <p>Daily personalized stories delivered to your inbox</p>
+        {/* What you get */}
+        <div className="mt-8 bg-white/50 rounded-xl p-6">
+          <h3 className="font-semibold text-stone-700 mb-3">What you'll get:</h3>
+          <ul className="space-y-2 text-sm text-stone-600">
+            <li className="flex items-center gap-2">
+              <span className="text-amber-500">✓</span>
+              Daily personalized stories in your inbox
+            </li>
+            <li className="flex items-center gap-2">
+              <span className="text-amber-500">✓</span>
+              Choose your genre and protagonist
+            </li>
+            <li className="flex items-center gap-2">
+              <span className="text-amber-500">✓</span>
+              Interactive choices that shape your story
+            </li>
+            <li className="flex items-center gap-2">
+              <span className="text-amber-500">✓</span>
+              Chat with Fixion about your stories
+            </li>
+          </ul>
         </div>
       </div>
     </div>

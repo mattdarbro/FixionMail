@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LoginPage } from './pages/Login';
+import { SignupPage } from './pages/Signup';
 import { AuthCallbackPage } from './pages/AuthCallback';
 import { OnboardingPage } from './pages/Onboarding';
 import { DashboardPage } from './pages/Dashboard';
@@ -225,6 +226,7 @@ function App() {
         <Routes>
           {/* Public routes */}
           <Route path="/login" element={<AuthRoute><LoginPage /></AuthRoute>} />
+          <Route path="/signup" element={<AuthRoute><SignupPage /></AuthRoute>} />
           <Route path="/auth/callback" element={<AuthCallbackPage />} />
 
           {/* Protected routes */}

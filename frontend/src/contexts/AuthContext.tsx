@@ -15,6 +15,8 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  signUp: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signInWithMagicLink: (email: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -100,6 +102,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  const signUp = async (email: string, password: string) => {
+    if (!isSupabaseConfigured) {
+      return { error: new Error('Supabase not configured') };
+    }
+
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+
+    return { error: error ? new Error(error.message) : null };
+  };
+
+  const signIn = async (email: string, password: string) => {
+    if (!isSupabaseConfigured) {
+      return { error: new Error('Supabase not configured') };
+    }
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    return { error: error ? new Error(error.message) : null };
+  };
+
   const signInWithMagicLink = async (email: string) => {
     if (!isSupabaseConfigured) {
       return { error: new Error('Supabase not configured') };
@@ -136,6 +167,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user,
     isLoading,
     isAuthenticated: Boolean(session && user),
+    signUp,
+    signIn,
     signInWithMagicLink,
     signOut,
     refreshUser,
