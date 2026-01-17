@@ -458,7 +458,7 @@ INSERT INTO public.character_names (name, name_type, gender, cultural_origin) VA
 ('Jonah', 'first', 'male', 'hebrew'),
 ('Micah', 'first', 'male', 'hebrew'),
 ('Simeon', 'first', 'male', 'hebrew')
-ON CONFLICT (name, name_type, gender) DO NOTHING;
+ON CONFLICT (name, name_type, gender, cultural_origin) DO NOTHING;
 
 -- =====================================================
 -- FEMALE FIRST NAMES (350+)
@@ -925,7 +925,7 @@ INSERT INTO public.character_names (name, name_type, gender, cultural_origin) VA
 ('Yael', 'first', 'female', 'hebrew'),
 ('Deborah', 'first', 'female', 'hebrew'),
 ('Hannah', 'first', 'female', 'hebrew')
-ON CONFLICT (name, name_type, gender) DO NOTHING;
+ON CONFLICT (name, name_type, gender, cultural_origin) DO NOTHING;
 
 -- =====================================================
 -- LAST NAMES (350+)
@@ -1352,4 +1352,4 @@ INSERT INTO public.character_names (name, name_type, gender, cultural_origin) VA
 ('Shapiro', 'last', NULL, 'hebrew'),
 ('Stern', 'last', NULL, 'hebrew'),
 ('Weiss', 'last', NULL, 'hebrew')
-ON CONFLICT (name, name_type, gender) DO NOTHING;
+ON CONFLICT (name, name_type, gender, cultural_origin) DO NOTHING;
