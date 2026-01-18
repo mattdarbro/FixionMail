@@ -287,60 +287,100 @@ async def generate_story_image(
     """
     Generate cover image for a standalone story using Replicate.
 
+    Tries the configured model first with retries, then falls back to
+    alternative models if all retries fail.
+
     Args:
         story_title: Title of the story
         story_premise: One-sentence story hook/premise
         genre: Story genre
-        max_retries: Maximum retries for transient errors (502, 503, timeout)
+        max_retries: Maximum retries per model for transient errors (502, 503, timeout)
 
     Returns:
         Local URL path to image file, or None if generation fails
     """
-    import replicate
-    import httpx
-
     if not config.REPLICATE_API_TOKEN:
         print("  ⏭️  REPLICATE_API_TOKEN not set, skipping image generation")
         return None
 
+    # Primary model from config, with fallback models to try if it fails
+    primary_model = config.IMAGE_MODEL
+
+    # Define fallback models (excluding the primary)
+    all_models = [
+        "black-forest-labs/flux-schnell",
+        "google/imagen-3-fast",
+        "black-forest-labs/flux-1.1-pro",
+        "stability-ai/sdxl",
+    ]
+
+    # Build model list: primary first, then fallbacks
+    models_to_try = [primary_model]
+    for model in all_models:
+        if model != primary_model and model not in models_to_try:
+            models_to_try.append(model)
+
     # Transient errors that should trigger a retry
     RETRYABLE_ERRORS = ["502", "503", "504", "timeout", "connection", "rate limit", "429"]
 
-    for attempt in range(max_retries):
-        try:
-            return await _generate_image_attempt(story_title, story_premise, genre)
+    for model_idx, model in enumerate(models_to_try):
+        is_fallback = model_idx > 0
+        if is_fallback:
+            print(f"  🔄 Trying fallback model: {model}")
 
-        except Exception as e:
-            error_msg = str(e).lower()
-            is_retryable = any(err in error_msg for err in RETRYABLE_ERRORS)
+        for attempt in range(max_retries):
+            try:
+                return await _generate_image_attempt(story_title, story_premise, genre, model)
 
-            if is_retryable and attempt < max_retries - 1:
-                wait_time = 2 ** (attempt + 1)  # Exponential backoff: 2s, 4s, 8s
-                print(f"  ⚠️  Image generation failed (attempt {attempt + 1}/{max_retries}): {e}")
-                print(f"  ⏳ Retrying in {wait_time} seconds...")
-                await asyncio.sleep(wait_time)
-            else:
-                # Non-retryable error or max retries exceeded
-                print(f"  ⚠️  Image generation failed: {e}")
+            except Exception as e:
+                error_msg = str(e).lower()
+                is_retryable = any(err in error_msg for err in RETRYABLE_ERRORS)
+
+                # Check for auth errors - no point trying other models
                 if "401" in str(e) or "unauthorized" in error_msg:
-                    print("  ⚠️  Replicate API authentication failed. Check REPLICATE_API_TOKEN.")
-                elif "404" in str(e):
-                    print(f"  ⚠️  Invalid Replicate model.")
-                return None
+                    print(f"  ⚠️  Replicate API authentication failed. Check REPLICATE_API_TOKEN.")
+                    return None
 
+                if is_retryable and attempt < max_retries - 1:
+                    wait_time = 2 ** (attempt + 1)  # Exponential backoff: 2s, 4s, 8s
+                    print(f"  ⚠️  Image generation failed (attempt {attempt + 1}/{max_retries}): {e}")
+                    print(f"  ⏳ Retrying in {wait_time} seconds...")
+                    await asyncio.sleep(wait_time)
+                else:
+                    # Max retries exceeded for this model
+                    print(f"  ⚠️  Image generation failed with {model}: {e}")
+                    if "404" in str(e):
+                        print(f"  ⚠️  Invalid Replicate model: {model}")
+                    # Break to try next model
+                    break
+
+    print(f"  ⚠️  All image generation models failed")
     return None
 
 
 async def _generate_image_attempt(
     story_title: str,
     story_premise: str,
-    genre: str
+    genre: str,
+    model: str
 ) -> str:
     """
     Single attempt at generating an image. Raises exception on failure.
 
-    This function is called by generate_story_image which handles retries.
-    Any exception raised here will trigger the retry logic in the caller.
+    This function is called by generate_story_image which handles retries
+    and model fallback.
+
+    Args:
+        story_title: Title of the story
+        story_premise: One-sentence story hook/premise
+        genre: Story genre
+        model: Replicate model to use (e.g., "black-forest-labs/flux-schnell")
+
+    Returns:
+        Public URL of the generated image
+
+    Raises:
+        Exception: If image generation fails (triggers retry in caller)
     """
     import replicate
     import httpx
@@ -348,8 +388,6 @@ async def _generate_image_attempt(
     # Build a descriptive prompt optimized for the model
     # Flux models work better with concrete, specific descriptions
     # Imagen works better with artistic/conceptual language
-
-    model = config.IMAGE_MODEL
 
     if "flux" in model.lower():
         # FLUX-optimized prompt: concrete, specific, style-focused
@@ -374,9 +412,6 @@ async def _generate_image_attempt(
 
     # Create client
     client = replicate.Client(api_token=config.REPLICATE_API_TOKEN)
-
-    # Use configured model (supports multiple Replicate models)
-    model = config.IMAGE_MODEL
     print(f"  Using model: {model}")
 
     # Build input parameters based on model type
