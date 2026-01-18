@@ -281,7 +281,8 @@ async def generate_story_audio_with_provider(
 async def generate_story_image(
     story_title: str,
     story_premise: str,
-    genre: str
+    genre: str,
+    max_retries: int = 3
 ) -> str | None:
     """
     Generate cover image for a standalone story using Replicate.
@@ -290,139 +291,170 @@ async def generate_story_image(
         story_title: Title of the story
         story_premise: One-sentence story hook/premise
         genre: Story genre
+        max_retries: Maximum retries for transient errors (502, 503, timeout)
 
     Returns:
         Local URL path to image file, or None if generation fails
     """
-    try:
-        import replicate
-        import httpx
+    import replicate
+    import httpx
 
-        if not config.REPLICATE_API_TOKEN:
-            print("  ⏭️  REPLICATE_API_TOKEN not set, skipping image generation")
-            return None
-
-        # Build a descriptive prompt optimized for the model
-        # Flux models work better with concrete, specific descriptions
-        # Imagen works better with artistic/conceptual language
-
-        model = config.IMAGE_MODEL
-
-        if "flux" in model.lower():
-            # FLUX-optimized prompt: concrete, specific, style-focused
-            enhanced_prompt = (
-                f"A dramatic scene from a {genre} story: {story_premise}. "
-                f"Cinematic composition, volumetric lighting, rich colors, "
-                f"highly detailed digital painting, concept art style, "
-                f"epic atmosphere, professional illustration, 8k quality, "
-                f"no text, no words, no letters, no watermarks"
-            )
-        else:
-            # Imagen/other models: more artistic/conceptual
-            base_prompt = f"{genre} story cover art, {story_premise}, atmospheric scene"
-            enhanced_prompt = (
-                f"{base_prompt}, cinematic lighting, high quality, detailed, "
-                f"painterly illustration style, wordless visual narrative, pure scenic artwork, "
-                f"clean composition, artistic book cover without typography, "
-                f"focus on mood and atmosphere, evocative imagery"
-            )
-
-        print(f"  Image prompt: {enhanced_prompt[:100]}...")
-
-        # Create client
-        client = replicate.Client(api_token=config.REPLICATE_API_TOKEN)
-
-        # Use configured model (supports multiple Replicate models)
-        model = config.IMAGE_MODEL
-        print(f"  Using model: {model}")
-
-        # Build input parameters based on model type
-        if "imagen" in model.lower():
-            # Google Imagen-3-Fast
-            input_params = {
-                "prompt": enhanced_prompt,
-                "aspect_ratio": "1:1",
-                "output_format": "png",
-                "safety_filter_level": "block_only_high"
-            }
-        elif "flux" in model.lower():
-            # Black Forest Labs FLUX models (schnell, pro, etc.)
-            input_params = {
-                "prompt": enhanced_prompt,
-                "aspect_ratio": "1:1",
-                "output_format": "png",
-                "num_outputs": 1,
-                "go_fast": True,
-            }
-        elif "sdxl" in model.lower():
-            # Stability AI SDXL
-            input_params = {
-                "prompt": enhanced_prompt,
-                "width": config.IMAGE_WIDTH,
-                "height": config.IMAGE_HEIGHT,
-                "num_outputs": 1,
-            }
-        else:
-            # Generic fallback
-            input_params = {
-                "prompt": enhanced_prompt,
-            }
-
-        print(f"  Generating image...")
-        output = await client.async_run(model, input=input_params)
-
-        # Handle output - Imagen-3-Fast returns a single FileOutput object
-        if isinstance(output, list):
-            replicate_output = output[0] if output else None
-        else:
-            replicate_output = output
-
-        if not replicate_output:
-            raise Exception("No image URL returned from Replicate")
-
-        replicate_url = str(replicate_output)
-        print(f"  ✓ Image generated successfully")
-
-        # Download and save image locally
-        os.makedirs("./generated_images", exist_ok=True)
-
-        # Generate filename
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        # Clean title for filename
-        clean_title = "".join(c for c in story_title if c.isalnum() or c in (' ', '-', '_')).strip()
-        clean_title = clean_title.replace(' ', '_')[:50]
-        filename = f"{genre}_{clean_title}_{timestamp}.png"
-        filepath = f"./generated_images/{filename}"
-
-        # Download image from Replicate
-        print(f"  Downloading image from Replicate...")
-        async with httpx.AsyncClient() as http_client:
-            response = await http_client.get(replicate_url)
-            response.raise_for_status()
-
-            # Save to local file
-            with open(filepath, "wb") as f:
-                f.write(response.content)
-
-        # Upload to storage backend (Supabase in prod, local in dev)
-        from backend.storage import upload_image
-        public_url = upload_image(filepath, filename)
-
-        print(f"  ✓ Image saved locally: {filepath}")
-        print(f"    Public URL: {public_url}")
-
-        return public_url
-
-    except Exception as e:
-        error_msg = str(e)
-        print(f"  ⚠️  Image generation failed: {error_msg}")
-
-        if "401" in error_msg or "unauthorized" in error_msg.lower():
-            print("  ⚠️  Replicate API authentication failed. Check REPLICATE_API_TOKEN.")
-        elif "404" in error_msg:
-            print(f"  ⚠️  Invalid Replicate model.")
-
+    if not config.REPLICATE_API_TOKEN:
+        print("  ⏭️  REPLICATE_API_TOKEN not set, skipping image generation")
         return None
+
+    # Transient errors that should trigger a retry
+    RETRYABLE_ERRORS = ["502", "503", "504", "timeout", "connection", "rate limit", "429"]
+
+    for attempt in range(max_retries):
+        try:
+            return await _generate_image_attempt(story_title, story_premise, genre)
+
+        except Exception as e:
+            error_msg = str(e).lower()
+            is_retryable = any(err in error_msg for err in RETRYABLE_ERRORS)
+
+            if is_retryable and attempt < max_retries - 1:
+                wait_time = 2 ** (attempt + 1)  # Exponential backoff: 2s, 4s, 8s
+                print(f"  ⚠️  Image generation failed (attempt {attempt + 1}/{max_retries}): {e}")
+                print(f"  ⏳ Retrying in {wait_time} seconds...")
+                await asyncio.sleep(wait_time)
+            else:
+                # Non-retryable error or max retries exceeded
+                print(f"  ⚠️  Image generation failed: {e}")
+                if "401" in str(e) or "unauthorized" in error_msg:
+                    print("  ⚠️  Replicate API authentication failed. Check REPLICATE_API_TOKEN.")
+                elif "404" in str(e):
+                    print(f"  ⚠️  Invalid Replicate model.")
+                return None
+
+    return None
+
+
+async def _generate_image_attempt(
+    story_title: str,
+    story_premise: str,
+    genre: str
+) -> str:
+    """
+    Single attempt at generating an image. Raises exception on failure.
+
+    This function is called by generate_story_image which handles retries.
+    Any exception raised here will trigger the retry logic in the caller.
+    """
+    import replicate
+    import httpx
+
+    # Build a descriptive prompt optimized for the model
+    # Flux models work better with concrete, specific descriptions
+    # Imagen works better with artistic/conceptual language
+
+    model = config.IMAGE_MODEL
+
+    if "flux" in model.lower():
+        # FLUX-optimized prompt: concrete, specific, style-focused
+        enhanced_prompt = (
+            f"A dramatic scene from a {genre} story: {story_premise}. "
+            f"Cinematic composition, volumetric lighting, rich colors, "
+            f"highly detailed digital painting, concept art style, "
+            f"epic atmosphere, professional illustration, 8k quality, "
+            f"no text, no words, no letters, no watermarks"
+        )
+    else:
+        # Imagen/other models: more artistic/conceptual
+        base_prompt = f"{genre} story cover art, {story_premise}, atmospheric scene"
+        enhanced_prompt = (
+            f"{base_prompt}, cinematic lighting, high quality, detailed, "
+            f"painterly illustration style, wordless visual narrative, pure scenic artwork, "
+            f"clean composition, artistic book cover without typography, "
+            f"focus on mood and atmosphere, evocative imagery"
+        )
+
+    print(f"  Image prompt: {enhanced_prompt[:100]}...")
+
+    # Create client
+    client = replicate.Client(api_token=config.REPLICATE_API_TOKEN)
+
+    # Use configured model (supports multiple Replicate models)
+    model = config.IMAGE_MODEL
+    print(f"  Using model: {model}")
+
+    # Build input parameters based on model type
+    if "imagen" in model.lower():
+        # Google Imagen-3-Fast
+        input_params = {
+            "prompt": enhanced_prompt,
+            "aspect_ratio": "1:1",
+            "output_format": "png",
+            "safety_filter_level": "block_only_high"
+        }
+    elif "flux" in model.lower():
+        # Black Forest Labs FLUX models (schnell, pro, etc.)
+        input_params = {
+            "prompt": enhanced_prompt,
+            "aspect_ratio": "1:1",
+            "output_format": "png",
+            "num_outputs": 1,
+            "go_fast": True,
+        }
+    elif "sdxl" in model.lower():
+        # Stability AI SDXL
+        input_params = {
+            "prompt": enhanced_prompt,
+            "width": config.IMAGE_WIDTH,
+            "height": config.IMAGE_HEIGHT,
+            "num_outputs": 1,
+        }
+    else:
+        # Generic fallback
+        input_params = {
+            "prompt": enhanced_prompt,
+        }
+
+    print(f"  Generating image...")
+    output = await client.async_run(model, input=input_params)
+
+    # Handle output - Imagen-3-Fast returns a single FileOutput object
+    if isinstance(output, list):
+        replicate_output = output[0] if output else None
+    else:
+        replicate_output = output
+
+    if not replicate_output:
+        raise Exception("No image URL returned from Replicate")
+
+    replicate_url = str(replicate_output)
+    print(f"  ✓ Image generated successfully")
+
+    # Download and save image locally
+    os.makedirs("./generated_images", exist_ok=True)
+
+    # Generate filename
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    # Clean title for filename
+    clean_title = "".join(c for c in story_title if c.isalnum() or c in (' ', '-', '_')).strip()
+    clean_title = clean_title.replace(' ', '_')[:50]
+    filename = f"{genre}_{clean_title}_{timestamp}.png"
+    filepath = f"./generated_images/{filename}"
+
+    # Download image from Replicate
+    print(f"  Downloading image from Replicate...")
+    async with httpx.AsyncClient() as http_client:
+        response = await http_client.get(replicate_url)
+        response.raise_for_status()
+
+        # Save to local file
+        with open(filepath, "wb") as f:
+            f.write(response.content)
+
+    # Upload to storage backend (Supabase in prod, local in dev)
+    from backend.storage import upload_image
+    public_url = upload_image(filepath, filename)
+
+    print(f"  ✓ Image saved locally: {filepath}")
+    print(f"    Public URL: {public_url}")
+
+    return public_url
 
 
 async def generate_standalone_story(

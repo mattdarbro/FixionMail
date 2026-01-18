@@ -85,8 +85,14 @@ class DeliveryWorker:
         """Send a single delivery."""
         delivery_id = delivery["id"]
         user_email = delivery["user_email"]
+        email_sent = False  # Track if email was successfully sent
 
         try:
+            # Check if already sent (prevents duplicate sends on retry)
+            if delivery.get("status") == "sent":
+                logger.info(f"Delivery already sent, skipping", delivery_id=delivery_id)
+                return
+
             # Mark as sending (prevents duplicate sends)
             await self.delivery_service.mark_sending(delivery_id)
 
@@ -116,12 +122,32 @@ class DeliveryWorker:
 
             response = resend.Emails.send(params)
             resend_id = response.get("id") if isinstance(response, dict) else getattr(response, "id", None)
+            email_sent = True  # Email was successfully sent
 
-            # Mark as sent
-            await self.delivery_service.mark_sent(delivery_id, resend_email_id=resend_id)
+            # Try to mark as sent - if this fails, we should NOT retry sending
+            try:
+                await self.delivery_service.mark_sent(delivery_id, resend_email_id=resend_id)
+            except Exception as mark_error:
+                # Email was sent but we couldn't update the database
+                # Log the error but don't retry to prevent duplicate emails
+                logger.error(
+                    f"Email sent but mark_sent failed - DO NOT RETRY",
+                    delivery_id=delivery_id,
+                    resend_id=resend_id,
+                    error=str(mark_error)
+                )
+                return  # Don't continue - email was sent
 
             # Also update story as delivered
-            await self.story_service.mark_delivered(story["id"])
+            try:
+                await self.story_service.mark_delivered(story["id"])
+            except Exception as mark_error:
+                # Non-critical - email was sent, story delivery update failed
+                logger.warning(
+                    f"Could not mark story as delivered",
+                    story_id=story["id"],
+                    error=str(mark_error)
+                )
 
             logger.info(
                 f"Delivery sent",
@@ -140,16 +166,24 @@ class DeliveryWorker:
                 error=error_msg
             )
 
-            # Determine if retryable
-            should_retry = any(x in error_msg.lower() for x in [
-                "timeout", "rate limit", "429", "503", "502", "connection"
-            ])
+            # Only retry if email was NOT sent
+            # If email was sent but something else failed, don't retry to prevent duplicates
+            if email_sent:
+                should_retry = False
+            else:
+                # Determine if retryable based on error type
+                should_retry = any(x in error_msg.lower() for x in [
+                    "timeout", "rate limit", "429", "503", "502", "connection"
+                ])
 
-            await self.delivery_service.mark_failed(
-                delivery_id,
-                error_message=error_msg,
-                should_retry=should_retry
-            )
+            try:
+                await self.delivery_service.mark_failed(
+                    delivery_id,
+                    error_message=error_msg,
+                    should_retry=should_retry
+                )
+            except Exception as mark_error:
+                logger.error(f"Failed to mark delivery as failed: {mark_error}", delivery_id=delivery_id)
 
     def _render_story_email(
         self,
