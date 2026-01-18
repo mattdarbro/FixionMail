@@ -86,11 +86,11 @@ class SupabaseStorage(StorageBackend):
                 file_data = f.read()
 
             # Upload to Supabase Storage (audio bucket)
-            # Use upsert=True to overwrite if file already exists
+            # Each file has a unique name (with UUID), so no upsert needed
             self.client.storage.from_("audio").upload(
                 filename,
                 file_data,
-                file_options={"content-type": "audio/mpeg", "upsert": "true"}
+                file_options={"content-type": "audio/mpeg"}
             )
 
             # Return public URL
@@ -131,11 +131,11 @@ class SupabaseStorage(StorageBackend):
             content_type = content_type_map.get(ext, "image/png")
 
             # Upload to Supabase Storage (images bucket)
-            # Use upsert=True to overwrite if file already exists
+            # Each file has a unique name (with UUID), so no upsert needed
             self.client.storage.from_("images").upload(
                 filename,
                 file_data,
-                file_options={"content-type": content_type, "upsert": "true"}
+                file_options={"content-type": content_type}
             )
 
             # Return public URL
