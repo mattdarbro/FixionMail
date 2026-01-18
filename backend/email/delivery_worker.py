@@ -97,7 +97,7 @@ class DeliveryWorker:
             await self.delivery_service.mark_sending(delivery_id)
 
             # Get story data (should be joined from query)
-            story = delivery.get("stories")
+            story = delivery.get("story")
             if not story:
                 raise Exception("Story not found for delivery")
 

@@ -640,7 +640,7 @@ async def get_deliveries(
 
         result = []
         for d in deliveries:
-            story = d.get("stories") or {}
+            story = d.get("story") or {}
             result.append({
                 "id": d["id"],
                 "user_email": d["user_email"],
@@ -693,7 +693,7 @@ async def get_upcoming_deliveries(
 
         result = []
         for d in deliveries:
-            story = d.get("stories") or {}
+            story = d.get("story") or {}
             result.append({
                 "id": d["id"],
                 "user_email": d["user_email"],
@@ -723,7 +723,7 @@ async def get_failed_deliveries(limit: int = Query(50, ge=1, le=200)):
 
         result = []
         for d in failed:
-            story = d.get("stories") or {}
+            story = d.get("story") or {}
             result.append({
                 "id": d["id"],
                 "user_email": d["user_email"],
