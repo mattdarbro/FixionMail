@@ -11,6 +11,7 @@ import time
 import json
 import asyncio
 import os
+import uuid
 from typing import Dict, Any, Optional, Literal, Tuple
 from datetime import datetime
 from langchain_core.messages import HumanMessage
@@ -81,11 +82,12 @@ async def generate_story_audio_openai(
         # Create audio directory if it doesn't exist
         os.makedirs("./generated_audio", exist_ok=True)
 
-        # Generate filename
+        # Generate unique filename with UUID to prevent overwrites
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        unique_id = uuid.uuid4().hex[:8]  # Short unique ID
         clean_title = "".join(c for c in story_title if c.isalnum() or c in (' ', '-', '_')).strip()
         clean_title = clean_title.replace(' ', '_')[:50]
-        filename = f"{genre}_{clean_title}_{timestamp}_openai.mp3"
+        filename = f"{genre}_{clean_title}_{timestamp}_{unique_id}.mp3"
         filepath = f"./generated_audio/{filename}"
 
         print(f"  Using OpenAI TTS voice: {voice}")
@@ -464,12 +466,13 @@ async def _generate_image_attempt(
     # Download and save image locally
     os.makedirs("./generated_images", exist_ok=True)
 
-    # Generate filename
+    # Generate unique filename with UUID to prevent overwrites
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    unique_id = uuid.uuid4().hex[:8]  # Short unique ID
     # Clean title for filename
     clean_title = "".join(c for c in story_title if c.isalnum() or c in (' ', '-', '_')).strip()
     clean_title = clean_title.replace(' ', '_')[:50]
-    filename = f"{genre}_{clean_title}_{timestamp}.png"
+    filename = f"{genre}_{clean_title}_{timestamp}_{unique_id}.png"
     filepath = f"./generated_images/{filename}"
 
     # Download image from Replicate

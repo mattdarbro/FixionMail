@@ -86,6 +86,7 @@ class SupabaseStorage(StorageBackend):
                 file_data = f.read()
 
             # Upload to Supabase Storage (audio bucket)
+            # Each file has a unique name (with UUID), so no upsert needed
             self.client.storage.from_("audio").upload(
                 filename,
                 file_data,
@@ -98,8 +99,16 @@ class SupabaseStorage(StorageBackend):
             return public_url
 
         except Exception as e:
-            logger.error(f"Failed to upload audio to Supabase: {e}")
-            # Fallback: return local URL (file still exists locally)
+            error_msg = str(e)
+            logger.error(f"Failed to upload audio to Supabase: {error_msg}")
+
+            # Don't silently fallback to local URL in production - this causes broken links
+            # Instead, raise the exception so the error is visible
+            if os.getenv("ENVIRONMENT") == "production":
+                logger.error(f"CRITICAL: Audio upload failed in production. File: {filename}")
+                raise RuntimeError(f"Supabase audio upload failed: {error_msg}")
+
+            # Only fallback to local in development
             logger.warning(f"Falling back to local URL for {filename}")
             return f"/audio/{filename}"
 
@@ -122,6 +131,7 @@ class SupabaseStorage(StorageBackend):
             content_type = content_type_map.get(ext, "image/png")
 
             # Upload to Supabase Storage (images bucket)
+            # Each file has a unique name (with UUID), so no upsert needed
             self.client.storage.from_("images").upload(
                 filename,
                 file_data,
@@ -134,8 +144,16 @@ class SupabaseStorage(StorageBackend):
             return public_url
 
         except Exception as e:
-            logger.error(f"Failed to upload image to Supabase: {e}")
-            # Fallback: return local URL (file still exists locally)
+            error_msg = str(e)
+            logger.error(f"Failed to upload image to Supabase: {error_msg}")
+
+            # Don't silently fallback to local URL in production - this causes broken links
+            # Instead, raise the exception so the error is visible
+            if os.getenv("ENVIRONMENT") == "production":
+                logger.error(f"CRITICAL: Image upload failed in production. File: {filename}")
+                raise RuntimeError(f"Supabase image upload failed: {error_msg}")
+
+            # Only fallback to local in development
             logger.warning(f"Falling back to local URL for {filename}")
             return f"/images/{filename}"
 
