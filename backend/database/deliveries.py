@@ -107,7 +107,7 @@ class DeliveryService:
 
         result = (
             self.client.table("scheduled_deliveries")
-            .select("*, stories(*)")  # Join with stories to get content
+            .select("*, story:stories(*)")  # Join with stories to get content
             .eq("status", DeliveryStatus.PENDING.value)
             .lte("deliver_at", now)
             .order("deliver_at")
@@ -245,7 +245,7 @@ class DeliveryService:
         """Get a delivery by ID with story details."""
         result = (
             self.client.table("scheduled_deliveries")
-            .select("*, stories(*)")
+            .select("*, story:stories(*)")
             .eq("id", str(delivery_id))
             .single()
             .execute()
@@ -260,7 +260,7 @@ class DeliveryService:
         """Get delivery history for a user."""
         result = (
             self.client.table("scheduled_deliveries")
-            .select("*, stories(id, title, genre)")
+            .select("*, story:stories(id, title, genre)")
             .eq("user_id", str(user_id))
             .order("deliver_at", desc=True)
             .limit(limit)
@@ -279,7 +279,7 @@ class DeliveryService:
         """
         result = (
             self.client.table("scheduled_deliveries")
-            .select("id, deliver_at, timezone, status, stories(id, title, genre)")
+            .select("id, deliver_at, timezone, status, story:stories(id, title, genre)")
             .eq("user_id", str(user_id))
             .eq("status", DeliveryStatus.PENDING.value)
             .order("deliver_at")
@@ -299,7 +299,7 @@ class DeliveryService:
 
         result = (
             self.client.table("scheduled_deliveries")
-            .select("*, stories(id, title, genre, word_count)")
+            .select("*, story:stories(id, title, genre, word_count)")
             .eq("status", DeliveryStatus.PENDING.value)
             .gte("deliver_at", now.isoformat())
             .lte("deliver_at", future)
@@ -313,7 +313,7 @@ class DeliveryService:
         """Get failed deliveries for debugging."""
         result = (
             self.client.table("scheduled_deliveries")
-            .select("*, stories(id, title, genre)")
+            .select("*, story:stories(id, title, genre)")
             .eq("status", DeliveryStatus.FAILED.value)
             .order("updated_at", desc=True)
             .limit(limit)
@@ -390,7 +390,7 @@ class DeliveryService:
         """Get delivery schedule for dashboard."""
         query = (
             self.client.table("scheduled_deliveries")
-            .select("id, user_email, deliver_at, timezone, status, sent_at, error_message, retry_count, created_at, stories(id, title, genre, word_count)")
+            .select("id, user_email, deliver_at, timezone, status, sent_at, error_message, retry_count, created_at, story:stories(id, title, genre, word_count)")
             .order("deliver_at", desc=False)
             .limit(limit)
         )

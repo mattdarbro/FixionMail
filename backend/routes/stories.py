@@ -219,7 +219,7 @@ async def get_dashboard_status(
 
     next_delivery = None
     if next_delivery_raw:
-        story_info = next_delivery_raw.get("stories") or {}
+        story_info = next_delivery_raw.get("story") or {}
         next_delivery = NextDeliveryResponse(
             delivery_id=next_delivery_raw["id"],
             deliver_at=next_delivery_raw["deliver_at"],

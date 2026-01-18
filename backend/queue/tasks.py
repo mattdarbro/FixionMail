@@ -334,7 +334,7 @@ async def _send_email_async(delivery_id: str) -> Dict[str, Any]:
             logger.info(f"Delivery already sent, skipping", delivery_id=delivery_id)
             return {"success": True, "already_sent": True}
 
-        story = delivery.get("stories")
+        story = delivery.get("story")
         if not story:
             return {"success": False, "error": "Story not found for delivery"}
 
