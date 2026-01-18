@@ -321,12 +321,18 @@ async def _send_email_async(delivery_id: str) -> Dict[str, Any]:
     from backend.utils.logging import job_logger as logger
 
     delivery_service = DeliveryService()
+    email_sent = False  # Track if email was successfully sent
 
     try:
         # Get delivery with story details
         delivery = await delivery_service.get_delivery_by_id(delivery_id)
         if not delivery:
             return {"success": False, "error": "Delivery not found"}
+
+        # Check if already sent (prevents duplicate sends on retry)
+        if delivery.get("status") == "sent":
+            logger.info(f"Delivery already sent, skipping", delivery_id=delivery_id)
+            return {"success": True, "already_sent": True}
 
         story = delivery.get("stories")
         if not story:
@@ -356,12 +362,31 @@ async def _send_email_async(delivery_id: str) -> Dict[str, Any]:
         }
 
         response = resend.Emails.send(params)
+        resend_id = response.get("id")
+        email_sent = True  # Email was successfully sent
 
-        # Mark as sent
-        await delivery_service.mark_sent(
-            delivery_id,
-            resend_email_id=response.get("id")
-        )
+        # Try to mark as sent - if this fails, we should NOT retry sending
+        try:
+            await delivery_service.mark_sent(
+                delivery_id,
+                resend_email_id=resend_id
+            )
+        except Exception as mark_error:
+            # Email was sent but we couldn't update the database
+            # Log the error but return success to prevent duplicate emails
+            logger.error(
+                f"Email sent but mark_sent failed - DO NOT RETRY",
+                delivery_id=delivery_id,
+                resend_id=resend_id,
+                error=str(mark_error)
+            )
+            # Return success since email was sent - just couldn't update DB
+            return {
+                "success": True,
+                "resend_id": resend_id,
+                "email": delivery["user_email"],
+                "warning": f"Email sent but database update failed: {mark_error}"
+            }
 
         logger.info(
             f"Email sent successfully",
@@ -372,7 +397,7 @@ async def _send_email_async(delivery_id: str) -> Dict[str, Any]:
 
         return {
             "success": True,
-            "resend_id": response.get("id"),
+            "resend_id": resend_id,
             "email": delivery["user_email"]
         }
 
@@ -380,16 +405,23 @@ async def _send_email_async(delivery_id: str) -> Dict[str, Any]:
         error_msg = str(e)
         logger.error(f"Email send failed: {error_msg}", delivery_id=delivery_id)
 
-        # Mark as failed with retry
-        await delivery_service.mark_failed(
-            delivery_id,
-            error_message=error_msg,
-            should_retry=True
-        )
+        # Only retry if email was NOT sent
+        # If email was sent but something else failed, don't retry to prevent duplicates
+        should_retry = not email_sent
+
+        try:
+            await delivery_service.mark_failed(
+                delivery_id,
+                error_message=error_msg,
+                should_retry=should_retry
+            )
+        except Exception as mark_error:
+            logger.error(f"Failed to mark delivery as failed: {mark_error}", delivery_id=delivery_id)
 
         return {
             "success": False,
-            "error": error_msg
+            "error": error_msg,
+            "email_was_sent": email_sent
         }
 
 
