@@ -130,16 +130,16 @@ class SupabaseStorage(StorageBackend):
             }
             content_type = content_type_map.get(ext, "image/png")
 
-            # Upload to Supabase Storage (images bucket)
+            # Upload to Supabase Storage (image bucket - singular to match Supabase config)
             # Each file has a unique name (with UUID), so no upsert needed
-            self.client.storage.from_("images").upload(
+            self.client.storage.from_("image").upload(
                 filename,
                 file_data,
                 file_options={"content-type": content_type}
             )
 
             # Return public URL
-            public_url = f"{self.supabase_url}/storage/v1/object/public/images/{filename}"
+            public_url = f"{self.supabase_url}/storage/v1/object/public/image/{filename}"
             logger.info(f"Uploaded image to Supabase: {filename}")
             return public_url
 

@@ -309,11 +309,12 @@ async def generate_story_image(
     primary_model = config.IMAGE_MODEL
 
     # Define fallback models (excluding the primary)
+    # Note: stability-ai/sdxl is broken, removed from fallbacks
+    # Using only reliable free/fast models
     all_models = [
-        "black-forest-labs/flux-schnell",
-        "google/imagen-3-fast",
-        "black-forest-labs/flux-1.1-pro",
-        "stability-ai/sdxl",
+        "black-forest-labs/flux-schnell",  # Fast, reliable, free tier
+        "google/imagen-3-fast",             # Google's fast model
+        "black-forest-labs/flux-1.1-pro",   # Higher quality (paid)
     ]
 
     # Build model list: primary first, then fallbacks
