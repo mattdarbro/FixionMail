@@ -120,11 +120,15 @@ class RedisQueueScheduler:
                     settings = self._build_job_settings(user)
 
                     # Create job record in database (for tracking)
+                    # CRITICAL: Must pass user_id so get_user_active_jobs() can find it
+                    # Without user_id, the duplicate check won't work and multiple jobs
+                    # will be created for the same user
                     await job_service.create_job(
                         job_id=job_id,
                         story_bible=story_bible,
                         user_email=user["email"],
-                        settings=settings
+                        settings=settings,
+                        user_id=user["id"]
                     )
 
                     # Enqueue to Redis
