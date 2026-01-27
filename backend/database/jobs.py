@@ -65,14 +65,31 @@ class JobQueueService:
             user_id: Optional user ID if known
 
         Returns:
-            Created job data
+            Created job data, or existing job if duplicate detected
         """
+        user_id_str = str(user_id) if user_id else None
+
+        # DUPLICATE PREVENTION: For daily scheduled stories, check if user already
+        # has an active (pending/running) job to prevent race conditions
+        is_daily = settings.get("is_daily", False) if settings else False
+        if is_daily and user_id_str:
+            existing_active = (
+                self.client.table("story_jobs")
+                .select("job_id, status, created_at")
+                .eq("user_id", user_id_str)
+                .in_("status", [JobStatus.PENDING.value, JobStatus.RUNNING.value])
+                .execute()
+            )
+            if existing_active.data:
+                # User already has an active job - return existing instead of creating duplicate
+                return existing_active.data[0]
+
         job_data = {
             "job_id": job_id,
             "story_bible": story_bible,
             "user_email": user_email,
             "settings": settings,
-            "user_id": str(user_id) if user_id else None,
+            "user_id": user_id_str,
             "status": JobStatus.PENDING.value,
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
