@@ -3,13 +3,20 @@ Stories API Routes
 
 Endpoints for retrieving user stories, managing story library,
 and triggering story generation.
+
+iOS App Support:
+- Writer attribution (maurice, fifi, xion, joan)
+- Fixion's personal notes
+- Read status tracking
+- Favorites and archive
+- Filtering by status and writer
 """
 
-from typing import Optional, List
+from typing import Optional, List, Literal
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Depends, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from backend.database.stories import StoryService
 from backend.database.users import UserService
@@ -40,12 +47,58 @@ class StoryResponse(BaseModel):
     created_at: str
 
 
+class StoryListItemResponse(BaseModel):
+    """Story item in list response (preview, not full content)."""
+    id: str
+    title: str
+    genre: str
+    preview: str = Field(..., description="First 100 characters of story")
+    word_count: int
+    generated_at: str
+    read: bool = False
+    favorite: bool = False
+    archived: bool = False
+    writer: Optional[str] = None
+    fixion_note: Optional[str] = None
+    audio_url: Optional[str] = None
+    image_url: Optional[str] = None
+
+
+class StoryFullResponse(BaseModel):
+    """Full story response with all iOS fields."""
+    id: str
+    title: str
+    genre: str
+    content: str = Field(..., description="Full story text")
+    word_count: int
+    generated_at: str
+    read: bool = False
+    read_at: Optional[str] = None
+    favorite: bool = False
+    archived: bool = False
+    writer: Optional[str] = None
+    fixion_note: Optional[str] = None
+    preshow_id: Optional[str] = None
+    audio_url: Optional[str] = None
+    image_url: Optional[str] = None
+    rating: Optional[int] = None
+    is_retell: bool = False
+    metadata: Optional[dict] = None
+
+
 class StoryListResponse(BaseModel):
     """List of stories response."""
     stories: List[StoryResponse]
     total: int
     limit: int
     offset: int
+
+
+class StoryListResponseV2(BaseModel):
+    """List of stories response for iOS app."""
+    stories: List[StoryListItemResponse]
+    total: int
+    has_more: bool
 
 
 class StoryStatsResponse(BaseModel):
@@ -69,6 +122,20 @@ class GenerateStoryResponse(BaseModel):
     job_id: str
     message: str
     status: str
+
+
+class GenerateStoryRequestV2(BaseModel):
+    """Request to generate a new story (iOS app version)."""
+    immediate: bool = Field(True, description="Watch pre-show now, or generate for later")
+    mood_override: Optional[str] = Field(None, description="Optional mood/request override")
+
+
+class GenerateStoryResponseV2(BaseModel):
+    """Response after queuing story generation (iOS app version)."""
+    task_id: str
+    status: str
+    preshow_available: bool
+    preshow_url: Optional[str] = None
 
 
 class ActiveJobResponse(BaseModel):
@@ -487,3 +554,253 @@ async def get_job_status(
         "completed_at": job.get("completed_at"),
         "error_message": job.get("error_message"),
     }
+
+
+# =============================================================================
+# iOS App Stories API (v2 endpoints)
+# =============================================================================
+
+@router.get("/v2", response_model=StoryListResponseV2)
+async def get_stories_v2(
+    status: Optional[str] = Query(None, description="Filter: unread, read, archived, all"),
+    favorite: Optional[bool] = Query(None, description="Filter by favorites"),
+    writer: Optional[str] = Query(None, description="Filter by writer: maurice, fifi, xion, joan"),
+    limit: int = Query(default=20, le=100),
+    offset: int = Query(default=0, ge=0),
+    user_id: str = Depends(get_current_user_id)
+):
+    """
+    Get user's stories with iOS app filtering options.
+
+    Supports filtering by:
+    - status: unread, read, archived, all (default: all)
+    - favorite: true/false
+    - writer: maurice, fifi, xion, joan
+
+    Returns story previews (first 100 characters), not full content.
+    """
+    story_service = StoryService()
+
+    # Get stories with filters
+    stories = await story_service.get_user_stories_v2(
+        user_id,
+        limit=limit + 1,  # Get one extra to check has_more
+        offset=offset,
+        status=status,
+        favorite=favorite,
+        writer=writer,
+    )
+
+    # Check if there are more results
+    has_more = len(stories) > limit
+    if has_more:
+        stories = stories[:limit]
+
+    # Get total count
+    total = await story_service.count_user_stories(user_id, status=status, favorite=favorite, writer=writer)
+
+    return StoryListResponseV2(
+        stories=[
+            StoryListItemResponse(
+                id=s["id"],
+                title=s["title"],
+                genre=s["genre"],
+                preview=s["narrative"][:100] + "..." if len(s.get("narrative", "")) > 100 else s.get("narrative", ""),
+                word_count=s["word_count"],
+                generated_at=s["created_at"],
+                read=s.get("read", False),
+                favorite=s.get("favorite", False),
+                archived=s.get("archived", False),
+                writer=s.get("writer"),
+                fixion_note=s.get("fixion_note"),
+                audio_url=s.get("audio_url"),
+                image_url=s.get("image_url"),
+            )
+            for s in stories
+        ],
+        total=total,
+        has_more=has_more,
+    )
+
+
+@router.get("/v2/{story_id}", response_model=StoryFullResponse)
+async def get_story_v2(
+    story_id: str,
+    user_id: str = Depends(get_current_user_id)
+):
+    """
+    Get a single story with full content and iOS fields.
+
+    Automatically marks the story as read when accessed.
+    """
+    story_service = StoryService()
+    story = await story_service.get_by_id(story_id)
+
+    if not story:
+        raise HTTPException(status_code=404, detail="Story not found")
+
+    # Verify ownership
+    if story.get("user_id") != user_id:
+        raise HTTPException(status_code=403, detail="Not your story")
+
+    # Mark as read if not already
+    if not story.get("read"):
+        await story_service.mark_read(story_id)
+
+    return StoryFullResponse(
+        id=story["id"],
+        title=story["title"],
+        genre=story["genre"],
+        content=story["narrative"],
+        word_count=story["word_count"],
+        generated_at=story["created_at"],
+        read=True,  # We just marked it as read
+        read_at=story.get("read_at") or datetime.now(timezone.utc).isoformat(),
+        favorite=story.get("favorite", False),
+        archived=story.get("archived", False),
+        writer=story.get("writer"),
+        fixion_note=story.get("fixion_note"),
+        preshow_id=story.get("preshow_id"),
+        audio_url=story.get("audio_url"),
+        image_url=story.get("image_url"),
+        rating=story.get("rating"),
+        is_retell=story.get("is_retell", False),
+        metadata={
+            "themes": story.get("story_bible", {}).get("themes", []),
+            "variation_applied": story.get("variation_applied"),
+        } if story.get("variation_applied") else None,
+    )
+
+
+@router.post("/v2/{story_id}/read")
+async def mark_story_read(
+    story_id: str,
+    user_id: str = Depends(get_current_user_id)
+):
+    """Mark a story as read."""
+    story_service = StoryService()
+
+    story = await story_service.get_by_id(story_id)
+    if not story:
+        raise HTTPException(status_code=404, detail="Story not found")
+    if story.get("user_id") != user_id:
+        raise HTTPException(status_code=403, detail="Not your story")
+
+    await story_service.mark_read(story_id)
+    return {"success": True, "read": True}
+
+
+@router.post("/v2/{story_id}/favorite")
+async def toggle_story_favorite(
+    story_id: str,
+    user_id: str = Depends(get_current_user_id)
+):
+    """Toggle favorite status on a story."""
+    story_service = StoryService()
+
+    story = await story_service.get_by_id(story_id)
+    if not story:
+        raise HTTPException(status_code=404, detail="Story not found")
+    if story.get("user_id") != user_id:
+        raise HTTPException(status_code=403, detail="Not your story")
+
+    new_status = not story.get("favorite", False)
+    await story_service.set_favorite(story_id, new_status)
+    return {"success": True, "favorite": new_status}
+
+
+@router.post("/v2/{story_id}/archive")
+async def toggle_story_archive(
+    story_id: str,
+    user_id: str = Depends(get_current_user_id)
+):
+    """Toggle archive status on a story."""
+    story_service = StoryService()
+
+    story = await story_service.get_by_id(story_id)
+    if not story:
+        raise HTTPException(status_code=404, detail="Story not found")
+    if story.get("user_id") != user_id:
+        raise HTTPException(status_code=403, detail="Not your story")
+
+    new_status = not story.get("archived", False)
+    await story_service.set_archived(story_id, new_status)
+    return {"success": True, "archived": new_status}
+
+
+@router.post("/v2/generate", response_model=GenerateStoryResponseV2)
+async def generate_story_v2(
+    request: GenerateStoryRequestV2,
+    user_id: str = Depends(get_current_user_id)
+):
+    """
+    Generate a new story (iOS app version).
+
+    Returns immediately with task info. If immediate=true, includes
+    preshow_url for SSE streaming of writing room drama.
+    """
+    user_service = UserService()
+    scheduler = get_daily_scheduler()
+
+    if not scheduler:
+        raise HTTPException(
+            status_code=503,
+            detail="Story generation service unavailable"
+        )
+
+    # Get user data
+    user = await user_service.get_by_id(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Check credits
+    credits = user.get("credits", 0)
+    if credits < 1:
+        raise HTTPException(
+            status_code=402,
+            detail="Insufficient credits. Please subscribe or purchase credits."
+        )
+
+    # Build story bible
+    story_bible = user.get("story_bible", {})
+    story_bible["genre"] = user.get("current_genre", "mystery")
+
+    if user.get("current_protagonist"):
+        story_bible["protagonist"] = user["current_protagonist"]
+
+    # Add mood override if provided
+    if request.mood_override:
+        story_bible["mood_override"] = request.mood_override
+
+    # Determine settings
+    prefs = user.get("preferences", {})
+    subscription_status = user.get("subscription_status", "trial")
+    is_premium = subscription_status == "active"
+
+    settings = {
+        "user_tier": "premium" if is_premium else "free",
+        "user_id": user_id,
+        "story_length": prefs.get("story_length", "medium"),
+        "writer_model": "sonnet",
+        "structure_model": "sonnet",
+        "editor_model": "opus" if is_premium else "sonnet",
+        "tts_voice": prefs.get("voice_id", "nova"),
+        "dev_mode": False,
+        "is_daily": False,
+        "generate_preshow": request.immediate,  # Generate preshow for immediate requests
+    }
+
+    # Queue the story
+    job_id = await scheduler.queue_story_now(
+        user_id=user_id,
+        user_email=user["email"],
+        story_bible=story_bible,
+        settings=settings
+    )
+
+    return GenerateStoryResponseV2(
+        task_id=job_id,
+        status="generating",
+        preshow_available=request.immediate,
+        preshow_url=f"/api/preshow/{job_id}/stream" if request.immediate else None,
+    )
