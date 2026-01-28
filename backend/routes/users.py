@@ -349,6 +349,195 @@ async def delete_account(user_id: str = Depends(get_current_user_id)):
 # Upgrade Routes (Temporary - will be replaced with Stripe integration)
 # =============================================================================
 
+# =============================================================================
+# iOS App Preferences
+# =============================================================================
+
+class iOSPreferencesResponse(BaseModel):
+    """Full preferences response for iOS app."""
+    genres: List[str]
+    themes: List[str]
+    length: str
+    tone: str
+    boundaries: Dict[str, bool]
+    schedule: Dict[str, Any]
+    variation: Dict[str, Any]
+
+
+class UpdateScheduleRequest(BaseModel):
+    """Request to update schedule preferences."""
+    frequency: Optional[str] = None  # daily, every_3_days, weekly, manual
+    preferred_time: Optional[str] = None  # HH:MM
+    timezone: Optional[str] = None
+    paused: Optional[bool] = None
+
+
+class UpdateVariationRequest(BaseModel):
+    """Request to update story variation settings."""
+    variation_tolerance: Optional[str] = None  # low, medium, high
+    xion_experiments: Optional[str] = None  # never, rare, occasional, frequent
+    fifi_enabled: Optional[bool] = None
+
+
+@router.get("/preferences/ios", response_model=iOSPreferencesResponse)
+async def get_ios_preferences(user: dict = Depends(get_current_user)):
+    """
+    Get full preferences for iOS app.
+
+    Returns all user preferences in iOS app format.
+    """
+    story_bible = user.get("story_bible", {})
+    prefs = user.get("preferences", {})
+
+    return iOSPreferencesResponse(
+        genres=story_bible.get("genres", [user.get("current_genre", "mystery")]),
+        themes=story_bible.get("themes", []),
+        length=prefs.get("story_length", "medium"),
+        tone=story_bible.get("tone", "thoughtful"),
+        boundaries={
+            "no_graphic_violence": story_bible.get("no_graphic_violence", True),
+            "no_explicit_content": story_bible.get("no_explicit_content", True),
+        },
+        schedule={
+            "frequency": prefs.get("frequency", "daily"),
+            "preferred_time": prefs.get("delivery_time", "08:00"),
+            "timezone": prefs.get("timezone", "UTC"),
+            "paused": prefs.get("paused", False),
+        },
+        variation={
+            "variation_tolerance": user.get("variation_tolerance", "medium"),
+            "xion_experiments": user.get("xion_experiments", "occasional"),
+            "fifi_enabled": user.get("fifi_enabled", True),
+        },
+    )
+
+
+@router.put("/preferences/ios")
+async def update_ios_preferences(
+    genres: Optional[List[str]] = None,
+    themes: Optional[List[str]] = None,
+    length: Optional[str] = None,
+    tone: Optional[str] = None,
+    user_id: str = Depends(get_current_user_id)
+):
+    """
+    Update iOS app preferences (partial update).
+
+    For schedule and variation settings, use dedicated endpoints.
+    """
+    user_service = UserService()
+
+    try:
+        user = await user_service.get_by_id(user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        # Update story bible
+        story_bible = user.get("story_bible", {})
+        if genres is not None:
+            story_bible["genres"] = genres
+        if themes is not None:
+            story_bible["themes"] = themes
+        if tone is not None:
+            story_bible["tone"] = tone
+
+        await user_service.update_story_bible(user_id, story_bible)
+
+        # Update preferences
+        if length is not None:
+            await user_service.update_preferences(user_id, {"story_length": length})
+
+        return {"updated": True, "message": "Preferences updated"}
+
+    except UserNotFoundError:
+        raise HTTPException(status_code=404, detail="User not found")
+
+
+@router.put("/preferences/schedule")
+async def update_schedule_preferences(
+    request: UpdateScheduleRequest,
+    user_id: str = Depends(get_current_user_id)
+):
+    """
+    Update story delivery schedule preferences.
+    """
+    user_service = UserService()
+
+    updates = {}
+    if request.frequency is not None:
+        updates["frequency"] = request.frequency
+    if request.preferred_time is not None:
+        updates["delivery_time"] = request.preferred_time
+    if request.timezone is not None:
+        updates["timezone"] = request.timezone
+    if request.paused is not None:
+        updates["paused"] = request.paused
+
+    if not updates:
+        raise HTTPException(
+            status_code=400,
+            detail="No schedule preferences provided"
+        )
+
+    try:
+        await user_service.update_preferences(user_id, updates)
+        return {"updated": True, "schedule": updates}
+    except UserNotFoundError:
+        raise HTTPException(status_code=404, detail="User not found")
+
+
+@router.put("/preferences/variation")
+async def update_variation_preferences(
+    request: UpdateVariationRequest,
+    user_id: str = Depends(get_current_user_id)
+):
+    """
+    Update story variation settings.
+
+    Controls how much variety is introduced into stories:
+    - variation_tolerance: How much drift from preferences (low/medium/high)
+    - xion_experiments: How often Xion's experiments appear (never/rare/occasional/frequent)
+    - fifi_enabled: Whether Fifi's happy accidents can occur
+    """
+    user_service = UserService()
+
+    updates = {}
+    if request.variation_tolerance is not None:
+        if request.variation_tolerance not in ["low", "medium", "high"]:
+            raise HTTPException(
+                status_code=400,
+                detail="variation_tolerance must be low, medium, or high"
+            )
+        updates["variation_tolerance"] = request.variation_tolerance
+
+    if request.xion_experiments is not None:
+        if request.xion_experiments not in ["never", "rare", "occasional", "frequent"]:
+            raise HTTPException(
+                status_code=400,
+                detail="xion_experiments must be never, rare, occasional, or frequent"
+            )
+        updates["xion_experiments"] = request.xion_experiments
+
+    if request.fifi_enabled is not None:
+        updates["fifi_enabled"] = request.fifi_enabled
+
+    if not updates:
+        raise HTTPException(
+            status_code=400,
+            detail="No variation preferences provided"
+        )
+
+    try:
+        await user_service.update(user_id, updates)
+        return {"updated": True, "variation": updates}
+    except UserNotFoundError:
+        raise HTTPException(status_code=404, detail="User not found")
+
+
+# =============================================================================
+# Upgrade Routes (Temporary - will be replaced with Stripe integration)
+# =============================================================================
+
 class UpgradeRequest(BaseModel):
     """Request to upgrade with access code."""
     access_code: str

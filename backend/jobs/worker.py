@@ -4,11 +4,17 @@ Polls the Supabase job queue and processes stories asynchronously.
 
 NOTE: This worker GENERATES stories and schedules them for delivery.
 The DeliveryWorker (separate) handles sending emails at the scheduled time.
+
+iOS App Support:
+- Assigns a writer (Maurice, Fifi, Xion, Joan) based on user settings
+- Generates Fixion's personal note at the end of each story
+- Creates pre-shows when requested (for iOS app real-time updates)
 """
 
 import asyncio
 import os
 import time
+import random
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
 
@@ -17,6 +23,97 @@ from apscheduler.triggers.interval import IntervalTrigger
 
 from backend.database.jobs import JobQueueService, JobStatus
 from backend.utils.logging import job_logger as logger
+
+
+# Writing room characters and their note templates
+WRITER_NOTES = {
+    "maurice": [
+        "Maurice was particularly proud of this one, though he'd never admit it. -F",
+        "Maurice grumbled through the whole thing, but I think he secretly enjoyed it. -F",
+        "This one went through three drafts. Maurice is... thorough. -F",
+        "Maurice handled this one. He sends his regards (he didn't, but I'm sure he would have). -F",
+    ],
+    "joan": [
+        "Joan took extra care with the emotional beats on this one. Hope it resonates. -F",
+        "This one has Joan's fingerprints all over it - in the best way. -F",
+        "Joan wanted me to tell you she had fun with this one. -F",
+        "Joan says the ending came to her in a dream. I believe her. -F",
+    ],
+    "fifi": [
+        "Fifi handled this one. I think she did great, but let me know if you want me to talk to her. -F",
+        "Fifi was SO excited to write this. She checked with me three times if it was okay. -F",
+        "This one's from Fifi. She says she hopes you like it! (She's nervous.) -F",
+        "Fifi took a slightly... creative interpretation here. I think it works! -F",
+    ],
+    "xion": [
+        "Xion insisted on the genre twist. I tried to stop him. I really did. -F",
+        "This one is... experimental. Xion's idea. Let me know what you think? -F",
+        "Xion snuck something in here. I'm not sure what, but it's definitely something. -F",
+        "Xion called this one his 'masterpiece.' Maurice threw a pencil at him. -F",
+    ],
+}
+
+
+def select_writer(user_settings: dict) -> str:
+    """
+    Select a writer based on user settings for story variation.
+
+    Args:
+        user_settings: Dict with variation_tolerance, xion_experiments, fifi_enabled
+
+    Returns:
+        Writer name: 'maurice', 'joan', 'fifi', or 'xion'
+    """
+    variation_tolerance = user_settings.get("variation_tolerance", "medium")
+    xion_experiments = user_settings.get("xion_experiments", "occasional")
+    fifi_enabled = user_settings.get("fifi_enabled", True)
+
+    roll = random.random()
+
+    if variation_tolerance == "low":
+        # Mostly Maurice and Joan (reliable)
+        if roll < 0.6:
+            return "maurice"
+        elif roll < 0.9:
+            return "joan"
+        elif fifi_enabled and roll < 0.95:
+            return "fifi"
+        else:
+            return "maurice"
+
+    elif variation_tolerance == "medium":
+        # Balanced mix
+        if roll < 0.4:
+            return "maurice"
+        elif roll < 0.65:
+            return "joan"
+        elif fifi_enabled and roll < 0.85:
+            return "fifi"
+        elif xion_experiments != "never" and roll < 0.95:
+            return "xion"
+        else:
+            return "maurice"
+
+    elif variation_tolerance == "high":
+        # More variety
+        if roll < 0.25:
+            return "maurice"
+        elif roll < 0.45:
+            return "joan"
+        elif fifi_enabled and roll < 0.70:
+            return "fifi"
+        elif xion_experiments != "never" and roll < 0.95:
+            return "xion"
+        else:
+            return "joan"
+
+    return "maurice"
+
+
+def generate_fixion_note(writer: str) -> str:
+    """Generate a personal note from Fixion based on the writer."""
+    notes = WRITER_NOTES.get(writer, WRITER_NOTES["maurice"])
+    return random.choice(notes)
 
 
 class StoryWorker:
@@ -186,7 +283,21 @@ class StoryWorker:
                             beat_structure=story_bible.get("beat_structure", "classic")
                         )
 
-                        # Save story to database (with updated bible)
+                        # Select writer and generate Fixion's note (iOS app support)
+                        user_variation_settings = {
+                            "variation_tolerance": user.get("variation_tolerance", "medium"),
+                            "xion_experiments": user.get("xion_experiments", "occasional"),
+                            "fifi_enabled": user.get("fifi_enabled", True),
+                        }
+                        story_writer = select_writer(user_variation_settings)
+                        fixion_note = generate_fixion_note(story_writer)
+                        logger.info(
+                            "Writer assigned for story",
+                            writer=story_writer,
+                            user_id=user["id"]
+                        )
+
+                        # Save story to database (with updated bible, writer, and fixion note)
                         story_service = StoryService()
                         saved_story = await story_service.create(
                             user_id=user["id"],
@@ -200,8 +311,43 @@ class StoryWorker:
                             audio_url=story.get("audio_url"),
                             image_url=story.get("cover_image_url"),
                             credits_used=1 if user_tier != "free" else 0,
+                            writer=story_writer,
+                            fixion_note=fixion_note,
                         )
                         story_id = saved_story.get("id")
+
+                        # Create pre-show if requested (iOS app support)
+                        generate_preshow = settings.get("generate_preshow", False)
+                        if generate_preshow and story_id:
+                            try:
+                                from backend.database.preshows import PreshowService
+                                preshow_service = PreshowService()
+
+                                # Select variation based on writer
+                                variation = "standard"
+                                if story_writer == "fifi":
+                                    variation = "fifi_day"
+                                elif story_writer == "xion":
+                                    variation = "xion_experiment"
+
+                                preshow = await preshow_service.create(
+                                    user_id=user["id"],
+                                    task_id=job_id,
+                                    story_bible=updated_bible,
+                                    variation=variation,
+                                    story_id=story_id,
+                                )
+                                logger.info(
+                                    "Pre-show created for story",
+                                    preshow_id=preshow.get("id"),
+                                    story_id=story_id,
+                                    variation=variation
+                                )
+                            except Exception as preshow_error:
+                                logger.warning(
+                                    f"Failed to create pre-show (non-fatal): {preshow_error}",
+                                    story_id=story_id
+                                )
 
                         # CRITICAL: Save updated bible back to user for future story generation
                         # This persists: recent_titles, recent_summaries, used_names, etc.

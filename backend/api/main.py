@@ -121,6 +121,26 @@ except Exception as e:
     admin_router = None
     admin_routes_loaded = False
 
+# Import Pre-Show routes (iOS app)
+try:
+    from backend.routes.preshow import router as preshow_router
+    preshow_routes_loaded = True
+    print("✓ Pre-show router imported")
+except Exception as e:
+    print(f"⚠️  Pre-show router loading failed: {e}")
+    preshow_router = None
+    preshow_routes_loaded = False
+
+# Import Device routes (iOS app push notifications)
+try:
+    from backend.routes.devices import router as devices_router
+    devices_routes_loaded = True
+    print("✓ Devices router imported")
+except Exception as e:
+    print(f"⚠️  Devices router loading failed: {e}")
+    devices_router = None
+    devices_routes_loaded = False
+
 # Create FastAPI app
 app = FastAPI(
     title="Storyteller API",
@@ -195,6 +215,20 @@ if admin_routes_loaded and admin_router:
     print("✓ Admin routes registered")
 else:
     print("⚠️  Skipping Admin routes")
+
+# Include Pre-Show routes (iOS app)
+if preshow_routes_loaded and preshow_router:
+    app.include_router(preshow_router)
+    print("✓ Pre-show routes registered")
+else:
+    print("⚠️  Skipping Pre-show routes")
+
+# Include Device routes (iOS app push notifications)
+if devices_routes_loaded and devices_router:
+    app.include_router(devices_router)
+    print("✓ Devices routes registered")
+else:
+    print("⚠️  Skipping Devices routes")
 
 # Mount static files for generated media
 # Create directories if they don't exist

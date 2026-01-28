@@ -54,6 +54,8 @@ class StoryService:
         episode_number: Optional[int] = None,
         credits_used: int = 1,
         generation_cost_cents: Optional[int] = None,
+        writer: Optional[str] = None,
+        fixion_note: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Create a new story.
@@ -73,6 +75,8 @@ class StoryService:
             episode_number: Episode number within series
             credits_used: Credits consumed (default 1)
             generation_cost_cents: Actual API cost
+            writer: Writing room character who "wrote" this (iOS app)
+            fixion_note: Personal note from Fixion (iOS app)
 
         Returns:
             Created story data
@@ -98,6 +102,11 @@ class StoryService:
             "generation_cost_cents": generation_cost_cents,
             "status": "completed",
             "is_retell": False,
+            "read": False,  # iOS app: starts unread
+            "favorite": False,  # iOS app: not favorited
+            "archived": False,  # iOS app: not archived
+            "writer": writer,  # iOS app: writing room character
+            "fixion_note": fixion_note,  # iOS app: Fixion's personal note
             "created_at": datetime.now(timezone.utc).isoformat(),
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }
@@ -388,3 +397,139 @@ class StoryService:
                 s.get("rating", 0) for s in stories if s.get("rating")
             ) / max(len([s for s in stories if s.get("rating")]), 1),
         }
+
+    # =========================================================================
+    # iOS App Methods
+    # =========================================================================
+
+    async def get_user_stories_v2(
+        self,
+        user_id: UUID | str,
+        *,
+        limit: int = 50,
+        offset: int = 0,
+        status: Optional[str] = None,
+        favorite: Optional[bool] = None,
+        writer: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Get stories with iOS app filtering options.
+
+        Args:
+            user_id: User ID
+            limit: Max stories to return
+            offset: Pagination offset
+            status: unread, read, archived, or all
+            favorite: Filter by favorites
+            writer: Filter by writer (maurice, fifi, xion, joan)
+
+        Returns:
+            List of stories, newest first
+        """
+        query = (
+            self.client.table("stories")
+            .select("*")
+            .eq("user_id", str(user_id))
+            .eq("is_retell", False)
+            .order("created_at", desc=True)
+            .limit(limit)
+            .offset(offset)
+        )
+
+        # Apply status filter
+        if status == "unread":
+            query = query.eq("read", False).eq("archived", False)
+        elif status == "read":
+            query = query.eq("read", True).eq("archived", False)
+        elif status == "archived":
+            query = query.eq("archived", True)
+        elif status == "all" or status is None:
+            pass  # No filter
+
+        # Apply favorite filter
+        if favorite is not None:
+            query = query.eq("favorite", favorite)
+
+        # Apply writer filter
+        if writer:
+            query = query.eq("writer", writer)
+
+        result = query.execute()
+        return result.data
+
+    async def count_user_stories(
+        self,
+        user_id: UUID | str,
+        *,
+        status: Optional[str] = None,
+        favorite: Optional[bool] = None,
+        writer: Optional[str] = None,
+    ) -> int:
+        """
+        Count stories with filters applied.
+
+        Args:
+            user_id: User ID
+            status: unread, read, archived, or all
+            favorite: Filter by favorites
+            writer: Filter by writer
+
+        Returns:
+            Total count
+        """
+        query = (
+            self.client.table("stories")
+            .select("id", count="exact")
+            .eq("user_id", str(user_id))
+            .eq("is_retell", False)
+        )
+
+        # Apply status filter
+        if status == "unread":
+            query = query.eq("read", False).eq("archived", False)
+        elif status == "read":
+            query = query.eq("read", True).eq("archived", False)
+        elif status == "archived":
+            query = query.eq("archived", True)
+
+        # Apply favorite filter
+        if favorite is not None:
+            query = query.eq("favorite", favorite)
+
+        # Apply writer filter
+        if writer:
+            query = query.eq("writer", writer)
+
+        result = query.execute()
+        return result.count if result.count else 0
+
+    async def mark_read(self, story_id: UUID | str) -> Dict[str, Any]:
+        """Mark a story as read."""
+        return await self.update(story_id, {
+            "read": True,
+            "read_at": datetime.now(timezone.utc).isoformat(),
+        })
+
+    async def set_favorite(
+        self, story_id: UUID | str, favorite: bool
+    ) -> Dict[str, Any]:
+        """Set favorite status on a story."""
+        return await self.update(story_id, {"favorite": favorite})
+
+    async def set_archived(
+        self, story_id: UUID | str, archived: bool
+    ) -> Dict[str, Any]:
+        """Set archived status on a story."""
+        return await self.update(story_id, {"archived": archived})
+
+    async def set_writer_and_note(
+        self,
+        story_id: UUID | str,
+        writer: str,
+        fixion_note: str
+    ) -> Dict[str, Any]:
+        """Set writer attribution and Fixion's note on a story."""
+        return await self.update(story_id, {
+            "writer": writer,
+            "fixion_note": fixion_note,
+        })
