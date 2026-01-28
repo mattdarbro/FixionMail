@@ -628,9 +628,10 @@ async def login(request: LoginRequest):
                 status_code=401,
                 detail="Invalid email or password"
             )
+        print(f"[AUTH] Login error: {type(e).__name__}: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"Login failed: {str(e)}"
+            detail="Login failed. Please try again later."
         )
 
 
