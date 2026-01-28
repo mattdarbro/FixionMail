@@ -49,8 +49,16 @@ class UserService:
 
     async def get_by_id(self, user_id: UUID | str) -> Optional[Dict[str, Any]]:
         """Get user by ID."""
-        result = self.client.table("users").select("*").eq("id", str(user_id)).execute()
-        return result.data[0] if result.data else None
+        try:
+            result = self.client.table("users").select("*").eq("id", str(user_id)).execute()
+            if result.data:
+                print(f"[USER] Found user by ID: {user_id}")
+            else:
+                print(f"[USER] User not found by ID: {user_id}")
+            return result.data[0] if result.data else None
+        except Exception as e:
+            print(f"[USER] Error getting user {user_id}: {type(e).__name__}: {e}")
+            raise
 
     async def get_by_email(self, email: str) -> Optional[Dict[str, Any]]:
         """Get user by email."""
@@ -94,12 +102,25 @@ class UserService:
             "updated_at": now,
         }
 
-        result = self.client.table("users").insert(user_data).execute()
+        print(f"[USER] Creating user profile for {user_id} ({email})")
 
-        if not result.data:
-            raise Exception("Failed to create user")
+        try:
+            result = self.client.table("users").insert(user_data).execute()
 
-        return result.data[0]
+            if not result.data:
+                print(f"[USER] Insert returned no data for {user_id}")
+                raise Exception("Failed to create user - no data returned")
+
+            print(f"[USER] Successfully created user profile for {user_id}")
+            return result.data[0]
+        except Exception as e:
+            print(f"[USER] Error creating user {user_id}: {type(e).__name__}: {e}")
+            # Check if user already exists (created by database trigger)
+            existing = await self.get_by_id(user_id)
+            if existing:
+                print(f"[USER] User {user_id} already exists (likely created by trigger)")
+                return existing
+            raise
 
     async def get_or_create(
         self,
@@ -116,9 +137,12 @@ class UserService:
         Returns:
             User data (existing or newly created)
         """
+        print(f"[USER] get_or_create called for {user_id} ({email})")
         user = await self.get_by_id(user_id)
         if user:
+            print(f"[USER] User {user_id} already exists, returning existing")
             return user
+        print(f"[USER] User {user_id} not found, creating new profile")
         return await self.create(user_id, email)
 
     async def get_by_stripe_customer(self, stripe_customer_id: str) -> Optional[Dict[str, Any]]:
