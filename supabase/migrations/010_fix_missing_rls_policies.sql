@@ -21,14 +21,6 @@ CREATE POLICY "Allow update scheduled_deliveries" ON public.scheduled_deliveries
 CREATE POLICY "Allow delete scheduled_deliveries" ON public.scheduled_deliveries
     FOR DELETE USING (true);
 
--- scheduled_stories: backend creates and manages scheduled stories
-CREATE POLICY "Allow insert scheduled_stories" ON public.scheduled_stories
-    FOR INSERT WITH CHECK (true);
-CREATE POLICY "Allow update scheduled_stories" ON public.scheduled_stories
-    FOR UPDATE USING (true) WITH CHECK (true);
-CREATE POLICY "Allow delete scheduled_stories" ON public.scheduled_stories
-    FOR DELETE USING (true);
-
 -- credit_transactions: backend records credit usage
 CREATE POLICY "Allow insert credit_transactions" ON public.credit_transactions
     FOR INSERT WITH CHECK (true);
