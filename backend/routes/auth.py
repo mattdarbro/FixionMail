@@ -604,8 +604,11 @@ async def login(request: LoginRequest):
         session = response.session
         user = response.user
 
-        # Update last login
+        # Ensure user profile exists (handles users created before trigger was set up)
         user_service = UserService()
+        await user_service.get_or_create(str(user.id), user.email or request.email)
+
+        # Update last login
         await user_service.record_login(user.id)
 
         return LoginResponse(
