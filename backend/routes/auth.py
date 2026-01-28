@@ -458,12 +458,16 @@ async def logout(
 # =============================================================================
 
 @router.post("/register", response_model=RegisterResponse)
-async def register(request: RegisterRequest):
+async def register(request: Request):
     """
     Register a new account with email and password.
 
     This endpoint creates a new user account with email/password authentication.
     The user will be automatically logged in after registration.
+
+    Request body (JSON):
+    - email: Valid email address
+    - password: At least 8 characters
     """
     if not config.supabase_configured:
         raise HTTPException(
@@ -471,19 +475,53 @@ async def register(request: RegisterRequest):
             detail="Authentication service not configured"
         )
 
+    # Parse and validate request body manually for better error messages
+    try:
+        body = await request.json()
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid JSON body: {str(e)}. Expected Content-Type: application/json with {{\"email\": \"...\", \"password\": \"...\"}}"
+        )
+
+    email = body.get("email")
+    password = body.get("password")
+
+    if not email:
+        raise HTTPException(
+            status_code=400,
+            detail="Missing required field: email"
+        )
+    if not password:
+        raise HTTPException(
+            status_code=400,
+            detail="Missing required field: password"
+        )
+    if len(password) < 8:
+        raise HTTPException(
+            status_code=400,
+            detail="Password must be at least 8 characters"
+        )
+
     try:
         client = get_supabase_admin_client()
 
+        print(f"[AUTH] Attempting registration for: {email}")
+
         # Create new user with email/password
+        # Note: For iOS apps, disable email confirmation in Supabase dashboard
+        # or configure a deep link redirect URL (e.g., fixion://auth/callback)
         response = client.auth.sign_up({
-            "email": request.email,
-            "password": request.password,
+            "email": email,
+            "password": password,
         })
+
+        print(f"[AUTH] Sign up response: user={response.user is not None}, session={response.session is not None}")
 
         if not response.user:
             raise HTTPException(
                 status_code=400,
-                detail="Failed to create account"
+                detail="Failed to create account - no user returned from auth service"
             )
 
         user = response.user
@@ -492,9 +530,12 @@ async def register(request: RegisterRequest):
         # If email confirmation is required, session might be None
         if not session:
             # User created but needs to confirm email
+            # For iOS apps, this means Supabase has email confirmation enabled
+            # The user will receive an email with a link they need to click
+            print(f"[AUTH] User created but email confirmation required: {user.id}")
             return RegisterResponse(
                 user_id=str(user.id),
-                email=user.email,
+                email=user.email or email,
                 access_token="",
                 refresh_token="",
                 expires_at=0,
@@ -503,11 +544,13 @@ async def register(request: RegisterRequest):
 
         # Get or create user profile in our database
         user_service = UserService()
-        await user_service.get_or_create(str(user.id), user.email)
+        await user_service.get_or_create(str(user.id), user.email or email)
+
+        print(f"[AUTH] Registration successful: {user.id}")
 
         return RegisterResponse(
             user_id=str(user.id),
-            email=user.email,
+            email=user.email or email,
             access_token=session.access_token,
             refresh_token=session.refresh_token,
             expires_at=session.expires_at,
@@ -518,6 +561,7 @@ async def register(request: RegisterRequest):
         raise
     except Exception as e:
         error_msg = str(e).lower()
+        print(f"[AUTH] Registration error: {type(e).__name__}: {e}")
         if "already registered" in error_msg or "already exists" in error_msg:
             raise HTTPException(
                 status_code=409,
