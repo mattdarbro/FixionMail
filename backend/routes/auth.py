@@ -605,11 +605,13 @@ async def login(request: LoginRequest):
         user = response.user
 
         # Ensure user profile exists (handles users created before trigger was set up)
-        user_service = UserService()
-        await user_service.get_or_create(str(user.id), user.email or request.email)
-
-        # Update last login
-        await user_service.record_login(user.id)
+        # Non-blocking: don't fail login if profile creation has issues
+        try:
+            user_service = UserService()
+            await user_service.get_or_create(str(user.id), user.email or request.email)
+            await user_service.record_login(user.id)
+        except Exception as profile_err:
+            print(f"[AUTH] Warning: Could not create/update user profile: {profile_err}")
 
         return LoginResponse(
             user_id=str(user.id),
@@ -670,32 +672,33 @@ async def apple_sign_in(request: AppleSignInRequest):
         session = response.session
         user = response.user
 
-        # Check if this is a new user (created flag based on metadata)
-        user_service = UserService()
-        existing_user = await user_service.get_by_id(str(user.id))
-        is_new = existing_user is None
+        # Check if this is a new user and ensure profile exists
+        # Non-blocking: don't fail login if profile operations have issues
+        is_new = False
+        try:
+            user_service = UserService()
+            existing_user = await user_service.get_by_id(str(user.id))
+            is_new = existing_user is None
 
-        # Get or create user profile
-        db_user = await user_service.get_or_create(str(user.id), user.email or "")
+            db_user = await user_service.get_or_create(str(user.id), user.email or "")
 
-        # If Apple provided name info (first sign-in only), store it
-        if is_new and (request.first_name or request.last_name):
-            # Could store in user preferences or profile
-            name = " ".join(filter(None, [request.first_name, request.last_name]))
-            if name:
-                current_prefs = db_user.get("preferences", {})
-                current_prefs["display_name"] = name
-                await user_service.update_preferences(str(user.id), current_prefs)
+            # If Apple provided name info (first sign-in only), store it
+            if is_new and (request.first_name or request.last_name):
+                name = " ".join(filter(None, [request.first_name, request.last_name]))
+                if name:
+                    current_prefs = db_user.get("preferences", {})
+                    current_prefs["display_name"] = name
+                    await user_service.update_preferences(str(user.id), current_prefs)
 
-        # Update Apple user ID in our database for reference
-        if is_new:
-            # Get Apple's user identifier from the token claims
-            apple_user_id = user.user_metadata.get("sub") if user.user_metadata else None
-            if apple_user_id:
-                await user_service.update(str(user.id), {"apple_user_id": apple_user_id})
+            # Update Apple user ID in our database for reference
+            if is_new:
+                apple_user_id = user.user_metadata.get("sub") if user.user_metadata else None
+                if apple_user_id:
+                    await user_service.update(str(user.id), {"apple_user_id": apple_user_id})
 
-        # Record login
-        await user_service.record_login(user.id)
+            await user_service.record_login(user.id)
+        except Exception as profile_err:
+            print(f"[AUTH] Warning: Apple sign-in profile operation failed: {profile_err}")
 
         return AppleSignInResponse(
             user_id=str(user.id),
