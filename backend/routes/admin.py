@@ -321,7 +321,8 @@ async def get_stories(
 
         query = client.table("stories").select(
             "id, user_id, title, genre, word_count, status, model_used, "
-            "is_retell, rating, email_sent, credits_used, created_at, delivered_at"
+            "is_retell, rating, email_sent, credits_used, created_at, delivered_at, "
+            "audio_url, image_url, narrative, writer, fixion_note"
         ).order("created_at", desc=True).range(offset, offset + limit - 1)
 
         if status:

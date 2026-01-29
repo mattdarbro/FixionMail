@@ -864,50 +864,89 @@
                 const res = await fetch(url);
                 const data = await res.json();
 
-                if (data.stories.length === 0) {
+                if (!data.stories || data.stories.length === 0) {
                     content.innerHTML = '<div class="empty-state"><div class="icon">📖</div>No stories found</div>';
                     return;
                 }
 
-                let html = `<table>
-                    <thead>
-                        <tr>
-                            <th>Title</th>
-                            <th>Genre</th>
-                            <th>Words</th>
-                            <th>Model</th>
-                            <th>Status</th>
-                            <th>Rating</th>
-                            <th>Delivered</th>
-                            <th>Created</th>
-                        </tr>
-                    </thead>
-                    <tbody>`;
+                let html = `<div style="display:flex;flex-direction:column;gap:16px;">`;
 
                 for (const story of data.stories) {
                     const statusBadge = getStatusBadge(story.status);
                     const rating = story.rating ? '★'.repeat(story.rating) : '-';
                     const delivered = story.delivered_at
                         ? `<span style="color: #10b981;">${formatDateTime(story.delivered_at)}</span>`
-                        : (story.email_sent ? '<span style="color: #10b981;">✓</span>' : '-');
+                        : (story.email_sent ? '<span style="color: #10b981;">Sent</span>' : '<span style="color:#666;">Not sent</span>');
 
-                    html += `<tr>
-                        <td>${story.title || 'Untitled'}</td>
-                        <td><span class="badge badge-info">${story.genre || '-'}</span></td>
-                        <td>${story.word_count || '-'}</td>
-                        <td>${story.model_used || '-'}</td>
-                        <td>${statusBadge}</td>
-                        <td style="color: #fbbf24;">${rating}</td>
-                        <td>${delivered}</td>
-                        <td>${formatDateTime(story.created_at)}</td>
-                    </tr>`;
+                    const imgUrl = story.image_url
+                        ? (story.image_url.startsWith('http') ? story.image_url : `${API_URL}/${story.image_url.replace(/^\\//, '')}`)
+                        : null;
+                    const audUrl = story.audio_url
+                        ? (story.audio_url.startsWith('http') ? story.audio_url : `${API_URL}/${story.audio_url.replace(/^\\//, '')}`)
+                        : null;
+
+                    const preview = story.narrative
+                        ? story.narrative.substring(0, 200).replace(/</g, '&lt;') + (story.narrative.length > 200 ? '...' : '')
+                        : '<em style="color:#666;">No narrative</em>';
+
+                    html += `
+                    <div style="display:flex;gap:16px;background:#1a1a2e;border:1px solid #333;border-radius:10px;padding:16px;align-items:flex-start;">
+                        <!-- Cover Image -->
+                        <div style="flex-shrink:0;width:120px;">
+                            ${imgUrl
+                                ? `<img src="${imgUrl}" alt="Cover" style="width:120px;height:160px;object-fit:cover;border-radius:8px;border:1px solid #444;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+                                   <div style="display:none;width:120px;height:160px;background:#222;border-radius:8px;border:1px solid #444;align-items:center;justify-content:center;color:#555;font-size:12px;text-align:center;">Image failed<br>to load</div>`
+                                : `<div style="width:120px;height:160px;background:#222;border-radius:8px;border:1px solid #444;display:flex;align-items:center;justify-content:center;color:#555;font-size:12px;">No image</div>`
+                            }
+                        </div>
+
+                        <!-- Story Details -->
+                        <div style="flex:1;min-width:0;">
+                            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
+                                <strong style="font-size:1.1rem;color:#e0e0e0;">${story.title || 'Untitled'}</strong>
+                                <span class="badge badge-info">${story.genre || '-'}</span>
+                                ${statusBadge}
+                                ${story.writer ? `<span style="background:#2d1f5e;color:#a78bfa;padding:2px 8px;border-radius:4px;font-size:0.75rem;">${story.writer}</span>` : ''}
+                            </div>
+
+                            <div style="color:#888;font-size:0.85rem;margin-bottom:8px;">
+                                ${story.word_count || 0} words &middot;
+                                ${story.model_used || '-'} &middot;
+                                Rating: <span style="color:#fbbf24;">${rating}</span> &middot;
+                                ${delivered} &middot;
+                                ${formatDateTime(story.created_at)}
+                            </div>
+
+                            ${story.fixion_note ? `<div style="color:#a78bfa;font-style:italic;font-size:0.85rem;margin-bottom:8px;">"${story.fixion_note}"</div>` : ''}
+
+                            <div style="color:#aaa;font-size:0.85rem;line-height:1.5;margin-bottom:10px;">${preview}</div>
+
+                            <!-- Audio Player -->
+                            ${audUrl
+                                ? `<div style="margin-top:6px;">
+                                     <audio controls preload="none" style="width:100%;max-width:400px;height:32px;">
+                                       <source src="${audUrl}" type="audio/mpeg">
+                                     </audio>
+                                   </div>`
+                                : `<div style="color:#555;font-size:0.8rem;margin-top:6px;">No audio</div>`
+                            }
+
+                            <!-- Media URLs (copyable) -->
+                            <div style="margin-top:8px;font-size:0.75rem;color:#555;word-break:break-all;">
+                                ${story.image_url ? `<div>Image: <a href="${imgUrl}" target="_blank" style="color:#667eea;">${story.image_url}</a></div>` : ''}
+                                ${story.audio_url ? `<div>Audio: <a href="${audUrl}" target="_blank" style="color:#667eea;">${story.audio_url}</a></div>` : ''}
+                                <div>ID: ${story.id}</div>
+                            </div>
+                        </div>
+                    </div>`;
                 }
 
-                html += '</tbody></table>';
+                html += '</div>';
+                html += `<div style="margin-top:12px;color:#888;font-size:0.85rem;">Showing ${data.stories.length} of ${data.total} stories</div>`;
                 content.innerHTML = html;
 
             } catch (e) {
-                content.innerHTML = `<div class="empty-state" style="color: #f87171;">Error loading data: ${e.message}</div>`;
+                content.innerHTML = `<div class="empty-state" style="color: #f87171;">Error loading stories: ${e.message}</div>`;
             }
         }
 
