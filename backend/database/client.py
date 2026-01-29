@@ -4,7 +4,7 @@ Supabase Client Configuration
 Provides both user-authenticated client and admin client for different use cases.
 """
 
-from functools import lru_cache
+import time
 from typing import Optional
 
 from supabase import create_client, Client
@@ -17,7 +17,12 @@ class SupabaseClientError(Exception):
     pass
 
 
-@lru_cache(maxsize=1)
+# Cache the admin client but refresh it periodically to avoid JWT expiry
+_admin_client: Optional[Client] = None
+_admin_client_created_at: float = 0
+_ADMIN_CLIENT_TTL = 30 * 60  # Refresh every 30 minutes
+
+
 def get_supabase_admin_client() -> Client:
     """
     Get Supabase client with service role key (admin access).
@@ -29,7 +34,15 @@ def get_supabase_admin_client() -> Client:
 
     WARNING: This client bypasses Row Level Security!
     Only use for server-side operations where the user context is not available.
+
+    The client is cached for 30 minutes then recreated to avoid JWT expiry.
     """
+    global _admin_client, _admin_client_created_at
+
+    now = time.monotonic()
+    if _admin_client is not None and (now - _admin_client_created_at) < _ADMIN_CLIENT_TTL:
+        return _admin_client
+
     if not config.SUPABASE_URL:
         raise SupabaseClientError(
             "SUPABASE_URL is not configured. "
@@ -42,10 +55,12 @@ def get_supabase_admin_client() -> Client:
             "Set it in your .env file or environment variables."
         )
 
-    return create_client(
+    _admin_client = create_client(
         config.SUPABASE_URL,
         config.SUPABASE_SERVICE_KEY
     )
+    _admin_client_created_at = now
+    return _admin_client
 
 
 def get_supabase_client(access_token: Optional[str] = None) -> Client:
