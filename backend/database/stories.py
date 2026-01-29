@@ -430,7 +430,7 @@ class StoryService:
             self.client.table("stories")
             .select("*")
             .eq("user_id", str(user_id))
-            .eq("is_retell", False)
+            .or_("is_retell.eq.false,is_retell.is.null")
             .order("created_at", desc=True)
             .limit(limit)
             .offset(offset)
@@ -438,9 +438,9 @@ class StoryService:
 
         # Apply status filter
         if status == "unread":
-            query = query.eq("read", False).eq("archived", False)
+            query = query.or_("read.eq.false,read.is.null").or_("archived.eq.false,archived.is.null")
         elif status == "read":
-            query = query.eq("read", True).eq("archived", False)
+            query = query.eq("read", True).or_("archived.eq.false,archived.is.null")
         elif status == "archived":
             query = query.eq("archived", True)
         elif status == "all" or status is None:
@@ -481,14 +481,14 @@ class StoryService:
             self.client.table("stories")
             .select("id", count="exact")
             .eq("user_id", str(user_id))
-            .eq("is_retell", False)
+            .or_("is_retell.eq.false,is_retell.is.null")
         )
 
         # Apply status filter
         if status == "unread":
-            query = query.eq("read", False).eq("archived", False)
+            query = query.or_("read.eq.false,read.is.null").or_("archived.eq.false,archived.is.null")
         elif status == "read":
-            query = query.eq("read", True).eq("archived", False)
+            query = query.eq("read", True).or_("archived.eq.false,archived.is.null")
         elif status == "archived":
             query = query.eq("archived", True)
 
