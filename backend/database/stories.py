@@ -430,17 +430,18 @@ class StoryService:
             self.client.table("stories")
             .select("*")
             .eq("user_id", str(user_id))
-            .or_("is_retell.eq.false,is_retell.is.null")
+            .not_.eq("is_retell", True)
             .order("created_at", desc=True)
             .limit(limit)
             .offset(offset)
         )
 
         # Apply status filter
+        # Note: .not_.eq(col, True) matches both False and NULL in PostgREST
         if status == "unread":
-            query = query.or_("read.eq.false,read.is.null").or_("archived.eq.false,archived.is.null")
+            query = query.not_.eq("read", True).not_.eq("archived", True)
         elif status == "read":
-            query = query.eq("read", True).or_("archived.eq.false,archived.is.null")
+            query = query.eq("read", True).not_.eq("archived", True)
         elif status == "archived":
             query = query.eq("archived", True)
         elif status == "all" or status is None:
@@ -481,14 +482,14 @@ class StoryService:
             self.client.table("stories")
             .select("id", count="exact")
             .eq("user_id", str(user_id))
-            .or_("is_retell.eq.false,is_retell.is.null")
+            .not_.eq("is_retell", True)
         )
 
         # Apply status filter
         if status == "unread":
-            query = query.or_("read.eq.false,read.is.null").or_("archived.eq.false,archived.is.null")
+            query = query.not_.eq("read", True).not_.eq("archived", True)
         elif status == "read":
-            query = query.eq("read", True).or_("archived.eq.false,archived.is.null")
+            query = query.eq("read", True).not_.eq("archived", True)
         elif status == "archived":
             query = query.eq("archived", True)
 
