@@ -387,61 +387,6 @@ async def get_latest_story(
 
 
 # =============================================================================
-# Single Story Routes
-# =============================================================================
-
-@router.get("/{story_id}")
-async def get_story(
-    story_id: str,
-    user_id: str = Depends(get_current_user_id)
-):
-    """Get a single story by ID."""
-    story_service = StoryService()
-    story = await story_service.get_by_id(story_id)
-
-    if not story:
-        raise HTTPException(status_code=404, detail="Story not found")
-
-    # Verify ownership
-    if story.get("user_id") != user_id:
-        raise HTTPException(status_code=403, detail="Not your story")
-
-    return StoryResponse(
-        id=story["id"],
-        title=story["title"],
-        narrative=story["narrative"],
-        genre=story["genre"],
-        word_count=story["word_count"],
-        audio_url=story.get("audio_url"),
-        image_url=story.get("image_url"),
-        rating=story.get("rating"),
-        is_retell=story.get("is_retell", False),
-        created_at=story["created_at"],
-    )
-
-
-@router.post("/{story_id}/rate")
-async def rate_story(
-    story_id: str,
-    rating: int = Query(ge=1, le=5),
-    user_id: str = Depends(get_current_user_id)
-):
-    """Rate a story (1-5 stars)."""
-    story_service = StoryService()
-
-    # Verify story exists and belongs to user
-    story = await story_service.get_by_id(story_id)
-    if not story:
-        raise HTTPException(status_code=404, detail="Story not found")
-    if story.get("user_id") != user_id:
-        raise HTTPException(status_code=403, detail="Not your story")
-
-    await story_service.add_rating(story_id, rating)
-
-    return {"success": True, "rating": rating}
-
-
-# =============================================================================
 # Story Generation Routes
 # =============================================================================
 
@@ -804,3 +749,59 @@ async def generate_story_v2(
         preshow_available=request.immediate,
         preshow_url=f"/api/preshow/{job_id}/stream" if request.immediate else None,
     )
+
+
+# =============================================================================
+# Single Story Routes (must be AFTER all specific path routes like /v2, /stats,
+# /latest, /generate, /jobs etc. to avoid the {story_id} parameter catching them)
+# =============================================================================
+
+@router.get("/{story_id}")
+async def get_story(
+    story_id: str,
+    user_id: str = Depends(get_current_user_id)
+):
+    """Get a single story by ID."""
+    story_service = StoryService()
+    story = await story_service.get_by_id(story_id)
+
+    if not story:
+        raise HTTPException(status_code=404, detail="Story not found")
+
+    # Verify ownership
+    if story.get("user_id") != user_id:
+        raise HTTPException(status_code=403, detail="Not your story")
+
+    return StoryResponse(
+        id=story["id"],
+        title=story["title"],
+        narrative=story["narrative"],
+        genre=story["genre"],
+        word_count=story["word_count"],
+        audio_url=story.get("audio_url"),
+        image_url=story.get("image_url"),
+        rating=story.get("rating"),
+        is_retell=story.get("is_retell", False),
+        created_at=story["created_at"],
+    )
+
+
+@router.post("/{story_id}/rate")
+async def rate_story(
+    story_id: str,
+    rating: int = Query(ge=1, le=5),
+    user_id: str = Depends(get_current_user_id)
+):
+    """Rate a story (1-5 stars)."""
+    story_service = StoryService()
+
+    # Verify story exists and belongs to user
+    story = await story_service.get_by_id(story_id)
+    if not story:
+        raise HTTPException(status_code=404, detail="Story not found")
+    if story.get("user_id") != user_id:
+        raise HTTPException(status_code=403, detail="Not your story")
+
+    await story_service.add_rating(story_id, rating)
+
+    return {"success": True, "rating": rating}
