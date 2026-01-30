@@ -279,20 +279,22 @@ Write a complete, polished {total_words}-word story. This should be publication-
 
 **Atmosphere**: {setting.get('atmosphere', '')}
 {intensity_context}
-## {"PROTAGONIST (recurring)" if has_recurring_chars else "CHARACTER (create fresh)"}
+## {"PROTAGONIST (recurring — DO NOT rename)" if has_recurring_chars else "CHARACTER (create fresh)"}
 
-{"**Name**: " + protagonist.get('name', 'N/A') if has_recurring_chars else "**Archetype**: " + protagonist.get('archetype', 'To be determined')}
+{"**Name**: " + protagonist.get('name', 'N/A') + " ← USE THIS EXACT NAME" if has_recurring_chars else "**Archetype**: " + protagonist.get('archetype', 'To be determined')}
 **Role**: {protagonist.get('role', 'N/A')}
 **Traits**: {', '.join(protagonist.get('key_traits', []))}
 **Defining Characteristic**: {protagonist.get('defining_characteristic', 'N/A')}
 **Voice**: {protagonist.get('voice', 'thoughtful')}
 
-{"" if has_recurring_chars else "**Create a NEW protagonist** with a unique name based on this template."}
+{"**IMPORTANT**: This is the user's named protagonist. Use the name '" + protagonist.get('name', '') + "' exactly as written throughout the story. Do NOT create a different character or change the name." if has_recurring_chars else "**Create a NEW protagonist** with a unique name based on this template."}
 
 {f'''## MAIN CHARACTERS (MUST appear)
 
-These recurring characters MUST appear in this story:
+These recurring characters MUST appear in this story with their EXACT names:
 {json.dumps(main_characters, indent=2)}
+
+**CRITICAL**: Do NOT rename, alter, or substitute these characters. Use their exact names as provided above. These are the user's characters — they expect to see "{main_characters[0].get('name', '')}" not a different name. Keep their established traits, role, and personality consistent.
 ''' if main_characters else ''}
 {f'''## SUPPORTING CAST
 {json.dumps(supporting, indent=2)}

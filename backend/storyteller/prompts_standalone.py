@@ -47,7 +47,8 @@ def create_standalone_story_beat_prompt(
     story_settings = story_bible.get("story_settings", {})
 
     # Handle both recurring characters (protagonist) and AI-generated (character_template)
-    has_recurring_chars = genre_config.get("characters") == "user" or "protagonist" in story_bible
+    # genre_config is the authority — if genre says "user", characters are recurring
+    has_recurring_chars = genre_config.get("characters") == "user"
     protagonist = story_bible.get("protagonist", story_bible.get("character_template", {}))
     supporting = story_bible.get("supporting_characters", story_bible.get("supporting_cast_template", []))
 
@@ -208,9 +209,9 @@ This is a STANDALONE story (not part of a series), but it exists in an establish
 **Key Locations**:
 {json.dumps(setting.get('key_locations', []), indent=2)}
 
-## {"PROTAGONIST (recurring)" if has_recurring_chars else "CHARACTER TEMPLATE (generate fresh characters)"}
+## {"PROTAGONIST (recurring — DO NOT rename)" if has_recurring_chars else "CHARACTER TEMPLATE (generate fresh characters)"}
 
-{"**Name**: " + protagonist.get('name', 'N/A') if has_recurring_chars else "**Archetype**: " + protagonist.get('archetype', 'To be determined')}
+{"**Name**: " + protagonist.get('name', 'N/A') + " ← USE THIS EXACT NAME" if has_recurring_chars else "**Archetype**: " + protagonist.get('archetype', 'To be determined')}
 **Role**: {protagonist.get('role', 'N/A')}
 **Age**: {protagonist.get('age_range', 'adult')}
 **Traits**: {', '.join(protagonist.get('key_traits', []))}
@@ -218,7 +219,7 @@ This is a STANDALONE story (not part of a series), but it exists in an establish
 **Background**: {protagonist.get('background', 'N/A')}
 **Voice**: {protagonist.get('voice', 'N/A')}
 
-{"" if has_recurring_chars else "**IMPORTANT**: Create NEW, unique characters for this story based on the template above. Give them fresh names and specific details."}
+{"**IMPORTANT**: This is the user's named protagonist. Use the name '" + protagonist.get('name', '') + "' exactly as written throughout the story. Do NOT create a different character or change the name." if has_recurring_chars else "**IMPORTANT**: Create NEW, unique characters for this story based on the template above. Give them fresh names and specific details."}
 
 ## {"SUPPORTING CHARACTERS (recurring cast)" if has_recurring_chars else "SUPPORTING CAST TEMPLATE"}
 
@@ -346,15 +347,15 @@ This should be polished, engaging prose ready for readers to enjoy.
 **Tone**: {tone}
 **Target Length**: {total_words} words (±200 words is acceptable)
 
-## {"PROTAGONIST" if has_recurring_chars else "CHARACTER GUIDANCE"}
+## {"PROTAGONIST (recurring — DO NOT rename)" if has_recurring_chars else "CHARACTER GUIDANCE"}
 
-{"**Name**: " + protagonist.get('name', 'N/A') if has_recurring_chars else "Create a NEW protagonist based on this template:"}
+{"**Name**: " + protagonist.get('name', 'N/A') + " ← USE THIS EXACT NAME" if has_recurring_chars else "Create a NEW protagonist based on this template:"}
 **Voice**: {protagonist.get('voice', 'thoughtful')}
 **Key Traits**: {', '.join(protagonist.get('key_traits', []))}
 **Defining Characteristic**: {protagonist.get('defining_characteristic', 'N/A')}
 
 **CRITICAL**: {protagonist.get('defining_characteristic', 'N/A')} - This MUST be reflected consistently in the prose.
-{"" if has_recurring_chars else "Give your protagonist a unique, memorable name and specific details that fit this story."}
+{"**IMPORTANT**: This is the user's named protagonist. Use the name '" + protagonist.get('name', '') + "' exactly as written. Do NOT rename or substitute this character." if has_recurring_chars else "Give your protagonist a unique, memorable name and specific details that fit this story."}
 
 {f'''## MAIN CHARACTERS (MUST appear in the story)
 

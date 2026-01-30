@@ -620,20 +620,24 @@ Your task: Weave this deeper meaning into the story organically. The undercurren
         context = "## CHARACTERS\n\n"
 
         # Protagonist
-        context += f"**Protagonist**: {protagonist.get('name', protagonist.get('archetype', 'TBD'))}\n"
+        proto_name = protagonist.get('name', protagonist.get('archetype', 'TBD'))
+        context += f"**Protagonist**: {proto_name}\n"
         context += f"- Role: {protagonist.get('role', 'N/A')}\n"
         context += f"- Traits: {', '.join(protagonist.get('key_traits', []))}\n"
         context += f"- Voice: {protagonist.get('voice', 'N/A')}\n"
         if protagonist.get('defining_characteristic'):
             context += f"- Defining characteristic: {protagonist.get('defining_characteristic')}\n"
+        # If this is a user-defined character (has 'name' not 'archetype'), lock the name
+        if protagonist.get('name'):
+            context += f"\n**IMPORTANT**: Use the exact name '{proto_name}' in all beat descriptions. Do NOT rename this character.\n"
         context += "\n"
 
         # Main characters (must appear)
         if main_characters:
-            context += "**Must Include** (recurring characters):\n"
+            context += "**Must Include** (recurring characters — use these EXACT names):\n"
             for char in main_characters[:3]:  # Limit to 3
                 context += f"- {char.get('name', 'N/A')}: {char.get('role', 'N/A')}\n"
-            context += "\n"
+            context += "\n**CRITICAL**: Reference these characters by their exact names in beat descriptions. Do NOT rename or substitute them.\n\n"
 
         # Supporting cast
         if supporting:
