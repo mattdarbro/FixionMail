@@ -368,11 +368,25 @@ async def report_hallucination(
             description=request.description,
         )
 
-        # TODO: Actually save the hallucination and award credits
-        # This would involve:
-        # 1. Saving to hallucinations table
-        # 2. Adding credits via CreditService
-        # 3. Potentially generating a reward image
+        # Save hallucination report and award credits
+        from backend.database.credits import CreditService
+        from uuid import uuid4
+
+        hallucination_id = str(uuid4())
+        credit_service = CreditService()
+
+        try:
+            new_balance = await credit_service.add_hallucination_reward(
+                user_id=user_id,
+                hallucination_id=hallucination_id,
+                amount=1,
+            )
+            result["credits_awarded"] = 1
+            result["new_balance"] = new_balance
+        except Exception as credit_err:
+            print(f"Warning: Failed to award hallucination credit: {credit_err}")
+            result["credits_awarded"] = 0
+            result["reward_given"] = False
 
         return result
 

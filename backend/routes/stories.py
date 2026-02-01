@@ -579,14 +579,10 @@ async def get_story_v2(
     Automatically marks the story as read when accessed.
     """
     story_service = StoryService()
-    story = await story_service.get_by_id(story_id)
+    story = await story_service.get_by_id(story_id, user_id=user_id)
 
     if not story:
         raise HTTPException(status_code=404, detail="Story not found")
-
-    # Verify ownership
-    if story.get("user_id") != user_id:
-        raise HTTPException(status_code=403, detail="Not your story")
 
     # Mark as read if not already
     if not story.get("read"):
@@ -625,11 +621,9 @@ async def mark_story_read(
     """Mark a story as read."""
     story_service = StoryService()
 
-    story = await story_service.get_by_id(story_id)
+    story = await story_service.get_by_id(story_id, user_id=user_id)
     if not story:
         raise HTTPException(status_code=404, detail="Story not found")
-    if story.get("user_id") != user_id:
-        raise HTTPException(status_code=403, detail="Not your story")
 
     await story_service.mark_read(story_id)
     return {"success": True, "read": True}
@@ -643,11 +637,9 @@ async def toggle_story_favorite(
     """Toggle favorite status on a story."""
     story_service = StoryService()
 
-    story = await story_service.get_by_id(story_id)
+    story = await story_service.get_by_id(story_id, user_id=user_id)
     if not story:
         raise HTTPException(status_code=404, detail="Story not found")
-    if story.get("user_id") != user_id:
-        raise HTTPException(status_code=403, detail="Not your story")
 
     new_status = not story.get("favorite", False)
     await story_service.set_favorite(story_id, new_status)
@@ -662,11 +654,9 @@ async def toggle_story_archive(
     """Toggle archive status on a story."""
     story_service = StoryService()
 
-    story = await story_service.get_by_id(story_id)
+    story = await story_service.get_by_id(story_id, user_id=user_id)
     if not story:
         raise HTTPException(status_code=404, detail="Story not found")
-    if story.get("user_id") != user_id:
-        raise HTTPException(status_code=403, detail="Not your story")
 
     new_status = not story.get("archived", False)
     await story_service.set_archived(story_id, new_status)
@@ -763,14 +753,10 @@ async def get_story(
 ):
     """Get a single story by ID."""
     story_service = StoryService()
-    story = await story_service.get_by_id(story_id)
+    story = await story_service.get_by_id(story_id, user_id=user_id)
 
     if not story:
         raise HTTPException(status_code=404, detail="Story not found")
-
-    # Verify ownership
-    if story.get("user_id") != user_id:
-        raise HTTPException(status_code=403, detail="Not your story")
 
     return StoryResponse(
         id=story["id"],
@@ -796,11 +782,9 @@ async def rate_story(
     story_service = StoryService()
 
     # Verify story exists and belongs to user
-    story = await story_service.get_by_id(story_id)
+    story = await story_service.get_by_id(story_id, user_id=user_id)
     if not story:
         raise HTTPException(status_code=404, detail="Story not found")
-    if story.get("user_id") != user_id:
-        raise HTTPException(status_code=403, detail="Not your story")
 
     await story_service.add_rating(story_id, rating)
 

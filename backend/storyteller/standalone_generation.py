@@ -22,6 +22,7 @@ from backend.storyteller.beat_templates import get_template, get_structure_templ
 from backend.storyteller.bible_enhancement import should_use_cliffhanger, should_include_cameo, check_and_fix_duplicate_title
 from backend.storyteller.name_registry import (
     get_excluded_names,
+    get_recurring_character_names,
     extract_names_from_story,
     add_used_names,
     cleanup_expired_names
@@ -605,6 +606,36 @@ async def generate_standalone_story(
         if cameo:
             print(f"  ✨ Including cameo: {cameo.get('name', 'N/A')}")
 
+        # Step 3.4: Ensure recurring characters are injected for user-character genres
+        genre_config = story_bible.get("genre_config", {})
+        if genre_config.get("characters") == "user":
+            user_input = story_bible.get("user_input", {})
+            character_pool = user_input.get("character_pool", [])
+            main_characters = story_bible.get("main_characters", [])
+
+            # If we have a character_pool but no main_characters, populate from pool
+            if character_pool and not main_characters:
+                story_bible["main_characters"] = [
+                    {
+                        "name": c.get("name", "Character") if isinstance(c, dict) else str(c),
+                        "role": c.get("description", "Main character") if isinstance(c, dict) else "Main character",
+                        "age_range": "adult",
+                        "key_traits": ["determined", "resourceful"],
+                        "defining_characteristic": "Quick thinking",
+                        "background": "Recurring character",
+                        "motivation": "Central to the story",
+                        "voice": "distinctive"
+                    }
+                    for c in character_pool
+                ]
+                main_characters = story_bible["main_characters"]
+                print(f"  👥 Injected {len(main_characters)} recurring characters from character_pool")
+
+            # Set protagonist from first main character if not already set
+            if main_characters and not story_bible.get("protagonist", {}).get("name"):
+                story_bible["protagonist"] = main_characters[0]
+                print(f"  👤 Set protagonist: {main_characters[0].get('name', 'N/A')}")
+
         # Step 3.5: Get excluded names (avoid repetition)
         excluded_names = get_excluded_names(story_bible)
         if excluded_names.get("characters") or excluded_names.get("places"):
@@ -774,9 +805,16 @@ async def generate_standalone_story(
         }
         extracted = extract_names_from_story(beat_plan_compat, narrative, story_bible)
         if extracted.get("characters") or extracted.get("places"):
+            # Filter out recurring character names — they should never be added
+            # to the exclusion registry since they MUST appear in every story
+            recurring_names = get_recurring_character_names(story_bible)
+            non_recurring_chars = [
+                name for name in extracted.get("characters", [])
+                if name.strip().lower() not in recurring_names
+            ]
             story_bible = add_used_names(
                 story_bible,
-                character_names=extracted.get("characters", []),
+                character_names=non_recurring_chars,
                 place_names=extracted.get("places", [])
             )
             # Clean up expired names

@@ -85,6 +85,47 @@ def add_used_names(
     return story_bible
 
 
+def get_recurring_character_names(story_bible: Dict[str, Any]) -> List[str]:
+    """
+    Get names of recurring characters that must NEVER be excluded.
+
+    For genres with characters="user" (comedy_sitcom, detective, action),
+    the user's character_pool names are recurring and should always appear.
+
+    Args:
+        story_bible: Story bible with genre_config and character data
+
+    Returns:
+        List of recurring character names (lowercase for comparison)
+    """
+    genre_config = story_bible.get("genre_config", {})
+    if genre_config.get("characters") != "user":
+        return []
+
+    recurring = set()
+
+    # From character_pool in user_input
+    user_input = story_bible.get("user_input", {})
+    for char in user_input.get("character_pool", []) or []:
+        if isinstance(char, dict) and char.get("name"):
+            recurring.add(char["name"].strip().lower())
+        elif isinstance(char, str) and char.strip():
+            recurring.add(char.strip().lower())
+
+    # From main_characters (enhanced bible)
+    for char in story_bible.get("main_characters", []):
+        if isinstance(char, dict) and char.get("name"):
+            recurring.add(char["name"].strip().lower())
+
+    # From protagonist
+    prot = story_bible.get("protagonist", {})
+    if isinstance(prot, dict) and prot.get("name"):
+        recurring.add(prot["name"].strip().lower())
+
+    return list(recurring)
+
+
+
 def get_excluded_names(
     story_bible: Dict[str, Any],
     current_generation: int = None
@@ -93,7 +134,8 @@ def get_excluded_names(
     Get lists of names that should be excluded from new stories.
 
     Names are excluded if they were used within the expiry window
-    (either by days or generation count).
+    (either by days or generation count). Recurring character names
+    from the user's character_pool are NEVER excluded.
 
     Args:
         story_bible: Story bible with used_names
@@ -106,6 +148,9 @@ def get_excluded_names(
     current_gen = current_generation or story_bible.get("story_count", 0)
     now = datetime.now()
 
+    # Get recurring character names that must never be excluded
+    recurring_names = get_recurring_character_names(story_bible)
+
     excluded = {"characters": [], "places": []}
 
     for category in ["characters", "places"]:
@@ -113,6 +158,10 @@ def get_excluded_names(
             name = entry.get("name", "")
             used_at = entry.get("used_at", "")
             gen_num = entry.get("generation_number", 0)
+
+            # Never exclude recurring character names
+            if category == "characters" and name.strip().lower() in recurring_names:
+                continue
 
             # Check if within expiry window
             is_expired = False

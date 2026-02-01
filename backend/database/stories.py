@@ -178,14 +178,27 @@ class StoryService:
     # Story Retrieval
     # =========================================================================
 
-    async def get_by_id(self, story_id: UUID | str) -> Optional[Dict[str, Any]]:
-        """Get story by ID."""
-        result = (
+    async def get_by_id(
+        self, story_id: UUID | str, user_id: UUID | str = None
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Get story by ID, optionally verifying ownership.
+
+        Args:
+            story_id: Story ID to fetch
+            user_id: If provided, only return the story if it belongs to this user
+
+        Returns:
+            Story data or None if not found (or not owned by user_id)
+        """
+        query = (
             self.client.table("stories")
             .select("*")
             .eq("id", str(story_id))
-            .execute()
         )
+        if user_id is not None:
+            query = query.eq("user_id", str(user_id))
+        result = query.execute()
         return result.data[0] if result.data else None
 
     async def get_user_stories(
