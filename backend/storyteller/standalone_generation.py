@@ -18,7 +18,13 @@ from langchain_core.messages import HumanMessage
 from langchain_anthropic import ChatAnthropic
 from backend.config import config
 
-from backend.storyteller.beat_templates import get_template, get_structure_template, get_structure_for_story
+from backend.storyteller.beat_templates import (
+    get_template,
+    get_structure_template,
+    get_structure_for_story,
+    apply_pacing_to_template,
+    get_pacing_style
+)
 from backend.storyteller.bible_enhancement import should_use_cliffhanger, should_include_cameo, check_and_fix_duplicate_title
 from backend.storyteller.name_registry import (
     get_excluded_names,
@@ -592,6 +598,15 @@ async def generate_standalone_story(
             print(f"  Total words: {template.total_words}")
         print(f"  Beats: {len(template.beats)}")
 
+        # Step 1.5: Apply pacing style to template (unless "auto" - SSBA will decide)
+        pacing_style = story_settings.get("pacing_style", "classic")
+        if pacing_style == "auto":
+            print(f"  🎭 Pacing style: Auto (SSBA will choose)")
+        elif pacing_style != "classic":
+            template = apply_pacing_to_template(template, pacing_style)
+            pacing_info = get_pacing_style(pacing_style)
+            print(f"  🎭 Pacing style: {pacing_info['name']} - {pacing_info['description']}")
+
         # Step 2: Determine cliffhanger (free tier only)
         if force_cliffhanger is not None:
             is_cliffhanger = force_cliffhanger
@@ -666,6 +681,15 @@ async def generate_standalone_story(
                 print(f"\n✓ Story structure created")
                 print(f"  Premise: {structure_result.structure.story_premise[:80]}...")
                 print(f"  Conflict: {structure_result.structure.central_conflict[:80]}...")
+
+                # Log pacing style (especially important when SSBA chose it)
+                chosen_pacing = structure_result.structure.pacing_style
+                if pacing_style == "auto":
+                    pacing_info = get_pacing_style(chosen_pacing)
+                    print(f"  🎭 SSBA chose pacing: {pacing_info['name']} - {pacing_info['description']}")
+                else:
+                    print(f"  Pacing: {chosen_pacing}")
+
                 print(f"  Time: {structure_time:.2f}s")
         else:
             # Use generic template without SSBA
