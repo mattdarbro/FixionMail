@@ -98,6 +98,7 @@ class StoryStructure:
     genre: str = ""
     tone: str = ""
     total_words: int = 1500
+    pacing_style: str = "classic"  # AI-chosen or user-specified pacing
 
     # For multi-chapter stories (future)
     is_multi_chapter: bool = False
@@ -114,6 +115,7 @@ class StoryStructure:
             "moral_premise": self.moral_premise,
             "undercurrent_theme": self.undercurrent_theme,
             "undercurrent_crystallization": self.undercurrent_crystallization,
+            "pacing_style": self.pacing_style,
             "beats": [b.to_dict() for b in self.beats],
             "genre": self.genre,
             "tone": self.tone,
@@ -411,13 +413,17 @@ Then for EACH BEAT, provide:
 - **setup_for_next**: What this beat sets up for the next beat"""
 
         # Build JSON output format based on undercurrent mode
+        # Include pacing_style field for AI-controlled pacing
+        pacing_field = '"pacing_style": "chosen_style (hard_cut/classic/lingering/twist_ending/open_ending/circular)",'
+        pacing_note = "\n**Note**: Adjust word_target values based on your chosen pacing_style. The template values are suggestions—modify them to serve your pacing choice."
+
         if undercurrent_active:
-            json_format = """## OUTPUT FORMAT
+            json_format = f"""## OUTPUT FORMAT
 
 Return ONLY valid JSON:
 
 ```json
-{{
+{{{{
   "story_premise": "One sentence hook",
   "central_conflict": "Protagonist wants X but Y stands in the way",
   "emotional_journey": "From [starting state] to [ending state]",
@@ -425,8 +431,9 @@ Return ONLY valid JSON:
   "moral_premise": "The undercurrent truth: [virtue] leads to [positive outcome] OR [flaw] leads to [negative consequence]",
   "undercurrent_theme": "The deeper theme being explored",
   "undercurrent_crystallization": "Beat X - the moment when the theme becomes clear through action/choice",
+  {pacing_field}
   "beats": [
-    {{
+    {{{{
       "beat_number": 1,
       "beat_name": "opening_hook",
       "word_target": 400,
@@ -438,23 +445,24 @@ Return ONLY valid JSON:
       "purpose": "Establish world and hint at mystery",
       "connects_to_theme": "Shows protagonist's starting belief/flaw",
       "setup_for_next": "Discovery that leads to beat 2"
-    }}
+    }}}}
   ]
-}}
-```"""
+}}}}
+```{pacing_note}"""
         else:
-            json_format = """## OUTPUT FORMAT
+            json_format = f"""## OUTPUT FORMAT
 
 Return ONLY valid JSON:
 
 ```json
-{{
+{{{{
   "story_premise": "One sentence hook",
   "central_conflict": "Protagonist wants X but Y stands in the way",
   "emotional_journey": "From [starting state] to [ending state]",
   "thematic_core": "This story is really about...",
+  {pacing_field}
   "beats": [
-    {{
+    {{{{
       "beat_number": 1,
       "beat_name": "opening_hook",
       "word_target": 400,
@@ -466,10 +474,10 @@ Return ONLY valid JSON:
       "purpose": "Establish world and hint at mystery",
       "connects_to_theme": "Shows protagonist's starting belief",
       "setup_for_next": "Discovery that leads to beat 2"
-    }}
+    }}}}
   ]
-}}
-```"""
+}}}}
+```{pacing_note}"""
 
         # Build quality criteria based on undercurrent mode
         if undercurrent_active:
@@ -701,12 +709,56 @@ The final beat should:
 
     def _build_pacing_guidance(self, pacing_style: str) -> str:
         """Build pacing style guidance section."""
-        from backend.storyteller.beat_templates import get_pacing_style
+        from backend.storyteller.beat_templates import get_pacing_style, PACING_STYLES
 
         if pacing_style == "classic":
             return ""  # Classic pacing needs no special guidance
 
         style = get_pacing_style(pacing_style)
+
+        # Auto mode: AI decides pacing
+        if style.get("ai_controlled") or pacing_style == "auto":
+            # Build list of available pacing options for the AI
+            pacing_options = []
+            for pid, pstyle in PACING_STYLES.items():
+                if pid != "auto":
+                    pacing_options.append(f"- **{pid}**: {pstyle['description']}")
+
+            return f"""
+## PACING DESIGN (Your Choice)
+
+You have creative control over this story's pacing and rhythm. Based on the story you're designing, CHOOSE the pacing style that best serves the narrative.
+
+**Available Pacing Styles:**
+{chr(10).join(pacing_options)}
+
+**YOUR TASK:**
+1. Consider the story's genre, tone, and emotional arc
+2. Choose the pacing style that best fits THIS specific story
+3. ADJUST the word_target for each beat accordingly
+4. Include your chosen pacing_style in the output
+
+**Guidelines for Adjusting Word Targets:**
+- hard_cut: Resolution beats get ~40% of template words. Climax gets ~120%.
+- classic: Keep template word targets as-is
+- lingering: Resolution beats get ~160% of template words
+- twist_ending: Resolution gets ~70%, but save words for the reveal
+- open_ending: Resolution gets ~50%. End on ambiguity.
+- circular: Resolution gets ~80%. Mirror the opening.
+
+**Think about:**
+- Does this story need to punch hard and end abruptly? → hard_cut
+- Does the emotional weight need time to settle? → lingering
+- Is there a revelation that reframes everything? → twist_ending
+- Should the reader be left wondering? → open_ending
+- Does the ending echo the beginning? → circular
+- Is this a straightforward, satisfying tale? → classic
+
+You MUST include "pacing_style": "chosen_style" in your JSON output.
+You MUST adjust word_target values for each beat based on your chosen pacing.
+"""
+
+        # Specific pacing style requested
         ending_guidance = style.get("ending_guidance", "")
         beat_guidance = style.get("beat_guidance", {})
 
@@ -770,7 +822,14 @@ The final beat should:
             )
             beats.append(beat)
 
-        # Build structure with undercurrent fields
+        # Build structure with undercurrent and pacing fields
+        # Get pacing_style from AI response, default to "classic" if not specified
+        pacing_style = data.get("pacing_style", "classic")
+        # Validate pacing_style is a known value
+        valid_pacing = ["hard_cut", "classic", "lingering", "twist_ending", "open_ending", "circular"]
+        if pacing_style not in valid_pacing:
+            pacing_style = "classic"
+
         structure = StoryStructure(
             story_premise=data.get("story_premise", ""),
             central_conflict=data.get("central_conflict", ""),
@@ -780,6 +839,8 @@ The final beat should:
             moral_premise=data.get("moral_premise", ""),
             undercurrent_theme=data.get("undercurrent_theme", ""),
             undercurrent_crystallization=data.get("undercurrent_crystallization", ""),
+            # Pacing field
+            pacing_style=pacing_style,
             beats=beats,
             genre=story_bible.get("genre", ""),
             tone=story_bible.get("tone", ""),

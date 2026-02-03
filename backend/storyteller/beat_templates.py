@@ -40,6 +40,17 @@ class BeatTemplate:
 # affecting the climax and resolution to create varied story rhythms.
 
 PACING_STYLES = {
+    "auto": {
+        "id": "auto",
+        "name": "Auto (AI Decides)",
+        "description": "Let the Structure Agent choose the best pacing for this specific story.",
+        "resolution_multiplier": 1.0,  # Not used - SSBA sets word targets directly
+        "climax_multiplier": 1.0,
+        "setup_multiplier": 1.0,
+        "ending_guidance": "",  # SSBA generates its own
+        "beat_guidance": {},
+        "ai_controlled": True  # Flag indicating SSBA controls pacing
+    },
     "hard_cut": {
         "id": "hard_cut",
         "name": "Hard Cut",

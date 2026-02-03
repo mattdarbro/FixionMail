@@ -598,9 +598,11 @@ async def generate_standalone_story(
             print(f"  Total words: {template.total_words}")
         print(f"  Beats: {len(template.beats)}")
 
-        # Step 1.5: Apply pacing style to template
+        # Step 1.5: Apply pacing style to template (unless "auto" - SSBA will decide)
         pacing_style = story_settings.get("pacing_style", "classic")
-        if pacing_style != "classic":
+        if pacing_style == "auto":
+            print(f"  🎭 Pacing style: Auto (SSBA will choose)")
+        elif pacing_style != "classic":
             template = apply_pacing_to_template(template, pacing_style)
             pacing_info = get_pacing_style(pacing_style)
             print(f"  🎭 Pacing style: {pacing_info['name']} - {pacing_info['description']}")
@@ -679,6 +681,15 @@ async def generate_standalone_story(
                 print(f"\n✓ Story structure created")
                 print(f"  Premise: {structure_result.structure.story_premise[:80]}...")
                 print(f"  Conflict: {structure_result.structure.central_conflict[:80]}...")
+
+                # Log pacing style (especially important when SSBA chose it)
+                chosen_pacing = structure_result.structure.pacing_style
+                if pacing_style == "auto":
+                    pacing_info = get_pacing_style(chosen_pacing)
+                    print(f"  🎭 SSBA chose pacing: {pacing_info['name']} - {pacing_info['description']}")
+                else:
+                    print(f"  Pacing: {chosen_pacing}")
+
                 print(f"  Time: {structure_time:.2f}s")
         else:
             # Use generic template without SSBA
