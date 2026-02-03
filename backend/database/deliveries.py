@@ -116,8 +116,19 @@ class DeliveryService:
         )
         return result.data
 
-    async def mark_sending(self, delivery_id: str | UUID) -> Dict[str, Any]:
-        """Mark a delivery as currently being sent (prevents duplicate sends)."""
+    async def mark_sending(self, delivery_id: str | UUID) -> Optional[Dict[str, Any]]:
+        """
+        Atomically mark a delivery as currently being sent.
+
+        This is atomic: only updates if status is currently 'pending'.
+        Returns None if the delivery was already claimed by another worker.
+        This prevents duplicate sends when multiple workers process concurrently.
+
+        Returns:
+            The updated delivery record if successfully claimed, None otherwise.
+        """
+        # Atomic update: only transition from pending -> sending
+        # If another worker already claimed it, this won't match any rows
         result = (
             self.client.table("scheduled_deliveries")
             .update({
@@ -125,6 +136,7 @@ class DeliveryService:
                 "updated_at": datetime.now(timezone.utc).isoformat()
             })
             .eq("id", str(delivery_id))
+            .eq("status", DeliveryStatus.PENDING.value)  # Only if still pending
             .execute()
         )
         return result.data[0] if result.data else None

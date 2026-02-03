@@ -93,8 +93,16 @@ class DeliveryWorker:
                 logger.info(f"Delivery already sent, skipping", delivery_id=delivery_id)
                 return
 
-            # Mark as sending (prevents duplicate sends)
-            await self.delivery_service.mark_sending(delivery_id)
+            # Atomically claim this delivery (prevents duplicate sends)
+            # mark_sending only succeeds if status is currently 'pending'
+            # If another worker already claimed it, this returns None
+            claimed = await self.delivery_service.mark_sending(delivery_id)
+            if not claimed:
+                logger.debug(
+                    f"Delivery already claimed by another worker, skipping",
+                    delivery_id=delivery_id
+                )
+                return
 
             # Get story data (should be joined from query)
             story = delivery.get("story")

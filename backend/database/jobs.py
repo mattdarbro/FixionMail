@@ -70,9 +70,10 @@ class JobQueueService:
         user_id_str = str(user_id) if user_id else None
 
         # DUPLICATE PREVENTION: For daily scheduled stories, check if user already
-        # has an active (pending/running) job to prevent race conditions
+        # has an active (pending/running) job OR received a story today
         is_daily = settings.get("is_daily", False) if settings else False
         if is_daily and user_id_str:
+            # Check for active jobs
             existing_active = (
                 self.client.table("story_jobs")
                 .select("job_id, status, created_at")
@@ -83,6 +84,24 @@ class JobQueueService:
             if existing_active.data:
                 # User already has an active job - return existing instead of creating duplicate
                 return existing_active.data[0]
+
+            # Also check for completed jobs created today (in UTC)
+            # This prevents duplicate stories if last_story_at update is delayed
+            today_start = datetime.now(timezone.utc).replace(
+                hour=0, minute=0, second=0, microsecond=0
+            ).isoformat()
+            completed_today = (
+                self.client.table("story_jobs")
+                .select("job_id, status, created_at")
+                .eq("user_id", user_id_str)
+                .eq("status", JobStatus.COMPLETED.value)
+                .gte("created_at", today_start)
+                .limit(1)
+                .execute()
+            )
+            if completed_today.data:
+                # User already received a story today - return existing
+                return completed_today.data[0]
 
         job_data = {
             "job_id": job_id,

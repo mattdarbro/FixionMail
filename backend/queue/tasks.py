@@ -338,8 +338,12 @@ async def _send_email_async(delivery_id: str) -> Dict[str, Any]:
         if not story:
             return {"success": False, "error": "Story not found for delivery"}
 
-        # Mark as sending (prevents duplicate processing)
-        await delivery_service.mark_sending(delivery_id)
+        # Atomically claim this delivery (prevents duplicate sends)
+        # mark_sending only succeeds if status is currently 'pending'
+        claimed = await delivery_service.mark_sending(delivery_id)
+        if not claimed:
+            logger.info(f"Delivery already claimed by another worker, skipping", delivery_id=delivery_id)
+            return {"success": True, "already_claimed": True}
 
         # Render email HTML
         html_content = render_story_email(

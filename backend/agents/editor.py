@@ -179,9 +179,15 @@ class EditorAgent:
 
         # Extract key info
         genre = story_bible.get("genre", "fiction")
+        genre_config = story_bible.get("genre_config", {})
         tone = story_bible.get("tone", "")
         themes = story_bible.get("themes", [])
         total_words = beat_plan.get("total_words", 1500)
+
+        # Check for recurring characters that must be preserved
+        has_recurring_chars = genre_config.get("characters") == "user"
+        main_characters = story_bible.get("main_characters", []) if has_recurring_chars else []
+        protagonist = story_bible.get("protagonist", {}) if has_recurring_chars else {}
 
         # Get story structure info if available (from SSBA)
         story_premise = beat_plan.get("story_premise", "")
@@ -332,6 +338,7 @@ Title: {title}
 
 {ending_guidance}
 {undercurrent_section}
+{self._build_character_preservation_section(protagonist, main_characters, has_recurring_chars)}
 ## YOUR EDITORIAL MANDATE
 
 You are not just proofreading—you are REWRITING to elevate this story. Make it sing.
@@ -378,6 +385,7 @@ You are not just proofreading—you are REWRITING to elevate this story. Make it
 4. HIT WORD COUNT - Stay within ±15% of {total_words} words
 5. BE HONEST - Score the result fairly, not generously
 {f"6. HONOR THE UNDERCURRENT - Ensure the deeper theme resonates powerfully" if undercurrent_active else ""}
+{f"7. PRESERVE CHARACTER NAMES - Do NOT rename any characters. Keep all names EXACTLY as written in the draft." if has_recurring_chars else ""}
 
 Now edit this story into something remarkable.
 """
@@ -406,6 +414,45 @@ The final paragraphs should:
 - Echo the opening with new meaning
 - The last line should resonate and satisfy
 """
+
+    def _build_character_preservation_section(
+        self,
+        protagonist: Dict[str, Any],
+        main_characters: list,
+        has_recurring_chars: bool
+    ) -> str:
+        """Build character name preservation section for recurring character genres."""
+        if not has_recurring_chars:
+            return ""
+
+        section = """
+## ⚠️ CRITICAL: CHARACTER NAME PRESERVATION ⚠️
+
+This story features RECURRING CHARACTERS with ESTABLISHED NAMES. These characters appear across multiple stories and the reader expects consistency.
+
+**DO NOT RENAME ANY CHARACTERS.** Keep every character name EXACTLY as it appears in the draft.
+"""
+        if protagonist and protagonist.get("name"):
+            section += f"""
+**Protagonist**: {protagonist.get("name")} ← USE THIS EXACT NAME
+- Do NOT substitute with a different name
+- Do NOT use nicknames unless already in the draft
+- Do NOT create an alias
+"""
+
+        if main_characters:
+            char_names = [c.get("name", "Unknown") for c in main_characters[:5]]
+            section += f"""
+**Recurring Characters** (MUST keep these exact names): {", ".join(char_names)}
+
+**Why this matters**: These are the user's characters. They've read previous stories with these names. Changing "Detective Sarah Chen" to "Detective Maya Rodriguez" would be jarring and confusing.
+
+When editing dialogue and prose:
+- Preserve character names letter-for-letter
+- Keep established relationships and dynamics
+- Maintain each character's voice and personality
+"""
+        return section
 
     def _parse_response(self, response_text: str, generation_time: float) -> EditorResult:
         """Parse LLM response into EditorResult."""

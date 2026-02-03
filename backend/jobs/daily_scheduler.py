@@ -204,6 +204,31 @@ class DailyStoryScheduler:
                         )
                         continue
 
+                    # Double-check for completed jobs today (fresh query to catch race conditions)
+                    # This catches cases where last_story_at hasn't been updated yet but a job completed
+                    from datetime import timezone as tz
+                    today_start = datetime.now(tz.utc).replace(
+                        hour=0, minute=0, second=0, microsecond=0
+                    )
+                    recent_jobs = await self.job_service.get_recent_jobs(email=user.get('email'), limit=1)
+                    if recent_jobs:
+                        latest_job = recent_jobs[0]
+                        if latest_job.get('status') == 'completed':
+                            created_at = latest_job.get('created_at')
+                            if created_at:
+                                # Parse and check if created today
+                                if isinstance(created_at, str):
+                                    job_created = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+                                else:
+                                    job_created = created_at
+                                if job_created.astimezone(tz.utc) >= today_start:
+                                    logger.debug(
+                                        "Skipping user - already has completed job today",
+                                        email=user.get('email'),
+                                        job_id=latest_job.get('job_id')
+                                    )
+                                    continue
+
                     # Get delivery preferences
                     prefs = user.get("preferences", {})
                     delivery_time = prefs.get("delivery_time", "08:00")
