@@ -18,7 +18,13 @@ from langchain_core.messages import HumanMessage
 from langchain_anthropic import ChatAnthropic
 from backend.config import config
 
-from backend.storyteller.beat_templates import get_template, get_structure_template, get_structure_for_story
+from backend.storyteller.beat_templates import (
+    get_template,
+    get_structure_template,
+    get_structure_for_story,
+    apply_pacing_to_template,
+    get_pacing_style
+)
 from backend.storyteller.bible_enhancement import should_use_cliffhanger, should_include_cameo, check_and_fix_duplicate_title
 from backend.storyteller.name_registry import (
     get_excluded_names,
@@ -591,6 +597,13 @@ async def generate_standalone_story(
             print(f"  Template: {template.name}")
             print(f"  Total words: {template.total_words}")
         print(f"  Beats: {len(template.beats)}")
+
+        # Step 1.5: Apply pacing style to template
+        pacing_style = story_settings.get("pacing_style", "classic")
+        if pacing_style != "classic":
+            template = apply_pacing_to_template(template, pacing_style)
+            pacing_info = get_pacing_style(pacing_style)
+            print(f"  🎭 Pacing style: {pacing_info['name']} - {pacing_info['description']}")
 
         # Step 2: Determine cliffhanger (free tier only)
         if force_cliffhanger is not None:

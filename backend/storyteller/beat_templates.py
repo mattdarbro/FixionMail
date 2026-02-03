@@ -5,6 +5,7 @@ Each template defines the structure for a complete standalone story.
 """
 
 from typing import List, Dict, Any
+import copy
 
 
 class BeatTemplate:
@@ -32,6 +33,223 @@ class BeatTemplate:
             "beats": self.beats,
             "description": self.description
         }
+
+
+# ===== PACING STYLES =====
+# These adjust how word counts are distributed across beats, particularly
+# affecting the climax and resolution to create varied story rhythms.
+
+PACING_STYLES = {
+    "hard_cut": {
+        "id": "hard_cut",
+        "name": "Hard Cut",
+        "description": "End on or near the climax. Minimal wrap-up, maximum impact.",
+        "resolution_multiplier": 0.4,  # Resolution gets 40% of normal words
+        "climax_multiplier": 1.2,      # Climax gets 20% more words
+        "setup_multiplier": 1.0,       # Setup unchanged
+        "ending_guidance": """END ABRUPTLY after the climax. The story should feel like a hard cut to black.
+- Resolution is 2-3 sentences MAX
+- No epilogue, no "where are they now"
+- End on action, dialogue, or a striking image
+- Let the reader's imagination fill the silence
+- Think: final frame of a Coen Brothers film""",
+        "beat_guidance": {
+            "resolution": "Minimal. One powerful final moment or image. No wrapping up loose ends.",
+            "finale": "This IS the ending. Don't write past the climactic moment.",
+            "new_equilibrium": "A single sentence showing the new state. Nothing more.",
+            "return": "Brief. The journey ends mid-step, not at the doorstep."
+        }
+    },
+    "classic": {
+        "id": "classic",
+        "name": "Classic",
+        "description": "Balanced pacing with proper resolution. The default storytelling rhythm.",
+        "resolution_multiplier": 1.0,
+        "climax_multiplier": 1.0,
+        "setup_multiplier": 1.0,
+        "ending_guidance": """Provide satisfying closure with proper denouement.
+- Resolve the main story question
+- Show the emotional aftermath
+- Brief glimpse of the new normal
+- Classic three-act structure pacing""",
+        "beat_guidance": {}
+    },
+    "lingering": {
+        "id": "lingering",
+        "name": "Lingering",
+        "description": "Extended denouement. Savor the aftermath and emotional resonance.",
+        "resolution_multiplier": 1.6,  # Resolution gets 60% more words
+        "climax_multiplier": 0.9,      # Slightly shorter climax
+        "setup_multiplier": 0.95,      # Slightly compressed setup
+        "ending_guidance": """Let the ending BREATHE. Linger in the aftermath.
+- Explore the emotional resonance of what happened
+- Show characters processing, reflecting
+- Small details that reveal the new normal
+- Quiet moments after the storm
+- Think: the last 20 minutes of a Terrence Malick film""",
+        "beat_guidance": {
+            "resolution": "Expanded. Take time with the aftermath. Small moments matter.",
+            "finale": "Don't rush. Let characters and readers sit with what happened.",
+            "new_equilibrium": "Explore the changed world. Multiple scenes showing the new balance.",
+            "return": "The journey home is its own story. Savor the return."
+        }
+    },
+    "twist_ending": {
+        "id": "twist_ending",
+        "name": "Twist Ending",
+        "description": "Short resolution with a final revelation that recontextualizes everything.",
+        "resolution_multiplier": 0.7,
+        "climax_multiplier": 1.0,
+        "setup_multiplier": 1.05,      # Slightly more setup to plant seeds
+        "ending_guidance": """End with a TWIST that reframes the entire story.
+- Resolution should be brief but contain a revelation
+- The twist should feel inevitable in hindsight
+- Plant subtle seeds earlier that pay off at the end
+- The final line should land like a punch
+- Think: O. Henry, Twilight Zone, "I see dead people" """,
+        "beat_guidance": {
+            "resolution": "Brief setup for the twist, then the revelation. End immediately after.",
+            "finale": "The twist IS the finale. Everything pivots on the final reveal.",
+            "new_equilibrium": "The 'new equilibrium' is the reader's shifted understanding."
+        }
+    },
+    "open_ending": {
+        "id": "open_ending",
+        "name": "Open Ending",
+        "description": "Ambiguous conclusion. Questions linger, reader fills the gaps.",
+        "resolution_multiplier": 0.5,
+        "climax_multiplier": 1.1,
+        "setup_multiplier": 1.0,
+        "ending_guidance": """Leave the ending OPEN and ambiguous.
+- Don't resolve everything
+- End on a question, choice, or threshold moment
+- Multiple interpretations should be valid
+- Trust the reader to find their own meaning
+- Think: Inception's spinning top, The Sopranos finale""",
+        "beat_guidance": {
+            "resolution": "Deliberately incomplete. The story ends, but the question remains.",
+            "finale": "End at a crossroads, not at the destination.",
+            "new_equilibrium": "Suggest multiple possible equilibriums. Don't choose one."
+        }
+    },
+    "circular": {
+        "id": "circular",
+        "name": "Circular",
+        "description": "End where you began, but transformed. Echo the opening.",
+        "resolution_multiplier": 0.8,
+        "climax_multiplier": 1.0,
+        "setup_multiplier": 1.1,       # More setup to establish the circle
+        "ending_guidance": """Create a CIRCULAR structure that echoes the opening.
+- Final scene mirrors the opening scene
+- Same location, action, or dialogue—but transformed
+- Show how everything has changed (or stayed the same)
+- The echo should feel meaningful, not gimmicky
+- Think: "The Great Gatsby" returning to the green light""",
+        "beat_guidance": {
+            "resolution": "Return to the opening scene/moment with new eyes.",
+            "finale": "Echo the beginning. Same but different.",
+            "new_equilibrium": "The circle closes. We're back where we started, transformed."
+        }
+    }
+}
+
+
+def get_pacing_style(style_id: str) -> Dict[str, Any]:
+    """Get a pacing style by ID. Returns 'classic' if not found."""
+    return PACING_STYLES.get(style_id, PACING_STYLES["classic"])
+
+
+def list_pacing_styles() -> List[Dict[str, str]]:
+    """List all available pacing styles for UI selection."""
+    return [
+        {
+            "id": style["id"],
+            "name": style["name"],
+            "description": style["description"]
+        }
+        for style in PACING_STYLES.values()
+    ]
+
+
+def apply_pacing_to_template(
+    template: BeatTemplate,
+    pacing_style: str = "classic"
+) -> BeatTemplate:
+    """
+    Apply a pacing style to a beat template, adjusting word targets.
+
+    Args:
+        template: The original beat template
+        pacing_style: ID of the pacing style to apply
+
+    Returns:
+        A new BeatTemplate with adjusted word targets
+    """
+    style = get_pacing_style(pacing_style)
+
+    if pacing_style == "classic":
+        return template  # No adjustment needed
+
+    # Deep copy to avoid modifying original
+    new_beats = copy.deepcopy(template.beats)
+
+    # Identify beat types by name patterns
+    resolution_patterns = ["resolution", "finale", "return", "new_equilibrium", "final_image", "return_with_elixir"]
+    climax_patterns = ["crisis", "ordeal", "battle", "climax", "all_is_lost", "revelation", "self_revelation"]
+    setup_patterns = ["opening", "setup", "ordinary_world", "weakness", "hook", "incident"]
+
+    total_adjustment = 0
+
+    for beat in new_beats:
+        beat_name = beat.get("beat_name", "").lower()
+        original_words = beat.get("word_target", 0)
+
+        # Determine beat type and apply multiplier
+        if any(pattern in beat_name for pattern in resolution_patterns):
+            multiplier = style["resolution_multiplier"]
+            # Add specific beat guidance if available
+            for pattern in resolution_patterns:
+                if pattern in beat_name and pattern in style.get("beat_guidance", {}):
+                    beat["pacing_guidance"] = style["beat_guidance"][pattern]
+                    break
+        elif any(pattern in beat_name for pattern in climax_patterns):
+            multiplier = style["climax_multiplier"]
+        elif any(pattern in beat_name for pattern in setup_patterns):
+            multiplier = style["setup_multiplier"]
+        else:
+            multiplier = 1.0
+
+        new_words = int(original_words * multiplier)
+        adjustment = new_words - original_words
+        total_adjustment += adjustment
+        beat["word_target"] = new_words
+
+    # Redistribute any word count changes to maintain total
+    # (borrow from/give to middle beats)
+    if total_adjustment != 0:
+        middle_beats = [b for b in new_beats if not any(
+            pattern in b.get("beat_name", "").lower()
+            for pattern in resolution_patterns + setup_patterns
+        )]
+        if middle_beats:
+            adjustment_per_beat = -total_adjustment // len(middle_beats)
+            for beat in middle_beats:
+                beat["word_target"] = max(100, beat["word_target"] + adjustment_per_beat)
+
+    # Create new template with adjusted beats
+    return BeatTemplate(
+        name=f"{template.name}_{pacing_style}",
+        genre=template.genre,
+        total_words=template.total_words,
+        beats=new_beats,
+        description=f"{template.description} (Pacing: {style['name']})"
+    )
+
+
+def get_pacing_guidance(pacing_style: str) -> str:
+    """Get the ending guidance text for a pacing style."""
+    style = get_pacing_style(pacing_style)
+    return style.get("ending_guidance", "")
 
 
 # ===== FREE TIER TEMPLATES (1500 words) =====

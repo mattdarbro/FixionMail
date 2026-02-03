@@ -222,6 +222,7 @@ class WriterAgent:
         excluded_context = self._build_excluded_names_context(excluded_names)
         cameo_context = self._build_cameo_context(cameo)
         ending_context = self._build_ending_context(is_cliffhanger)
+        pacing_context = self._build_pacing_context(story_settings)
         intensity_context = self._build_intensity_context(story_settings)
         beats_context = self._build_beats_context(beats, is_structured=is_structured)
         feedback_context = self._build_feedback_context(judge_feedback)
@@ -304,6 +305,7 @@ These recurring characters MUST appear in this story with their EXACT names:
 {excluded_context}
 {cameo_context}
 {ending_context}
+{pacing_context}
 {planning_section}
 ## STORY STRUCTURE ({len(beats)} beats, {total_words} words total)
 
@@ -518,6 +520,30 @@ Give a satisfying conclusion:
 - Emotional or thematic landing
 - Character growth or realization
 - Sense of completion
+"""
+
+    def _build_pacing_context(self, story_settings: Dict[str, Any]) -> str:
+        """Build pacing style context."""
+        from backend.storyteller.beat_templates import get_pacing_style
+
+        pacing_style = story_settings.get("pacing_style", "classic")
+
+        if pacing_style == "classic":
+            return ""  # No special pacing guidance for classic
+
+        style = get_pacing_style(pacing_style)
+        ending_guidance = style.get("ending_guidance", "")
+
+        return f"""
+
+## PACING STYLE: {style['name']}
+
+{style['description']}
+
+**HOW TO EXECUTE THIS PACING:**
+{ending_guidance}
+
+**IMPORTANT**: This pacing style affects how you distribute words across beats. Pay special attention to resolution/finale beats—they should follow the pacing guidance above, not the default proportions.
 """
 
     def _build_beats_context(self, beats: list, is_structured: bool = False) -> str:

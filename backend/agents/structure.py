@@ -317,6 +317,7 @@ class StructureAgent:
         # Story settings
         story_settings = story_bible.get("story_settings", {})
         intensity = story_settings.get("intensity", 5)
+        pacing_style = story_settings.get("pacing_style", "classic")
 
         # Undercurrent (Deeper Themes) settings
         undercurrent_mode = story_settings.get("undercurrent_mode", "off")
@@ -351,6 +352,9 @@ Create something DIFFERENT from these recent stories.
 
         # Ending guidance
         ending_guidance = self._get_ending_guidance(is_cliffhanger)
+
+        # Pacing style guidance
+        pacing_guidance = self._build_pacing_guidance(pacing_style)
 
         # Build undercurrent guidance
         undercurrent_guidance = self._build_undercurrent_guidance(
@@ -522,7 +526,7 @@ You have {len(beats)} beats totaling {total_words} words. Transform each generic
 {beats_to_fill}
 
 {ending_guidance}
-
+{pacing_guidance}
 {task_section}
 
 {json_format}
@@ -694,6 +698,32 @@ The final beat should:
 - Show character growth or realization
 - Leave readers satisfied
 """
+
+    def _build_pacing_guidance(self, pacing_style: str) -> str:
+        """Build pacing style guidance section."""
+        from backend.storyteller.beat_templates import get_pacing_style
+
+        if pacing_style == "classic":
+            return ""  # Classic pacing needs no special guidance
+
+        style = get_pacing_style(pacing_style)
+        ending_guidance = style.get("ending_guidance", "")
+        beat_guidance = style.get("beat_guidance", {})
+
+        guidance = f"""
+## PACING STYLE: {style['name']}
+
+{style['description']}
+
+**ENDING EXECUTION:**
+{ending_guidance}
+"""
+        if beat_guidance:
+            guidance += "\n**BEAT-SPECIFIC PACING:**\n"
+            for beat_name, beat_advice in beat_guidance.items():
+                guidance += f"- {beat_name}: {beat_advice}\n"
+
+        return guidance
 
     def _parse_response(
         self,
